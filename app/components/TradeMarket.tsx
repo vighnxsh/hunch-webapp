@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { Transaction } from '@solana/web3.js';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { Connection, Transaction } from '@solana/web3.js';
 import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
 import { Market } from '../lib/api';
 import { parseMarketTicker, formatMarketTitle } from '../lib/marketUtils';
@@ -12,55 +12,69 @@ interface TradeMarketProps {
 }
 
 export default function TradeMarket({ market }: TradeMarketProps) {
-  const { publicKey, signTransaction, sendTransaction } = useWallet();
-  const { connection } = useConnection();
+  const { ready, authenticated, user } = usePrivy();
+  const { wallets } = useWallets();
   const [side, setSide] = useState<'yes' | 'no'>('yes');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [orderData, setOrderData] = useState<OrderResponse | null>(null);
 
+  // Filter wallets to only Solana wallets
+  // Solana addresses are base58 encoded (32-44 chars), Ethereum addresses are hex (0x + 40 chars)
+  const solanaWallets = wallets.filter((wallet) => {
+    // Privy embedded wallets are Solana (we only create Solana wallets)
+    if (wallet.walletClientType === 'privy') return true;
+    // Check if wallet address is Solana format (base58, not starting with 0x)
+    if (wallet.address && !wallet.address.startsWith('0x') && wallet.address.length >= 32) {
+      return true;
+    }
+    return false;
+  });
+  
+  // Get the embedded Solana wallet (prefer Privy embedded wallet)
+  const solanaWallet = solanaWallets.find(
+    (wallet) => wallet.walletClientType === 'privy'
+  ) || solanaWallets[0];
+  
+  const walletAddress = solanaWallet?.address;
+  const activeWallet = solanaWallet;
+
+  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+  const connection = new Connection(rpcUrl, 'confirmed');
+
   const getMintAddress = (type: 'yes' | 'no'): string | undefined => {
-    // Accounts object uses settlement mint (USDC) as the key
-    // Format: market.accounts[USDC_MINT] = { yesMint, noMint, ... }
     if (market.accounts && typeof market.accounts === 'object') {
-      // Try USDC_MINT first (most common settlement token)
       const usdcAccount = (market.accounts as any)[USDC_MINT];
       if (usdcAccount) {
         const mint = type === 'yes' ? usdcAccount.yesMint : usdcAccount.noMint;
         if (mint) {
-          console.log(`Found ${type} mint from accounts[${USDC_MINT}]:`, mint);
           return mint;
         }
       }
       
-      // If USDC not found, try any settlement mint in accounts
       const accountKeys = Object.keys(market.accounts);
       for (const key of accountKeys) {
         const account = (market.accounts as any)[key];
         if (account && typeof account === 'object') {
           const mint = type === 'yes' ? account.yesMint : account.noMint;
           if (mint) {
-            console.log(`Found ${type} mint from accounts[${key}]:`, mint);
             return mint;
           }
         }
       }
     }
     
-    // Fallback to direct properties (older format)
     const mint = type === 'yes' ? market.yesMint : market.noMint;
     if (mint) {
-      console.log(`Found ${type} mint from direct property:`, mint);
       return mint;
     }
     
-    console.error(`Could not find ${type} mint for market:`, market);
     return undefined;
   };
 
   const handleRequestOrder = async () => {
-    if (!publicKey) {
+    if (!ready || !authenticated || !walletAddress) {
       setStatus('Please connect your wallet first');
       return;
     }
@@ -70,7 +84,6 @@ export default function TradeMarket({ market }: TradeMarketProps) {
       return;
     }
 
-    // Check market status
     if (market.status !== 'active') {
       setStatus(`❌ Market is not active. Current status: ${market.status || 'unknown'}`);
       return;
@@ -87,33 +100,20 @@ export default function TradeMarket({ market }: TradeMarketProps) {
         return;
       }
 
-      // Convert amount to smallest unit (USDC has 6 decimals)
       const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000);
       
-      // Validate amount is at least 1 (minimum 0.000001 USDC)
       if (amountInSmallestUnit < 1) {
         setStatus('❌ Amount too small. Minimum is 0.000001 USDC');
         setLoading(false);
         return;
       }
 
-      console.log('Requesting order with:', {
-        userPublicKey: publicKey.toBase58(),
-        inputMint: USDC_MINT,
-        outputMint: outcomeMint,
-        amount: amountInSmallestUnit.toString(),
-        side,
-        marketTicker: market.ticker,
-        marketStatus: market.status,
-        marketAccounts: market.accounts,
-      });
-
       const order = await requestOrder({
-        userPublicKey: publicKey.toBase58(),
+        userPublicKey: walletAddress,
         inputMint: USDC_MINT,
         outputMint: outcomeMint,
         amount: amountInSmallestUnit.toString(),
-        slippageBps: 100, // 1% slippage
+        slippageBps: 100,
       });
 
       setOrderData(order);
@@ -127,7 +127,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
   };
 
   const handleSignAndSubmit = async () => {
-    if (!publicKey || !orderData || !signTransaction || !sendTransaction) {
+    if (!ready || !authenticated || !walletAddress || !orderData || !activeWallet) {
       setStatus('Please connect your wallet and request an order first');
       return;
     }
@@ -136,23 +136,19 @@ export default function TradeMarket({ market }: TradeMarketProps) {
     setStatus('');
 
     try {
-      // Deserialize transaction
       const transactionBytes = Uint8Array.from(
         atob(orderData.openTransaction),
         (c) => c.charCodeAt(0)
       );
       const transaction = Transaction.from(transactionBytes);
 
-      // Sign transaction
-      const signedTransaction = await signTransaction(transaction);
+      const signedTransaction = await activeWallet.signTransaction(transaction);
 
-      // Submit transaction
       setStatus('Submitting transaction...');
-      const signature = await sendTransaction(signedTransaction, connection);
+      const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
       setStatus(`✅ Transaction submitted! Signature: ${signature}`);
 
-      // Monitor order status based on execution mode
       if (orderData.executionMode === 'sync') {
         setStatus('Monitoring sync trade...');
         await monitorSyncTrade(signature);
@@ -170,25 +166,25 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
   const monitorSyncTrade = async (signature: string) => {
     try {
-      let status;
+      let txStatus;
       do {
         const statusResult = await connection.getSignatureStatuses([signature]);
-        status = statusResult.value[0];
+        txStatus = statusResult.value[0];
 
-        if (!status) {
+        if (!txStatus) {
           setStatus('Waiting for transaction confirmation...');
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       } while (
-        !status ||
-        status.confirmationStatus === 'processed' ||
-        status.confirmationStatus === 'confirmed'
+        !txStatus ||
+        txStatus.confirmationStatus === 'processed' ||
+        txStatus.confirmationStatus === 'confirmed'
       );
 
-      if (status.err) {
-        setStatus(`❌ Transaction failed: ${JSON.stringify(status.err)}`);
+      if (txStatus.err) {
+        setStatus(`❌ Transaction failed: ${JSON.stringify(txStatus.err)}`);
       } else {
-        setStatus(`✅ Trade completed successfully in slot ${status.slot}`);
+        setStatus(`✅ Trade completed successfully in slot ${txStatus.slot}`);
         setOrderData(null);
         setAmount('');
       }
@@ -199,22 +195,22 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
   const monitorAsyncTrade = async (signature: string) => {
     try {
-      let status;
+      let orderStatus;
       let fills: any[] = [];
 
       do {
         const statusData = await getOrderStatus(signature);
-        status = statusData.status;
+        orderStatus = statusData.status;
         fills = statusData.fills || [];
 
-        setStatus(`Order status: ${status}`);
+        setStatus(`Order status: ${orderStatus}`);
 
-        if (status === 'open' || status === 'pendingClose') {
+        if (orderStatus === 'open' || orderStatus === 'pendingClose') {
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }
-      } while (status === 'open' || status === 'pendingClose');
+      } while (orderStatus === 'open' || orderStatus === 'pendingClose');
 
-      switch (status) {
+      switch (orderStatus) {
         case 'closed': {
           if (fills.length > 0) {
             const totalOut = fills.reduce((acc, f) => acc + BigInt(f.qtyOut || 0), 0n);
@@ -229,7 +225,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
           break;
         }
         default: {
-          setStatus(`Order status: ${status}`);
+          setStatus(`Order status: ${orderStatus}`);
         }
       }
 
@@ -244,44 +240,44 @@ export default function TradeMarket({ market }: TradeMarketProps) {
   const displayTitle = formatMarketTitle(market.title || 'Untitled Market', market.ticker);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-      <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
+    <div className="bg-gray-800/30 rounded-xl p-5 border border-gray-700/50">
+      <h3 className="text-lg font-bold mb-2 text-white">
         {displayTitle}
       </h3>
       {dateInfo.formattedDate && (
-        <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-          <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
+        <div className="mb-3 p-2 bg-violet-500/10 border border-violet-500/30 rounded-lg">
+          <p className="text-sm font-medium text-violet-300">
             📅 Prediction Date: {dateInfo.formattedDate}
           </p>
         </div>
       )}
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 font-mono">
+      <p className="text-xs text-gray-500 mb-4 font-mono">
         {market.ticker}
       </p>
 
       <div className="space-y-4">
         {/* Side Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-gray-400 mb-2">
             Position
           </label>
           <div className="flex gap-2">
             <button
               onClick={() => setSide('yes')}
-              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
                 side === 'yes'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
             >
               YES
             </button>
             <button
               onClick={() => setSide('no')}
-              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
                 side === 'no'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
             >
               NO
@@ -291,7 +287,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
         {/* Amount Input */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-gray-400 mb-2">
             Amount (USDC)
           </label>
           <input
@@ -302,7 +298,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
             step="0.01"
             min="0"
             disabled={!!orderData}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50"
+            className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50 transition-all"
           />
         </div>
 
@@ -310,8 +306,8 @@ export default function TradeMarket({ market }: TradeMarketProps) {
         {!orderData ? (
           <button
             onClick={handleRequestOrder}
-            disabled={!publicKey || loading}
-            className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            disabled={!ready || !authenticated || !walletAddress || loading}
+            className="w-full px-4 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all font-semibold"
           >
             {loading ? 'Requesting Order...' : 'Request Order'}
           </button>
@@ -319,7 +315,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
           <button
             onClick={handleSignAndSubmit}
             disabled={loading}
-            className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all font-semibold"
           >
             {loading ? 'Processing...' : 'Sign & Submit Transaction'}
           </button>
@@ -327,19 +323,25 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
         {/* Status */}
         {status && (
-          <p className={`text-sm ${status.includes('✅') ? 'text-green-600' : status.includes('❌') ? 'text-red-600' : 'text-blue-600'}`}>
+          <p className={`text-sm p-3 rounded-lg ${
+            status.includes('✅') 
+              ? 'bg-green-500/10 text-green-400 border border-green-500/30' 
+              : status.includes('❌') 
+              ? 'bg-red-500/10 text-red-400 border border-red-500/30' 
+              : 'bg-violet-500/10 text-violet-400 border border-violet-500/30'
+          }`}>
             {status}
           </p>
         )}
 
         {/* Order Info */}
         {orderData && (
-          <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg text-sm">
-            <p className="text-gray-600 dark:text-gray-400">
-              You'll receive: {orderData.outAmount} tokens
+          <div className="p-4 bg-gray-800/50 rounded-xl text-sm border border-gray-700/50">
+            <p className="text-gray-400">
+              You'll receive: <span className="text-white font-semibold">{orderData.outAmount} tokens</span>
             </p>
-            <p className="text-gray-600 dark:text-gray-400">
-              Execution Mode: {orderData.executionMode}
+            <p className="text-gray-400 mt-1">
+              Execution Mode: <span className="text-white">{orderData.executionMode}</span>
             </p>
           </div>
         )}
@@ -347,4 +349,3 @@ export default function TradeMarket({ market }: TradeMarketProps) {
     </div>
   );
 }
-

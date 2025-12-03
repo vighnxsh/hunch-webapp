@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletContextProvider } from "./components/WalletProvider";
+import { PrivyAuthProvider } from "./components/PrivyProvider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
-  title: "Solana Wallet App",
-  description: "Solana wallet adapter with transaction signing and sending",
+  title: "Hunch - Prediction Markets",
+  description: "Trade on real-world outcomes. Predict the future on Solana.",
 };
 
 export default function RootLayout({
@@ -26,11 +28,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
+        style={{ fontFamily: 'var(--font-space-grotesk), system-ui, sans-serif' }}
       >
-        <WalletContextProvider>
+        <PrivyAuthProvider>
           {children}
-        </WalletContextProvider>
+        </PrivyAuthProvider>
       </body>
     </html>
   );

@@ -58,15 +58,15 @@ export default function EventsList() {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
+      <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
+        <h2 className="text-2xl font-bold mb-6 text-white">
           Events
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"
+              className="h-36 bg-gray-800/50 rounded-xl animate-pulse"
             />
           ))}
         </div>
@@ -76,12 +76,12 @@ export default function EventsList() {
 
   if (error) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
+      <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
+        <h2 className="text-2xl font-bold mb-6 text-white">
           Events
         </h2>
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-red-600 dark:text-red-400">Error: {error}</p>
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+          <p className="text-red-400">Error: {error}</p>
         </div>
       </div>
     );
@@ -89,41 +89,52 @@ export default function EventsList() {
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
-          Events ({events.length})
-        </h2>
+      <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-white">
+            Events
+          </h2>
+          <span className="px-3 py-1 bg-fuchsia-500/20 text-fuchsia-400 text-sm font-medium rounded-lg border border-fuchsia-500/30">
+            {events.length} active
+          </span>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {events.length === 0 ? (
-            <div className="col-span-full">
-              <p className="text-gray-600 dark:text-gray-400 text-center py-8">
-                No events found
-              </p>
+            <div className="col-span-full text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-2xl flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-gray-500">No events found</p>
             </div>
           ) : (
             events.map((event, index) => (
               <div
                 key={event.ticker || index}
                 onClick={() => handleEventClick(event.ticker)}
-                className="p-5 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all cursor-pointer hover:shadow-md"
+                className="group p-5 bg-gray-800/30 border border-gray-800 rounded-xl hover:border-violet-500/50 hover:bg-gray-800/50 transition-all duration-300 cursor-pointer"
               >
-                <div className="mb-2">
-                  <p className="text-sm font-mono text-gray-500 dark:text-gray-400 mb-1">
+                <div className="mb-3">
+                  <p className="text-xs font-mono text-gray-500 mb-2">
                     {event.ticker}
                   </p>
-                  <h3 className="font-semibold text-lg text-gray-900 dark:text-white mb-2">
+                  <h3 className="font-semibold text-lg text-white mb-2 group-hover:text-violet-300 transition-colors">
                     {event.title || 'Untitled Event'}
                   </h3>
                   {event.subtitle && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                    <p className="text-sm text-gray-400 line-clamp-2">
                       {event.subtitle}
                     </p>
                   )}
                 </div>
-                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Click to view details →
-                  </p>
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
+                  <span className="text-xs text-gray-500 group-hover:text-violet-400 transition-colors">
+                    Click to view details
+                  </span>
+                  <svg className="w-4 h-4 text-gray-500 group-hover:text-violet-400 group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
               </div>
             ))
@@ -140,4 +151,3 @@ export default function EventsList() {
     </>
   );
 }
-

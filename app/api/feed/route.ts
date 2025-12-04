@@ -1,0 +1,96 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getFollowingIds } from '@/app/lib/followService';
+import { getUserTrades } from '@/app/lib/tradeService';
+import redis, { CacheKeys, CacheTTL } from '@/app/lib/redis';
+
+export interface FeedItem {
+  id: string;
+  userId: string;
+  marketTicker: string;
+  side: string;
+  amount: string;
+  transactionSig: string;
+  createdAt: Date;
+  user: {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    walletAddress: string;
+  };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const offset = parseInt(searchParams.get('offset') || '0');
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'userId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Try cache first
+    const cacheKey = CacheKeys.feed(userId);
+    const cached = await redis.get<FeedItem[]>(cacheKey);
+    
+    if (cached && offset === 0) {
+      // Return cached feed if available and no pagination
+      return NextResponse.json(cached.slice(0, limit), { status: 200 });
+    }
+
+    // Get list of users being followed
+    const followingIds = await getFollowingIds(userId);
+
+    if (followingIds.length === 0) {
+      // No one to follow, return empty feed
+      const emptyFeed: FeedItem[] = [];
+      await redis.setex(cacheKey, CacheTTL.FEED, JSON.stringify(emptyFeed));
+      return NextResponse.json(emptyFeed, { status: 200 });
+    }
+
+    // Fetch trades from all followed users
+    const allTrades: FeedItem[] = [];
+    
+    // Fetch trades for each followed user (in parallel)
+    const tradePromises = followingIds.map((followedUserId) =>
+      getUserTrades(followedUserId, 100, 0) // Get more trades per user to aggregate
+    );
+    
+    const tradesArrays = await Promise.all(tradePromises);
+    
+    // Flatten and sort by createdAt (newest first)
+    for (const trades of tradesArrays) {
+      allTrades.push(...trades);
+    }
+    
+    // Sort by createdAt descending
+    allTrades.sort((a, b) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    // Cache the full feed (first page)
+    if (offset === 0) {
+      await redis.setex(
+        cacheKey,
+        CacheTTL.FEED,
+        JSON.stringify(allTrades.slice(0, limit))
+      );
+    }
+
+    // Apply pagination
+    const paginatedTrades = allTrades.slice(offset, offset + limit);
+
+    return NextResponse.json(paginatedTrades, { status: 200 });
+  } catch (error: any) {
+    console.error('Error fetching feed:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch feed' },
+      { status: 500 }
+    );
+  }
+}
+

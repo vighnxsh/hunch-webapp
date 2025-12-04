@@ -2,13 +2,16 @@
 
 import { useLogin, usePrivy } from '@privy-io/react-auth';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Login() {
   const { ready, authenticated } = usePrivy();
+  const router = useRouter();
   const { login } = useLogin({
     onComplete: (user, isNewUser, wasAlreadyAuthenticated) => {
       console.log('Login completed', { user, isNewUser, wasAlreadyAuthenticated });
-      // Wallet will be created automatically if user doesn't have one
+      // Redirect to home after successful login
+      router.push('/home');
     },
     onError: (error) => {
       console.error('Login error:', error);

@@ -1,80 +1,169 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useCreateWallet } from '@privy-io/react-auth/solana';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 export default function Profile() {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
+  const { createWallet } = useCreateWallet();
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [creatingWallet, setCreatingWallet] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [followersCount, setFollowersCount] = useState<number>(0);
+  const [followingCount, setFollowingCount] = useState<number>(0);
+  const [tradesCount, setTradesCount] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
 
-  // Get wallet address from multiple sources
+  // Get wallet address from multiple sources with polling
   useEffect(() => {
     if (!authenticated || !user) {
       setWalletAddress(null);
       return;
     }
 
-    // First, try to get from wallets array
-    const solanaWallets = wallets.filter((wallet) => {
-      if (wallet.walletClientType === 'privy') return true;
-      if (wallet.address && !wallet.address.startsWith('0x') && wallet.address.length >= 32) {
+    const checkForWallet = () => {
+      // First, try to get from wallets array
+      const solanaWallets = wallets.filter((wallet) => {
+        if (wallet.walletClientType === 'privy') return true;
+        if (wallet.address && !wallet.address.startsWith('0x') && wallet.address.length >= 32) {
+          return true;
+        }
+        return false;
+      });
+
+      const solanaWallet = solanaWallets.find(
+        (wallet) => wallet.walletClientType === 'privy'
+      ) || solanaWallets[0];
+
+      if (solanaWallet?.address) {
+        setWalletAddress(solanaWallet.address);
         return true;
       }
+
+      // Fallback: try to get from user's linked accounts
+      if (user?.linkedAccounts) {
+        const embeddedWallet = user.linkedAccounts.find(
+          (account) => account.type === 'wallet' &&
+            'walletClientType' in account &&
+            account.walletClientType === 'privy' &&
+            'address' in account
+        ) as any;
+
+        if (embeddedWallet?.address) {
+          setWalletAddress(embeddedWallet.address);
+          return true;
+        }
+
+        // Last resort: check all linked accounts for Solana addresses
+        const solanaAccount = user.linkedAccounts.find(
+          (account) => account.type === 'wallet' &&
+            'address' in account &&
+            account.address &&
+            typeof account.address === 'string' &&
+            !account.address.startsWith('0x') &&
+            account.address.length >= 32
+        ) as any;
+
+        if (solanaAccount?.address) {
+          setWalletAddress(solanaAccount.address);
+          return true;
+        }
+      }
+
       return false;
-    });
-    
-    const solanaWallet = solanaWallets.find(
-      (wallet) => wallet.walletClientType === 'privy'
-    ) || solanaWallets[0];
-    
-    if (solanaWallet?.address) {
-      console.log('Profile: Found wallet from wallets array:', solanaWallet.address);
-      setWalletAddress(solanaWallet.address);
+    };
+
+    // Check immediately
+    if (checkForWallet()) {
       return;
     }
 
-    // Debug logging
-    console.log('Profile: Wallets array:', wallets);
-    console.log('Profile: User linked accounts:', user.linkedAccounts);
+    // Poll for wallet creation (check every 2 seconds for up to 30 seconds)
+    let pollCount = 0;
+    const maxPolls = 15;
 
-    // Fallback: try to get from user's linked accounts
-    const embeddedWallet = user.linkedAccounts?.find(
-      (account) => account.type === 'wallet' && 
-                   'walletClientType' in account && 
-                   account.walletClientType === 'privy' &&
-                   'address' in account
-    ) as any;
-    
-    if (embeddedWallet?.address) {
-      setWalletAddress(embeddedWallet.address);
-      return;
-    }
+    const pollInterval = setInterval(() => {
+      pollCount++;
+      if (checkForWallet() || pollCount >= maxPolls) {
+        clearInterval(pollInterval);
+      }
+    }, 2000);
 
-    // Last resort: check all linked accounts for Solana addresses
-    const solanaAccount = user.linkedAccounts?.find(
-      (account) => account.type === 'wallet' && 
-                   'address' in account &&
-                   account.address && 
-                   typeof account.address === 'string' &&
-                   !account.address.startsWith('0x') && 
-                   account.address.length >= 32
-    ) as any;
-    
-    if (solanaAccount?.address) {
-      setWalletAddress(solanaAccount.address);
-      return;
-    }
-
-    setWalletAddress(null);
+    return () => clearInterval(pollInterval);
   }, [authenticated, user, wallets]);
 
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
   const connection = new Connection(rpcUrl, 'confirmed');
+
+  // Track if user has been synced in this session to avoid redundant syncs
+  const hasSyncedRef = useRef(false);
+
+  // Sync user and get user ID - only once after successful login
+  useEffect(() => {
+    if (!ready || !authenticated || !user || !walletAddress) {
+      setCurrentUserId(null);
+      hasSyncedRef.current = false; // Reset sync flag when user logs out
+      return;
+    }
+
+    // Skip if already synced in this session
+    if (hasSyncedRef.current) {
+      return;
+    }
+
+    const syncAndGetUserId = async () => {
+      try {
+        const syncResponse = await fetch('/api/users/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            privyId: user.id,
+            walletAddress: walletAddress,
+            displayName: user.twitter?.username
+              ? `@${user.twitter.username}`
+              : user.google?.email?.split('@')[0] || null,
+            avatarUrl: user.twitter?.profilePictureUrl || null,
+          }),
+        });
+
+        if (syncResponse.ok) {
+          const syncedUser = await syncResponse.json();
+          console.log('syncedUser from /api/users/sync:', syncedUser);
+          setCurrentUserId(syncedUser.id);
+          // Set initial counts immediately from synced user (denormalized counts)
+          if (syncedUser.followerCount !== undefined) {
+            console.log('Setting followerCount from sync:', syncedUser.followerCount);
+            setFollowersCount(syncedUser.followerCount);
+          }
+          if (syncedUser.followingCount !== undefined) {
+            console.log('Setting followingCount from sync:', syncedUser.followingCount);
+            setFollowingCount(syncedUser.followingCount);
+          }
+          // Mark as synced to prevent redundant syncs
+          hasSyncedRef.current = true;
+        }
+      } catch (error) {
+        console.error('Error syncing user:', error);
+      }
+    };
+
+    syncAndGetUserId();
+  }, [ready, authenticated, user, walletAddress]);
+
+  // Fetch follower/following counts and trades count
+  useEffect(() => {
+    if (currentUserId) {
+      fetchProfileStats();
+    }
+  }, [currentUserId]);
 
   // Fetch SOL balance
   useEffect(() => {
@@ -83,12 +172,97 @@ export default function Profile() {
     }
   }, [walletAddress, authenticated]);
 
+  const fetchProfileStats = async (skipCache: boolean = false) => {
+    if (!currentUserId) return;
+
+    try {
+      // Fetch user profile with denormalized counts (instant display)
+      const fetchOptions: RequestInit = {};
+      if (skipCache) {
+        fetchOptions.cache = 'no-store';
+        fetchOptions.headers = { 'cache-control': 'no-cache' };
+      }
+
+      const [userRes, tradesRes] = await Promise.all([
+        fetch(`/api/users/${currentUserId}`, fetchOptions),
+        fetch(`/api/trades?userId=${currentUserId}&limit=1`, skipCache ? { cache: 'no-store' } : {}),
+      ]);
+
+      if (userRes.ok) {
+        const userProfile = await userRes.json();
+        // Use denormalized counts from User model (instant, no counting needed)
+        console.log('Fetched profile stats:', {
+          followerCount: userProfile.followerCount,
+          followingCount: userProfile.followingCount,
+        });
+        const followerCount = userProfile.followerCount || 0;
+        const followingCount = userProfile.followingCount || 0;
+        setFollowersCount(followerCount);
+        setFollowingCount(followingCount);
+      }
+
+      if (tradesRes.ok) {
+        const trades = await tradesRes.json();
+        setTradesCount(trades.length);
+      }
+    } catch (error) {
+      console.error('Error fetching profile stats:', error);
+    }
+  };
+
+  // Optimistic count update callback for follow/unfollow actions
+  const handleFollowChange = (isFollowing: boolean) => {
+    if (!currentUserId) return;
+
+    // Optimistically update following count immediately
+    if (isFollowing) {
+      setFollowingCount((prev) => prev + 1);
+    } else {
+      setFollowingCount((prev) => Math.max(0, prev - 1));
+    }
+
+    // Refresh from server to sync after a delay to ensure DB update and cache invalidation complete
+    // Skip cache to get fresh data after follow/unfollow
+    setTimeout(() => {
+      fetchProfileStats(true); // Skip cache to get fresh counts
+    }, 800);
+
+    // Do a second refresh to ensure consistency (in case of race conditions)
+    setTimeout(() => {
+      fetchProfileStats(true);
+    }, 2000);
+  };
+
+  const handleSearchUsers = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      // Search by wallet address (exact match) or display name (partial match)
+      const response = await fetch(`/api/users/search?walletAddress=${encodeURIComponent(searchQuery.trim())}`);
+      if (response.ok) {
+        const users = await response.json();
+        setSearchResults(users);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
   const fetchBalance = async () => {
     if (!walletAddress) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const publicKey = new PublicKey(walletAddress);
       const balance = await connection.getBalance(publicKey);
@@ -170,15 +344,15 @@ export default function Profile() {
             {getUserEmail() && (
               <p className="text-gray-400 text-sm mb-2">{getUserEmail()}</p>
             )}
-            {/* Followers/Following Placeholders */}
+            {/* Followers/Following Counts */}
             <div className="flex items-center gap-6 mt-3">
               <div className="flex items-center gap-2">
                 <span className="text-gray-500 text-sm">Followers</span>
-                <span className="text-white font-semibold">0</span>
+                <span className="text-white font-semibold">{followersCount}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-500 text-sm">Following</span>
-                <span className="text-white font-semibold">0</span>
+                <span className="text-white font-semibold">{followingCount}</span>
               </div>
             </div>
           </div>
@@ -230,31 +404,244 @@ export default function Profile() {
           <h4 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
             Solana Wallet
           </h4>
-          <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-800/50">
-            <div className="flex items-center justify-center gap-3 py-4">
-              <svg className="w-5 h-5 text-gray-500 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <p className="text-gray-500 text-sm">
-                Wallet is being created...
-              </p>
-            </div>
+          <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-800/50">
+            {creatingWallet ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-4">
+                <svg className="w-8 h-8 text-violet-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="text-violet-300 text-sm font-medium">
+                  Creating your wallet...
+                </p>
+                <p className="text-gray-500 text-xs text-center max-w-sm">
+                  This usually takes just a few seconds. Please wait...
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-4 py-4">
+                <div className="w-12 h-12 rounded-full bg-violet-500/10 border border-violet-500/30 flex items-center justify-center mb-2">
+                  <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </div>
+                <p className="text-gray-400 text-sm text-center mb-1">
+                  No wallet found
+                </p>
+                <p className="text-gray-500 text-xs text-center max-w-sm mb-4">
+                  Create a Solana wallet to start trading on prediction markets
+                </p>
+                <button
+                  onClick={async () => {
+                    setCreatingWallet(true);
+                    setError(null);
+                    try {
+                      await createWallet();
+                      // Wait a moment and check again
+                      setTimeout(() => {
+                        setCreatingWallet(false);
+                      }, 5000);
+                    } catch (err: any) {
+                      setError(err.message || 'Failed to create wallet');
+                      setCreatingWallet(false);
+                      console.error('Wallet creation error:', err);
+                    }
+                  }}
+                  disabled={creatingWallet}
+                  className="px-6 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creatingWallet ? 'Creating...' : 'Create Solana Wallet'}
+                </button>
+                {error && (
+                  <p className="text-red-400 text-xs mt-2 text-center">{error}</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Stats Section */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-800/50">
           <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Total Trades</p>
-          <p className="text-white text-2xl font-bold">0</p>
+          <p className="text-white text-2xl font-bold">{tradesCount}</p>
         </div>
         <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-800/50">
           <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Win Rate</p>
           <p className="text-white text-2xl font-bold">--</p>
         </div>
       </div>
+
+      {/* User Discovery Section */}
+      <div className="border-t border-gray-800 pt-6">
+        <h4 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
+          Discover Users
+        </h4>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearchUsers();
+                }
+              }}
+              placeholder="Search by wallet address (e.g., 7xKXtg...)"
+              className="flex-1 px-4 py-2 border border-gray-700 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+            />
+            <button
+              onClick={handleSearchUsers}
+              disabled={searching || !searchQuery.trim()}
+              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {searching ? '...' : 'Search'}
+            </button>
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="space-y-2">
+              {searchResults.map((result) => (
+                <UserSearchResult
+                  key={result.id}
+                  user={result}
+                  currentUserId={currentUserId}
+                  onFollowChange={handleFollowChange}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// User Search Result Component
+function UserSearchResult({
+  user,
+  currentUserId,
+  onFollowChange,
+}: {
+  user: any;
+  currentUserId: string | null;
+  onFollowChange: (isFollowing: boolean) => void;
+}) {
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    if (!currentUserId || currentUserId === user.id) {
+      setChecking(false);
+      return;
+    }
+
+    const checkFollowing = async () => {
+      try {
+        const followingRes = await fetch(`/api/follow/following?userId=${currentUserId}`);
+        if (followingRes.ok) {
+          const following = await followingRes.json();
+          const followingIds = following.map((f: any) => f.following.id);
+          setIsFollowing(followingIds.includes(user.id));
+        }
+      } catch (error) {
+        console.error('Error checking follow status:', error);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    checkFollowing();
+  }, [currentUserId, user.id]);
+
+  const handleFollow = async () => {
+    if (!currentUserId || currentUserId === user.id || loading) return;
+
+    const wasFollowing = isFollowing;
+
+    // Optimistic UI update
+    setIsFollowing(!wasFollowing);
+
+    setLoading(true);
+    try {
+      if (wasFollowing) {
+        await fetch('/api/follow', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            followerId: currentUserId,
+            followingId: user.id,
+          }),
+        });
+      } else {
+        await fetch('/api/follow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            followerId: currentUserId,
+            followingId: user.id,
+          }),
+        });
+      }
+      // Call optimistic count update callback
+      onFollowChange(!wasFollowing);
+    } catch (error) {
+      console.error('Error following/unfollowing:', error);
+      // Rollback optimistic update on error
+      setIsFollowing(wasFollowing);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (checking) {
+    return (
+      <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-800/50">
+        <div className="h-4 w-24 bg-gray-700 rounded animate-pulse" />
+      </div>
+    );
+  }
+
+  if (currentUserId === user.id) {
+    return null; // Don't show self in search results
+  }
+
+  const displayName = user.displayName || `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}`;
+
+  return (
+    <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-800/50 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        {user.avatarUrl ? (
+          <img
+            src={user.avatarUrl}
+            alt={displayName}
+            className="w-8 h-8 rounded-full border border-violet-500/30"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center border border-violet-500/30">
+            <span className="text-white text-xs font-bold">
+              {displayName.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
+        <div>
+          <p className="text-white text-sm font-medium">{displayName}</p>
+          <p className="text-gray-500 text-xs font-mono">{user.walletAddress.slice(0, 8)}...</p>
+        </div>
+      </div>
+      <button
+        onClick={handleFollow}
+        disabled={loading}
+        className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${isFollowing
+          ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+          : 'bg-violet-600 hover:bg-violet-500 text-white'
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+      >
+        {loading ? '...' : isFollowing ? 'Unfollow' : 'Follow'}
+      </button>
     </div>
   );
 }

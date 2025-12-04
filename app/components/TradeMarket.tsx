@@ -164,6 +164,53 @@ export default function TradeMarket({ market }: TradeMarketProps) {
     }
   };
 
+  const storeTrade = async (signature: string) => {
+    if (!user || !walletAddress || !orderData) return;
+
+    try {
+      // First, sync user to ensure they exist in database
+      const syncResponse = await fetch('/api/users/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          privyId: user.id,
+          walletAddress: walletAddress,
+          displayName: user.twitter?.username 
+            ? `@${user.twitter.username}` 
+            : user.google?.email?.split('@')[0] || null,
+          avatarUrl: user.twitter?.profilePictureUrl || null,
+        }),
+      });
+
+      if (!syncResponse.ok) {
+        console.error('Failed to sync user');
+        return;
+      }
+
+      const syncedUser = await syncResponse.json();
+
+      // Store the trade
+      const tradeResponse = await fetch('/api/trades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: syncedUser.id,
+          marketTicker: market.ticker,
+          side: side,
+          amount: orderData.inAmount,
+          transactionSig: signature,
+        }),
+      });
+
+      if (!tradeResponse.ok) {
+        console.error('Failed to store trade');
+      }
+    } catch (error) {
+      console.error('Error storing trade:', error);
+      // Don't show error to user, trade was successful on-chain
+    }
+  };
+
   const monitorSyncTrade = async (signature: string) => {
     try {
       let txStatus;
@@ -185,6 +232,8 @@ export default function TradeMarket({ market }: TradeMarketProps) {
         setStatus(`❌ Transaction failed: ${JSON.stringify(txStatus.err)}`);
       } else {
         setStatus(`✅ Trade completed successfully in slot ${txStatus.slot}`);
+        // Store trade in database
+        await storeTrade(signature);
         setOrderData(null);
         setAmount('');
       }
@@ -215,6 +264,8 @@ export default function TradeMarket({ market }: TradeMarketProps) {
           if (fills.length > 0) {
             const totalOut = fills.reduce((acc, f) => acc + BigInt(f.qtyOut || 0), 0n);
             setStatus(`✅ Trade completed! Received ${totalOut.toString()} tokens`);
+            // Store trade in database
+            await storeTrade(signature);
           } else {
             setStatus('Order was closed without any fills');
           }

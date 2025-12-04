@@ -16,7 +16,7 @@ export default function MarketsList() {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchMarkets(200);
+        const data = await fetchMarkets(50);
         // Filter out finalized/resolved/closed markets
         const activeMarkets = data.filter(
           (market) =>

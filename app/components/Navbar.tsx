@@ -2,10 +2,13 @@
 
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export default function Navbar() {
   const { ready, authenticated, user, logout } = usePrivy();
   const { wallets } = useWallets();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -76,17 +79,41 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-8">
-            <div className="text-2xl font-black text-white tracking-tighter">
+            <Link href={authenticated ? '/home' : '/'} className="text-2xl font-black text-white tracking-tighter hover:opacity-80 transition-opacity">
               hunch
-            </div>
+            </Link>
             {authenticated && (
               <div className="hidden md:flex items-center gap-6">
-                <a href="#" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                <Link 
+                  href="/home" 
+                  className={`transition-colors text-sm font-medium ${
+                    pathname === '/home' 
+                      ? 'text-white' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
                   Markets
-                </a>
-                <a href="#profile" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
+                </Link>
+                <Link 
+                  href="/social" 
+                  className={`transition-colors text-sm font-medium ${
+                    pathname === '/social' 
+                      ? 'text-white' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Social
+                </Link>
+                <Link 
+                  href="/profile" 
+                  className={`transition-colors text-sm font-medium ${
+                    pathname === '/profile' 
+                      ? 'text-white' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
                   Profile
-                </a>
+                </Link>
               </div>
             )}
           </div>
@@ -181,7 +208,17 @@ export default function Navbar() {
                         </div>
                       )}
 
-                      <div className="p-2">
+                      <div className="p-2 space-y-1">
+                        <Link
+                          href="/profile"
+                          onClick={() => setShowDropdown(false)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-800 rounded-xl transition-colors text-sm font-medium"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          View Profile
+                        </Link>
                         <button
                           onClick={() => {
                             setShowDropdown(false);

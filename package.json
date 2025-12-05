@@ -18,6 +18,7 @@
     "@prisma/config": "^7.1.0",
     "@privy-io/react-auth": "^3.8.1",
     "@solana-program/memo": "^0.10.0",
+    "@solana/actions": "^1.6.6",
     "@solana/kit": "^5.0.0",
     "@solana/spl-token": "^0.4.14",
     "@solana/wallet-adapter-base": "^0.9.27",
@@ -40,5 +41,6 @@
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "packageManager": "pnpm@10.11.0+sha512.6540583f41cc5f628eb3d9773ecee802f4f9ef9923cc45b69890fb47991d4b092964694ec3a4f738a420c918a333062c8b925d312f42e4f0c263eb603551f977"
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { Connection, Transaction } from '@solana/web3.js';
 import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
 import { Market } from '../lib/api';
@@ -14,6 +15,7 @@ interface TradeMarketProps {
 export default function TradeMarket({ market }: TradeMarketProps) {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
+  const { signAndSendTransaction } = useSignAndSendTransaction();
   const [side, setSide] = useState<'yes' | 'no'>('yes');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,9 +35,29 @@ export default function TradeMarket({ market }: TradeMarketProps) {
   });
   
   // Get the embedded Solana wallet (prefer Privy embedded wallet)
-  const solanaWallet = solanaWallets.find(
+  let solanaWallet = solanaWallets.find(
     (wallet) => wallet.walletClientType === 'privy'
   ) || solanaWallets[0];
+  
+  // Fallback: try to get wallet from user's linked accounts if not found in wallets array
+  if (!solanaWallet && user?.linkedAccounts) {
+    const solanaAccount = user.linkedAccounts.find(
+      (account) => account.type === 'wallet' &&
+        'address' in account &&
+        account.address &&
+        typeof account.address === 'string' &&
+        !account.address.startsWith('0x') &&
+        account.address.length >= 32
+    ) as any;
+    
+    if (solanaAccount?.address) {
+      // Create a mock wallet object for Privy's signAndSendTransaction
+      solanaWallet = {
+        address: solanaAccount.address,
+        walletClientType: 'privy',
+      } as any;
+    }
+  }
   
   const walletAddress = solanaWallet?.address;
   const activeWallet = solanaWallet;
@@ -127,7 +149,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
   };
 
   const handleSignAndSubmit = async () => {
-    if (!ready || !authenticated || !walletAddress || !orderData || !activeWallet) {
+    if (!ready || !authenticated || !walletAddress || !orderData || !solanaWallet) {
       setStatus('Please connect your wallet and request an order first');
       return;
     }
@@ -136,25 +158,77 @@ export default function TradeMarket({ market }: TradeMarketProps) {
     setStatus('');
 
     try {
+      // Decode the base64 transaction
       const transactionBytes = Uint8Array.from(
         atob(orderData.openTransaction),
         (c) => c.charCodeAt(0)
       );
-      const transaction = Transaction.from(transactionBytes);
 
-      const signedTransaction = await activeWallet.signTransaction(transaction);
+      setStatus('Signing and submitting transaction...');
+      
+      // Use Privy's signAndSendTransaction to sign and send in one call
+      const result = await signAndSendTransaction({
+        transaction: transactionBytes,
+        wallet: solanaWallet,
+      });
 
-      setStatus('Submitting transaction...');
-      const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+      // Privy's signAndSendTransaction returns the signature as Uint8Array
+      // Convert Uint8Array to base58 string for Solana (Solana uses base58 encoding)
+      // Try to use bs58 if available, otherwise use a workaround
+      let signatureString: string;
+      
+      // Check if result.signature is already a string (some Privy versions might return string)
+      if (typeof result.signature === 'string') {
+        signatureString = result.signature;
+      } else {
+        // Convert Uint8Array to base58
+        // Try dynamic import of bs58 first
+        try {
+          const bs58Module = await import('bs58');
+          const bs58 = bs58Module.default || bs58Module;
+          signatureString = bs58.encode(result.signature);
+        } catch {
+          // If bs58 is not available, we'll need to parse the transaction to get signature
+          // Or use the transaction bytes to extract signature
+          // For now, let's try to get it from the transaction after it's sent
+          // Privy sends the transaction automatically, so we need to wait and get the signature
+          // Actually, we can parse the transaction to extract the signature
+          try {
+            const transaction = Transaction.from(transactionBytes);
+            // The signature should be in the transaction after signing
+            // But Privy handles signing internally, so we need to get it from result
+            // Let's use a simple base58 encoding implementation
+            const base58Alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            let num = BigInt(0);
+            for (let i = 0; i < result.signature.length; i++) {
+              num = num * BigInt(256) + BigInt(result.signature[i]);
+            }
+            let str = '';
+            if (num === BigInt(0)) {
+              str = '1';
+            } else {
+              while (num > 0) {
+                str = base58Alphabet[Number(num % BigInt(58))] + str;
+                num = num / BigInt(58);
+              }
+            }
+            signatureString = str;
+          } catch (err) {
+            // Last resort: use hex encoding (not ideal but will work)
+            signatureString = Buffer.from(result.signature).toString('hex');
+            console.warn('Could not encode signature as base58, using hex:', err);
+          }
+        }
+      }
 
-      setStatus(`✅ Transaction submitted! Signature: ${signature}`);
+      setStatus(`✅ Transaction submitted! Signature: ${signatureString}`);
 
       if (orderData.executionMode === 'sync') {
         setStatus('Monitoring sync trade...');
-        await monitorSyncTrade(signature);
+        await monitorSyncTrade(signatureString);
       } else {
         setStatus('Monitoring async trade...');
-        await monitorAsyncTrade(signature);
+        await monitorAsyncTrade(signatureString);
       }
     } catch (error: any) {
       setStatus(`❌ Error: ${error.message}`);
@@ -355,13 +429,22 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
         {/* Action Buttons */}
         {!orderData ? (
-          <button
-            onClick={handleRequestOrder}
-            disabled={!ready || !authenticated || !walletAddress || loading}
-            className="w-full px-4 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all font-semibold"
-          >
-            {loading ? 'Requesting Order...' : 'Request Order'}
-          </button>
+          <>
+            {(!ready || !authenticated || !walletAddress) && (
+              <div className="mb-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <p className="text-yellow-400 text-xs">
+                  {!ready ? 'Initializing...' : !authenticated ? 'Please log in' : !walletAddress ? 'Please connect your wallet' : ''}
+                </p>
+              </div>
+            )}
+            <button
+              onClick={handleRequestOrder}
+              disabled={!ready || !authenticated || !walletAddress || loading || !amount || parseFloat(amount) <= 0}
+              className="w-full px-4 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all font-semibold"
+            >
+              {loading ? 'Requesting Order...' : !amount || parseFloat(amount) <= 0 ? 'Enter Amount' : 'Request Order'}
+            </button>
+          </>
         ) : (
           <button
             onClick={handleSignAndSubmit}

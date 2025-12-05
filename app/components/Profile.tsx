@@ -4,12 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useCreateWallet } from '@privy-io/react-auth/solana';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-
+import UserPositions from './UserPositions';
 export default function Profile() {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const { createWallet } = useCreateWallet();
   const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [solPrice, setSolPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [creatingWallet, setCreatingWallet] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +22,7 @@ export default function Profile() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
 
   // Get wallet address from multiple sources with polling
   useEffect(() => {
@@ -165,12 +167,32 @@ export default function Profile() {
     }
   }, [currentUserId]);
 
+  // Fetch SOL price
+  useEffect(() => {
+    fetchSolPrice();
+    // Refresh price every 5 minutes
+    const priceInterval = setInterval(fetchSolPrice, 5 * 60 * 1000);
+    return () => clearInterval(priceInterval);
+  }, []);
+
   // Fetch SOL balance
   useEffect(() => {
     if (walletAddress && authenticated) {
       fetchBalance();
     }
   }, [walletAddress, authenticated]);
+
+  const fetchSolPrice = async () => {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+      if (response.ok) {
+        const data = await response.json();
+        setSolPrice(data.solana?.usd || null);
+      }
+    } catch (err) {
+      console.error('Error fetching SOL price:', err);
+    }
+  };
 
   const fetchProfileStats = async (skipCache: boolean = false) => {
     if (!currentUserId) return;
@@ -344,8 +366,8 @@ export default function Profile() {
             {getUserEmail() && (
               <p className="text-gray-400 text-sm mb-2">{getUserEmail()}</p>
             )}
-            {/* Followers/Following Counts */}
-            <div className="flex items-center gap-6 mt-3">
+            {/* Followers/Following Counts and Balance */}
+            <div className="flex items-center gap-6 mt-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="text-gray-500 text-sm">Followers</span>
                 <span className="text-white font-semibold">{followersCount}</span>
@@ -354,52 +376,50 @@ export default function Profile() {
                 <span className="text-gray-500 text-sm">Following</span>
                 <span className="text-white font-semibold">{followingCount}</span>
               </div>
+              {walletAddress && (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 text-sm">Balance</span>
+                  {loading ? (
+                    <div className="h-4 w-16 bg-gray-700 rounded animate-pulse" />
+                  ) : error ? (
+                    <span className="text-red-400 text-xs">Error</span>
+                  ) : solBalance !== null && solPrice !== null ? (
+                    <span className="text-green-400 font-semibold">
+                      ${(solBalance * solPrice).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-sm">--</span>
+                  )}
+                  <button
+                    onClick={async () => {
+                      if (walletAddress) {
+                        await navigator.clipboard.writeText(walletAddress);
+                        setCopiedAddress(true);
+                        setTimeout(() => setCopiedAddress(false), 2000);
+                      }
+                    }}
+                    className="ml-1 p-1 text-gray-400 hover:text-gray-300 transition-colors"
+                    title="Copy wallet address"
+                  >
+                    {copiedAddress ? (
+                      <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Wallet Address Section */}
-      {walletAddress ? (
-        <div className="mb-6 pb-6 border-b border-gray-800">
-          <h4 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
-            Solana Wallet
-          </h4>
-          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-500 text-xs uppercase tracking-wider">Address</span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(walletAddress);
-                }}
-                className="text-violet-400 hover:text-violet-300 text-xs font-medium transition-colors"
-                title="Copy address"
-              >
-                Copy
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="text-white font-mono text-sm flex-1 break-all">
-                {walletAddress}
-              </code>
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-700/50">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-500 text-xs uppercase tracking-wider">Balance</span>
-                {loading ? (
-                  <div className="h-4 w-16 bg-gray-700 rounded animate-pulse" />
-                ) : error ? (
-                  <span className="text-red-400 text-xs">Error</span>
-                ) : (
-                  <span className="text-white font-semibold">
-                    {solBalance !== null ? `${solBalance.toFixed(4)} SOL` : '-- SOL'}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
+      {/* Wallet Creation Section (only shown if no wallet) */}
+      {!walletAddress && (
         <div className="mb-6 pb-6 border-b border-gray-800">
           <h4 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
             Solana Wallet
@@ -473,48 +493,13 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* User Discovery Section */}
-      <div className="border-t border-gray-800 pt-6">
-        <h4 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
-          Discover Users
-        </h4>
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearchUsers();
-                }
-              }}
-              placeholder="Search by wallet address (e.g., 7xKXtg...)"
-              className="flex-1 px-4 py-2 border border-gray-700 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-            />
-            <button
-              onClick={handleSearchUsers}
-              disabled={searching || !searchQuery.trim()}
-              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {searching ? '...' : 'Search'}
-            </button>
-          </div>
-
-          {searchResults.length > 0 && (
-            <div className="space-y-2">
-              {searchResults.map((result) => (
-                <UserSearchResult
-                  key={result.id}
-                  user={result}
-                  currentUserId={currentUserId}
-                  onFollowChange={handleFollowChange}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+      {/* User Positions Section */}
+      <div className="mb-6">
+        <UserPositions />
       </div>
+
+      {/* User Discovery Section */}
+    
     </div>
   );
 }

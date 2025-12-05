@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { fetchMarkets, Market } from '../lib/api';
 import TradeMarket from './TradeMarket';
+import ShareBlink from './ShareBlink';
 import { parseMarketTicker, formatMarketTitle } from '../lib/marketUtils';
 
 export default function MarketsList() {
@@ -142,13 +143,16 @@ export default function MarketsList() {
                 )}
               </div>
               {market.status === 'active' && (
-                <div className="mt-4 pt-4 border-t border-gray-800">
-                  <button
-                    onClick={() => setSelectedMarket(selectedMarket?.ticker === market.ticker ? null : market)}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl transition-all duration-200 text-sm font-semibold"
-                  >
-                    {selectedMarket?.ticker === market.ticker ? 'Hide Trading' : 'Trade This Market'}
-                  </button>
+                <div className="mt-4 pt-4 border-t border-gray-800 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setSelectedMarket(selectedMarket?.ticker === market.ticker ? null : market)}
+                      className="px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl transition-all duration-200 text-sm font-semibold"
+                    >
+                      {selectedMarket?.ticker === market.ticker ? 'Hide Trading' : 'Trade'}
+                    </button>
+                    <ShareBlink market={market} />
+                  </div>
                   {selectedMarket?.ticker === market.ticker && (
                     <div className="mt-4">
                       <TradeMarket market={market} />

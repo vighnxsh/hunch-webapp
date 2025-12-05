@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { fetchEventDetails, EventDetails, Market } from '../lib/api';
 import TradeMarket from './TradeMarket';
+import ShareBlink from './ShareBlink';
 import { parseMarketTicker, formatMarketTitle } from '../lib/marketUtils';
 
 interface EventDetailsModalProps {
@@ -182,10 +183,11 @@ export default function EventDetailsModal({ eventTicker, onClose }: EventDetails
                               </div>
                             )}
                           </div>
-                          {/* Trading Component */}
+                          {/* Trading Component and Share Blink */}
                           {market.status === 'active' && (
-                            <div className="mt-4 pt-4 border-t border-gray-800">
+                            <div className="mt-4 pt-4 border-t border-gray-800 space-y-3">
                               <TradeMarket market={market} />
+                              <ShareBlink market={market} />
                             </div>
                           )}
                         </div>

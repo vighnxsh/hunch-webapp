@@ -49,11 +49,14 @@ export async function fetchMarkets(limit: number = 200): Promise<Market[]> {
         headers: {
           "Content-Type": "application/json",
         },
+        cache: 'no-store', // Prevent caching in Next.js
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch markets: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`API Error (${response.status}):`, errorText);
+      throw new Error(`Failed to fetch markets: ${response.status} ${response.statusText}`);
     }
 
     const data: MarketsResponse = await response.json();
@@ -89,11 +92,14 @@ export async function fetchEvents(
         headers: {
           "Content-Type": "application/json",
         },
+        cache: 'no-store', // Prevent caching in Next.js
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch events: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`API Error (${response.status}):`, errorText);
+      throw new Error(`Failed to fetch events: ${response.status} ${response.statusText}`);
     }
 
     const data: EventsResponse = await response.json();

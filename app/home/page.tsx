@@ -5,10 +5,8 @@ import { useCreateWallet } from '@privy-io/react-auth/solana';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../components/Navbar';
-import MarketsList from '../components/MarketsList';
 import EventsList from '../components/EventsList';
 import UserPositions from '../components/UserPositions';
-import SocialFeed from '../components/SocialFeed';
 
 export default function HomePage() {
   const { ready, authenticated, user } = usePrivy();
@@ -186,24 +184,9 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* User Positions */}
-        <div className="mb-8">
-          <UserPositions />
-        </div>
-
-        {/* Social Feed */}
-        <div className="mb-8">
-          <SocialFeed />
-        </div>
-
         {/* Events Section */}
         <div className="mb-8">
           <EventsList />
-        </div>
-
-        {/* Markets Section */}
-        <div className="mb-8">
-          <MarketsList />
         </div>
       </main>
 

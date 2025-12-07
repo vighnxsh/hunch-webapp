@@ -8,14 +8,14 @@ export default function Login() {
   const { ready, authenticated } = usePrivy();
   const router = useRouter();
   const { login } = useLogin({
-    onComplete: (user, isNewUser, wasAlreadyAuthenticated) => {
+    onComplete: ({ user, isNewUser, wasAlreadyAuthenticated }) => {
       console.log('Login completed', { user, isNewUser, wasAlreadyAuthenticated });
       // Redirect to home after successful login
       router.push('/home');
     },
     onError: (error) => {
       console.error('Login error:', error);
-      alert(`Login failed: ${error.message || 'Unknown error'}`);
+      alert(`Login failed: ${String(error) || 'Unknown error'}`);
     },
   });
 

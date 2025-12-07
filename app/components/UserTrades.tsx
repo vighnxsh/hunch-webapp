@@ -85,13 +85,7 @@ export default function UserTrades({ userId }: UserTradesProps) {
     const market = markets.get(marketTicker);
     if (!market) return false; // If market not found, assume inactive
     
-    return (
-      market.status === 'active' &&
-      market.status !== 'finalized' &&
-      market.status !== 'resolved' &&
-      market.status !== 'closed' &&
-      market.status !== 'determined'
-    );
+    return market.status === 'active';
   };
 
   const activeTrades = trades.filter(trade => isMarketActive(trade.marketTicker));

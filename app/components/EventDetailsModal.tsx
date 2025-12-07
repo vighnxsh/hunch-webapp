@@ -36,7 +36,25 @@ export default function EventDetailsModal({ eventTicker, onClose }: EventDetails
 
   const getMintAddress = (market: Market, type: 'yes' | 'no'): string | undefined => {
     if (market.accounts) {
-      return type === 'yes' ? market.accounts.yesMint : market.accounts.noMint;
+      // Handle accounts as an object with string keys (like { "EPjF...": { yesMint: "...", ... } })
+      if (typeof market.accounts === 'object' && !Array.isArray(market.accounts)) {
+        // Check if accounts has direct yesMint/noMint (simple structure)
+        if ('yesMint' in market.accounts && typeof (market.accounts as any).yesMint === 'string') {
+          return type === 'yes' ? (market.accounts as any).yesMint : (market.accounts as any).noMint;
+        }
+        
+        // Otherwise, iterate through account keys to find mints
+        const accountKeys = Object.keys(market.accounts);
+        for (const key of accountKeys) {
+          const account = (market.accounts as any)[key];
+          if (account && typeof account === 'object') {
+            const mint = type === 'yes' ? account.yesMint : account.noMint;
+            if (mint && typeof mint === 'string') {
+              return mint;
+            }
+          }
+        }
+      }
     }
     return type === 'yes' ? market.yesMint : market.noMint;
   };

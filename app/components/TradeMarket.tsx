@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { usePrivy } from '@privy-io/react-auth';
+import { useSignAndSendTransaction, useWallets } from '@privy-io/react-auth/solana';
 import { Connection, Transaction } from '@solana/web3.js';
 import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
 import { Market } from '../lib/api';
@@ -29,42 +29,8 @@ export default function TradeMarket({ market }: TradeMarketProps) {
     error: null,
   });
 
-  // Filter wallets to only Solana wallets
-  // Solana addresses are base58 encoded (32-44 chars), Ethereum addresses are hex (0x + 40 chars)
-  const solanaWallets = wallets.filter((wallet) => {
-    // Privy embedded wallets are Solana (we only create Solana wallets)
-    if (wallet.walletClientType === 'privy') return true;
-    // Check if wallet address is Solana format (base58, not starting with 0x)
-    if (wallet.address && !wallet.address.startsWith('0x') && wallet.address.length >= 32) {
-      return true;
-    }
-    return false;
-  });
-  
-  // Get the embedded Solana wallet (prefer Privy embedded wallet)
-  let solanaWallet = solanaWallets.find(
-    (wallet) => wallet.walletClientType === 'privy'
-  ) || solanaWallets[0];
-  
-  // Fallback: try to get wallet from user's linked accounts if not found in wallets array
-  if (!solanaWallet && user?.linkedAccounts) {
-    const solanaAccount = user.linkedAccounts.find(
-      (account) => account.type === 'wallet' &&
-        'address' in account &&
-        account.address &&
-        typeof account.address === 'string' &&
-        !account.address.startsWith('0x') &&
-        account.address.length >= 32
-    ) as any;
-    
-    if (solanaAccount?.address) {
-      // Create a mock wallet object for Privy's signAndSendTransaction
-      solanaWallet = {
-        address: solanaAccount.address,
-        walletClientType: 'privy',
-      } as any;
-    }
-  }
+  // Get the first Solana wallet from useWallets (already returns only Solana wallets)
+  const solanaWallet = wallets[0];
   
   const walletAddress = solanaWallet?.address;
   const activeWallet = solanaWallet;

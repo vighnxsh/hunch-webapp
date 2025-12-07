@@ -5,10 +5,15 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useCreateWallet } from '@privy-io/react-auth/solana';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import UserPositions from './UserPositions';
+import UserTrades from './UserTrades';
+import CreditCard from './CreditCard';
+import { useTheme } from './ThemeProvider';
+
 export default function Profile() {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const { createWallet } = useCreateWallet();
+  const { theme } = useTheme();
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [solPrice, setSolPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -23,6 +28,12 @@ export default function Profile() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
+
+  // Check if HTTPS is available (required for embedded wallets)
+  const isHttpsAvailable = () => {
+    if (typeof window === 'undefined') return false;
+    return window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+  };
 
   // Get wallet address from multiple sources with polling
   useEffect(() => {
@@ -331,20 +342,11 @@ export default function Profile() {
   }
 
   return (
-    <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
-      <div className="flex items-start justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">Profile</h2>
-        <button
-          onClick={fetchBalance}
-          disabled={loading}
-          className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors border border-gray-700 disabled:opacity-50"
-        >
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
-      </div>
+    <div className="bg-[var(--surface)]/50 backdrop-blur-sm   rounded-2xl p-6">
+     
 
       {/* User Info Section */}
-      <div className="mb-6 pb-6 border-b border-gray-800">
+      <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
         <div className="flex items-start gap-4">
           {getUserAvatar() ? (
             <img
@@ -360,71 +362,34 @@ export default function Profile() {
             </div>
           )}
           <div className="flex-1">
-            <h3 className="text-xl font-bold text-white mb-1">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
               {getUserDisplayName()}
             </h3>
             {getUserEmail() && (
-              <p className="text-gray-400 text-sm mb-2">{getUserEmail()}</p>
+              <p className="text-[var(--text-secondary)] text-sm mb-2">{getUserEmail()}</p>
             )}
-            {/* Followers/Following Counts and Balance */}
-            <div className="flex items-center gap-6 mt-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500 text-sm">Followers</span>
-                <span className="text-white font-semibold">{followersCount}</span>
+            {/* Followers/Following Counts */}
+            <div className="flex items-center gap-8 mt-4">
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-[var(--text-primary)]"> 234</span>
+                <span className="text-[var(--text-tertiary)] text-md">Followers</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500 text-sm">Following</span>
-                <span className="text-white font-semibold">{followingCount}</span>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-[var(--text-primary)]">41</span>
+                <span className="text-[var(--text-tertiary)] text-md">Following</span>
               </div>
-              {walletAddress && (
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-500 text-sm">Balance</span>
-                  {loading ? (
-                    <div className="h-4 w-16 bg-gray-700 rounded animate-pulse" />
-                  ) : error ? (
-                    <span className="text-red-400 text-xs">Error</span>
-                  ) : solBalance !== null && solPrice !== null ? (
-                    <span className="text-green-400 font-semibold">
-                      ${(solBalance * solPrice).toFixed(2)}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 text-sm">--</span>
-                  )}
-                  <button
-                    onClick={async () => {
-                      if (walletAddress) {
-                        await navigator.clipboard.writeText(walletAddress);
-                        setCopiedAddress(true);
-                        setTimeout(() => setCopiedAddress(false), 2000);
-                      }
-                    }}
-                    className="ml-1 p-1 text-gray-400 hover:text-gray-300 transition-colors"
-                    title="Copy wallet address"
-                  >
-                    {copiedAddress ? (
-                      <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Wallet Creation Section (only shown if no wallet) */}
+      {/* Wallet Creation Section (only shown if no wallet) */} 
       {!walletAddress && (
-        <div className="mb-6 pb-6 border-b border-gray-800">
-          <h4 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
+        <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
+          <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 uppercase tracking-wider">
             Solana Wallet
           </h4>
-          <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-800/50">
+          <div className="bg-[var(--card-bg)]/30 rounded-xl p-6 border border-[var(--border-color)]">
             {creatingWallet ? (
               <div className="flex flex-col items-center justify-center gap-4 py-4">
                 <svg className="w-8 h-8 text-violet-400 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -434,7 +399,7 @@ export default function Profile() {
                 <p className="text-violet-300 text-sm font-medium">
                   Creating your wallet...
                 </p>
-                <p className="text-gray-500 text-xs text-center max-w-sm">
+                <p className="text-[var(--text-tertiary)] text-xs text-center max-w-sm">
                   This usually takes just a few seconds. Please wait...
                 </p>
               </div>
@@ -445,16 +410,24 @@ export default function Profile() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
                 </div>
-                <p className="text-gray-400 text-sm text-center mb-1">
+                <p className="text-[var(--text-secondary)] text-sm text-center mb-1">
                   No wallet found
                 </p>
-                <p className="text-gray-500 text-xs text-center max-w-sm mb-4">
+                <p className="text-[var(--text-tertiary)] text-xs text-center max-w-sm mb-4">
                   Create a Solana wallet to start trading on prediction markets
                 </p>
                 <button
                   onClick={async () => {
                     setCreatingWallet(true);
                     setError(null);
+                    
+                    // Check if HTTPS is available
+                    if (!isHttpsAvailable()) {
+                      setError('Embedded wallets require HTTPS. Please use HTTPS or deploy to a staging environment.');
+                      setCreatingWallet(false);
+                      return;
+                    }
+
                     try {
                       await createWallet();
                       // Wait a moment and check again
@@ -462,7 +435,12 @@ export default function Profile() {
                         setCreatingWallet(false);
                       }, 5000);
                     } catch (err: any) {
-                      setError(err.message || 'Failed to create wallet');
+                      const errorMessage = err?.message || 'Failed to create wallet';
+                      if (errorMessage.includes('HTTPS') || errorMessage.includes('https')) {
+                        setError('Embedded wallets require HTTPS. Please use HTTPS or deploy to a staging environment.');
+                      } else {
+                        setError(errorMessage);
+                      }
                       setCreatingWallet(false);
                       console.error('Wallet creation error:', err);
                     }
@@ -473,7 +451,23 @@ export default function Profile() {
                   {creatingWallet ? 'Creating...' : 'Create Solana Wallet'}
                 </button>
                 {error && (
-                  <p className="text-red-400 text-xs mt-2 text-center">{error}</p>
+                  <div className="mt-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <p className="text-red-400 text-xs text-center">{error}</p>
+                    {error.includes('HTTPS') && (
+                      <p className="text-red-300/70 text-xs text-center mt-2">
+                        For local development, you can use tools like{' '}
+                        <a 
+                          href="https://github.com/FiloSottile/mkcert" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="underline hover:text-red-200"
+                        >
+                          mkcert
+                        </a>
+                        {' '}to enable HTTPS on localhost.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -481,22 +475,25 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Stats Section */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-800/50">
-          <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Total Trades</p>
-          <p className="text-white text-2xl font-bold">{tradesCount}</p>
-        </div>
-        <div className="bg-gray-800/30 rounded-xl p-4 border border-gray-800/50">
-          <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Win Rate</p>
-          <p className="text-white text-2xl font-bold">--</p>
-        </div>
-      </div>
+      {/* Credit Card Style Stats */}
+      <CreditCard
+        theme={theme}
+        loading={loading}
+        error={error}
+        solBalance={solBalance}
+        solPrice={solPrice}
+        tradesCount={tradesCount}
+        username={getUserDisplayName()}
+      />
 
-      {/* User Positions Section */}
-      <div className="mb-6">
-        <UserPositions />
-      </div>
+    
+
+      {/* User Trades Section */}
+      {currentUserId && (
+        <div className="mb-6">
+          <UserTrades userId={currentUserId} />
+        </div>
+      )}
 
       {/* User Discovery Section */}
     
@@ -584,8 +581,8 @@ function UserSearchResult({
 
   if (checking) {
     return (
-      <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-800/50">
-        <div className="h-4 w-24 bg-gray-700 rounded animate-pulse" />
+      <div className="bg-[var(--card-bg)]/30 rounded-lg p-3 border border-[var(--border-color)]">
+        <div className="h-4 w-24 bg-[var(--surface-hover)] rounded animate-pulse" />
       </div>
     );
   }
@@ -597,7 +594,7 @@ function UserSearchResult({
   const displayName = user.displayName || `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}`;
 
   return (
-    <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-800/50 flex items-center justify-between">
+    <div className="bg-[var(--card-bg)]/30 rounded-lg p-3 border border-[var(--border-color)] flex items-center justify-between">
       <div className="flex items-center gap-3">
         {user.avatarUrl ? (
           <img
@@ -613,15 +610,15 @@ function UserSearchResult({
           </div>
         )}
         <div>
-          <p className="text-white text-sm font-medium">{displayName}</p>
-          <p className="text-gray-500 text-xs font-mono">{user.walletAddress.slice(0, 8)}...</p>
+          <p className="text-[var(--text-primary)] text-sm font-medium">{displayName}</p>
+          <p className="text-[var(--text-tertiary)] text-xs font-mono">{user.walletAddress.slice(0, 8)}...</p>
         </div>
       </div>
       <button
         onClick={handleFollow}
         disabled={loading}
         className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${isFollowing
-          ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+          ? 'bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)]'
           : 'bg-violet-600 hover:bg-violet-500 text-white'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
@@ -630,4 +627,3 @@ function UserSearchResult({
     </div>
   );
 }
-

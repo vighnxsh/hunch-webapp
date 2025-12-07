@@ -98,7 +98,7 @@ function UserSearchResultItem({
   const displayName = user.displayName || `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}`;
 
   return (
-    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/30 flex items-center justify-between">
+    <div className="bg-[var(--surface-hover)] rounded-lg p-4 border border-[var(--border-color)] flex items-center justify-between">
       <div className="flex items-center gap-3">
         {user.avatarUrl ? (
           <img
@@ -114,10 +114,10 @@ function UserSearchResultItem({
           </div>
         )}
         <div>
-          <p className="text-white text-sm font-medium">{displayName}</p>
-          <p className="text-gray-500 text-xs font-mono">{user.walletAddress.slice(0, 8)}...</p>
+          <p className="text-[var(--text-primary)] text-sm font-medium">{displayName}</p>
+          <p className="text-[var(--text-tertiary)] text-xs font-mono">{user.walletAddress.slice(0, 8)}...</p>
           {user._count && (
-            <p className="text-gray-500 text-xs mt-1">
+            <p className="text-[var(--text-tertiary)] text-xs mt-1">
               {user._count.followers} followers • {user._count.trades} trades
             </p>
           )}
@@ -128,7 +128,7 @@ function UserSearchResultItem({
         disabled={followLoading || !currentUserId || currentUserId === user.id}
         className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
           isFollowing
-            ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            ? 'bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)]'
             : 'bg-violet-600 hover:bg-violet-500 text-white'
         } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
@@ -294,8 +294,8 @@ export default function SocialFeed() {
   return (
     <div className="space-y-6">
       {/* Search Section */}
-      <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50">
-        <h2 className="text-2xl font-bold text-white mb-4">Discover Users</h2>
+      <div className="bg-[var(--card-bg)]/30 rounded-xl p-6 border border-[var(--border-color)]">
+        <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-4">Discover Users</h2>
         
         {/* Search Type Toggle */}
         <div className="flex gap-2 mb-4">
@@ -304,7 +304,7 @@ export default function SocialFeed() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               searchType === 'walletAddress'
                 ? 'bg-violet-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
             }`}
           >
             Wallet Address
@@ -314,7 +314,7 @@ export default function SocialFeed() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               searchType === 'displayName'
                 ? 'bg-violet-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
             }`}
           >
             Display Name
@@ -337,7 +337,7 @@ export default function SocialFeed() {
                 ? 'Search by wallet address (e.g., 7xKXtg...)'
                 : 'Search by display name'
             }
-            className="flex-1 px-4 py-3 border border-gray-700 rounded-xl bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+            className="flex-1 px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-violet-500 focus:border-transparent"
           />
           <button
             onClick={handleSearch}
@@ -367,9 +367,9 @@ export default function SocialFeed() {
       </div>
 
       {/* Feed Section */}
-      <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50">
+      <div className="bg-[var(--card-bg)]/30 rounded-xl p-6 border border-[var(--border-color)]">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-white">Trades from Followed Users</h2>
+          <h2 className="text-2xl font-bold text-[var(--text-primary)]">Trades from Followed Users</h2>
           <button
             onClick={loadFeed}
             disabled={loading || !currentUserId}
@@ -388,13 +388,13 @@ export default function SocialFeed() {
         {loading && feedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
             <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-gray-400 text-sm">Loading feed...</p>
+            <p className="text-[var(--text-secondary)] text-sm">Loading feed...</p>
           </div>
         ) : feedItems.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-700/50 flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-hover)] flex items-center justify-center">
               <svg
-                className="w-8 h-8 text-gray-500"
+                className="w-8 h-8 text-[var(--text-tertiary)]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -407,8 +407,8 @@ export default function SocialFeed() {
                 />
               </svg>
             </div>
-            <p className="text-gray-400 text-lg mb-2">No trades yet</p>
-            <p className="text-gray-500 text-sm">
+            <p className="text-[var(--text-secondary)] text-lg mb-2">No trades yet</p>
+            <p className="text-[var(--text-tertiary)] text-sm">
               Follow users to see their trades in your feed
             </p>
           </div>
@@ -421,7 +421,7 @@ export default function SocialFeed() {
               return (
                 <div
                   key={item.id}
-                  className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/30 hover:border-gray-600/50 transition-colors"
+                  className="bg-[var(--surface-hover)] rounded-xl p-4 border border-[var(--border-color)] hover:border-violet-500/30 transition-colors"
                 >
                   <div className="flex items-start gap-4">
                     {/* User Avatar */}
@@ -442,15 +442,15 @@ export default function SocialFeed() {
                     {/* Trade Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-white font-semibold">{displayName}</span>
-                        <span className="text-gray-500">•</span>
-                        <span className="text-gray-400 text-sm">
+                        <span className="text-[var(--text-primary)] font-semibold">{displayName}</span>
+                        <span className="text-[var(--text-tertiary)]">•</span>
+                        <span className="text-[var(--text-secondary)] text-sm">
                           {formatTimeAgo(item.createdAt)}
                         </span>
                       </div>
 
                       <div className="mb-2">
-                        <p className="text-gray-300 text-sm mb-1">
+                        <p className="text-[var(--text-secondary)] text-sm mb-1">
                           Traded{' '}
                           <span
                             className={`font-semibold ${
@@ -460,12 +460,12 @@ export default function SocialFeed() {
                             {item.side.toUpperCase()}
                           </span>{' '}
                           on{' '}
-                          <span className="text-white font-medium">{displayTitle}</span>
+                          <span className="text-[var(--text-primary)] font-medium">{displayTitle}</span>
                         </p>
-                        <p className="text-gray-500 text-xs font-mono mb-1">
+                        <p className="text-[var(--text-tertiary)] text-xs font-mono mb-1">
                           {item.marketTicker}
                         </p>
-                        <p className="text-gray-400 text-xs">
+                        <p className="text-[var(--text-secondary)] text-xs">
                           Amount: {formatAmount(item.amount)} USDC
                         </p>
                       </div>

@@ -1,16 +1,94 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0D0D0D;
-  --foreground: #FAFAFA;
+  --font-inter: 'Inter', system-ui, sans-serif;
   --font-space-grotesk: 'Space Grotesk', system-ui, sans-serif;
   --font-jetbrains-mono: 'JetBrains Mono', monospace;
+  
+  /* Default: Dark theme */
+  --background: #0D0D0D;
+  --foreground: #FAFAFA;
+  --card-bg: #111111;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --surface: #1a1a1a;
+  --surface-hover: #222222;
+  --muted: #71717a;
+  --muted-foreground: #a1a1aa;
+  --accent: #8B5CF6;
+  --accent-light: #a78bfa;
+  --accent-fuchsia: #D946EF;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --text-primary: #FAFAFA;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --nav-bg: rgba(13, 13, 13, 0.95);
+  --dropdown-bg: #111111;
+  --input-bg: #1a1a1a;
+  --shimmer-1: rgba(255, 255, 255, 0.05);
+  --shimmer-2: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --selection-bg: rgba(139, 92, 246, 0.3);
+  --selection-color: white;
+  --scrollbar-track: rgba(255, 255, 255, 0.05);
+  --scrollbar-thumb: rgba(139, 92, 246, 0.3);
+  --scrollbar-thumb-hover: rgba(139, 92, 246, 0.5);
+}
+
+[data-theme="light"] {
+  --background: #F8F9FA;
+  --foreground: #1a1a1a;
+  --card-bg: #FFFFFF;
+  --card-border: rgba(0, 0, 0, 0.08);
+  --surface: #FFFFFF;
+  --surface-hover: #F3F4F6;
+  --muted: #9CA3AF;
+  --muted-foreground: #6B7280;
+  --accent: #7C3AED;
+  --accent-light: #8B5CF6;
+  --accent-fuchsia: #C026D3;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --text-primary: #1a1a1a;
+  --text-secondary: #4B5563;
+  --text-tertiary: #9CA3AF;
+  --nav-bg: rgba(248, 249, 250, 0.95);
+  --dropdown-bg: #FFFFFF;
+  --input-bg: #F3F4F6;
+  --shimmer-1: rgba(0, 0, 0, 0.04);
+  --shimmer-2: rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --selection-bg: rgba(124, 58, 237, 0.2);
+  --selection-color: #1a1a1a;
+  --scrollbar-track: rgba(0, 0, 0, 0.05);
+  --scrollbar-thumb: rgba(124, 58, 237, 0.3);
+  --scrollbar-thumb-hover: rgba(124, 58, 237, 0.5);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-space-grotesk);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-fuchsia: var(--accent-fuchsia);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-border: var(--border-color);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-nav-bg: var(--nav-bg);
+  --color-dropdown-bg: var(--dropdown-bg);
+  --color-input-bg: var(--input-bg);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
 }
 
@@ -21,7 +99,9 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-space-grotesk), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.011em;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Custom scrollbar */
@@ -30,17 +110,17 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--scrollbar-track);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.5);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Smooth scrolling */
@@ -50,8 +130,8 @@ html {
 
 /* Selection color */
 ::selection {
-  background: rgba(139, 92, 246, 0.3);
-  color: white;
+  background: var(--selection-bg);
+  color: var(--selection-color);
 }
 
 /* Focus outline */
@@ -73,9 +153,9 @@ html {
 .animate-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.05) 25%,
-    rgba(255, 255, 255, 0.1) 50%,
-    rgba(255, 255, 255, 0.05) 75%
+    var(--shimmer-1) 25%,
+    var(--shimmer-2) 50%,
+    var(--shimmer-1) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
@@ -91,7 +171,7 @@ html {
 
 /* Glass effect */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -125,8 +205,44 @@ html {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
 }
 
+/* Light theme specific overrides */
+[data-theme="light"] .card-hover:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Theme-aware utility classes */
+.theme-bg {
+  background-color: var(--background);
+}
+
+.theme-surface {
+  background-color: var(--surface);
+}
+
+.theme-card {
+  background-color: var(--card-bg);
+  border-color: var(--card-border);
+}
+
+.theme-text {
+  color: var(--text-primary);
+}
+
+.theme-text-secondary {
+  color: var(--text-secondary);
+}
+
+.theme-text-muted {
+  color: var(--text-tertiary);
+}
+
+.theme-border {
+  border-color: var(--border-color);
+}
+
 /* Privy modal overrides for dark theme */
-[data-privy-dialog] {
+[data-theme="dark"] [data-privy-dialog],
+:root:not([data-theme]) [data-privy-dialog] {
   --privy-color-background: #1a1a1a !important;
   --privy-color-background-2: #0d0d0d !important;
   --privy-color-foreground: #fafafa !important;
@@ -136,4 +252,42 @@ html {
   --privy-border-radius-sm: 8px !important;
   --privy-border-radius-md: 12px !important;
   --privy-border-radius-lg: 16px !important;
+}
+
+/* Privy modal overrides for light theme */
+[data-theme="light"] [data-privy-dialog] {
+  --privy-color-background: #ffffff !important;
+  --privy-color-background-2: #f8f9fa !important;
+  --privy-color-foreground: #1a1a1a !important;
+  --privy-color-foreground-2: #4b5563 !important;
+  --privy-color-foreground-3: #9ca3af !important;
+  --privy-color-accent: #7C3AED !important;
+  --privy-border-radius-sm: 8px !important;
+  --privy-border-radius-md: 12px !important;
+  --privy-border-radius-lg: 16px !important;
+}
+
+/* Smooth theme transition for all elements */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-out;
+}
+
+/* Disable transitions for animations */
+.animate-spin,
+.animate-pulse,
+.animate-shimmer,
+[class*="animate-"] {
+  transition: none !important;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

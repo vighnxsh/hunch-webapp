@@ -55,3 +55,23 @@ export function createBlinkUrlWithAction(
   return `${blinkClientUrl}/?action=${encodedAction}`;
 }
 
+/**
+ * Create a dial.to developer link for sharing blinks
+ * @param marketTicker - The market ticker
+ * @param cluster - The Solana cluster (defaults to "mainnet")
+ * @param baseUrl - The base URL of your application
+ * @returns A dial.to developer link that can be shared
+ */
+export function createDialToDeveloperLink(
+  marketTicker: string,
+  cluster: string = 'mainnet',
+  baseUrl?: string
+): string {
+  const origin = baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+  const actionUrl = `${origin}/api/actions/market/${encodeURIComponent(marketTicker)}`;
+  const solanaActionUrl = `solana-action:${actionUrl}`;
+  const blinkUrl = `https://dial.to/?action=${encodeURIComponent(solanaActionUrl)}`;
+  const encodedBlinkUrl = encodeURIComponent(blinkUrl);
+  return `https://dial.to/developer?url=${encodedBlinkUrl}&cluster=${cluster}`;
+}
+

@@ -52,7 +52,7 @@ export default function Login() {
 
   if (!ready) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
         <div className="animate-pulse">
           <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
         </div>
@@ -65,7 +65,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0D0D0D] relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--background)] relative overflow-hidden">
       {/* Background gradient effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-violet-900/20 via-transparent to-transparent rounded-full blur-3xl" />
@@ -77,7 +77,7 @@ export default function Login() {
       <div 
         className="absolute inset-0 opacity-[0.03]"
         style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(var(--text-primary) 1px, transparent 1px), linear-gradient(90deg, var(--text-primary) 1px, transparent 1px)`,
           backgroundSize: '50px 50px',
         }}
       />
@@ -85,19 +85,19 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-md px-6">
         {/* Logo and branding */}
         <div className="text-center mb-12">
-          <h1 className="text-6xl font-black tracking-tighter text-white mb-3" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+          <h1 className="text-6xl font-black tracking-tighter text-[var(--text-primary)] mb-3" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
             hunch
           </h1>
-          <p className="text-gray-400 text-lg font-light tracking-wide">
+          <p className="text-[var(--text-secondary)] text-lg font-light tracking-wide">
             Predict the future. Own your outcomes.
           </p>
         </div>
 
         {/* Login card */}
-        <div className="bg-gradient-to-b from-gray-900/80 to-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-3xl p-8 shadow-2xl">
+        <div className="bg-gradient-to-b from-[var(--surface)]/80 to-[var(--surface)]/40 backdrop-blur-xl border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl">
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-white mb-2">Welcome back</h2>
-            <p className="text-gray-500 text-sm">Sign in to access prediction markets</p>
+            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Welcome back</h2>
+            <p className="text-[var(--text-tertiary)] text-sm">Sign in to access prediction markets</p>
           </div>
 
           {error && (
@@ -142,9 +142,9 @@ export default function Login() {
 
             {/* Divider */}
             <div className="flex items-center gap-4 my-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent" />
-              <span className="text-gray-600 text-sm font-medium">or</span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent" />
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-color)] to-transparent" />
+              <span className="text-[var(--text-tertiary)] text-sm font-medium">or</span>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-color)] to-transparent" />
             </div>
 
             {/* X (Twitter) Login Button */}
@@ -167,7 +167,7 @@ export default function Login() {
           </div>
 
           {/* Terms notice */}
-          <p className="text-center text-gray-600 text-xs mt-8 leading-relaxed">
+          <p className="text-center text-[var(--text-tertiary)] text-xs mt-8 leading-relaxed">
             By continuing, you agree to our{' '}
             <a href="#" className="text-violet-400 hover:text-violet-300 underline underline-offset-2">
               Terms of Service
@@ -181,7 +181,7 @@ export default function Login() {
 
         {/* Footer */}
         <div className="text-center mt-8">
-          <p className="text-gray-600 text-sm">
+          <p className="text-[var(--text-tertiary)] text-sm">
             Powered by{' '}
             <span className="text-violet-400 font-medium">Solana</span>
           </p>
@@ -190,4 +190,3 @@ export default function Login() {
     </div>
   );
 }
-

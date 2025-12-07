@@ -19,10 +19,10 @@ export default function LoginPage() {
   // Show loading while Privy initializes
   if (!ready) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">Initializing...</p>
+          <p className="text-[var(--text-secondary)] text-sm">Initializing...</p>
         </div>
       </div>
     );
@@ -35,10 +35,10 @@ export default function LoginPage() {
 
   // Show loading while redirecting
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
       <div className="flex flex-col items-center gap-4">
         <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-400 text-sm">Redirecting...</p>
+        <p className="text-[var(--text-secondary)] text-sm">Redirecting...</p>
       </div>
     </div>
   );

@@ -192,6 +192,7 @@ export default function UserPositions() {
       const transaction = Transaction.from(transactionBytes);
       
       // Sign with Privy embedded wallet
+      //@ts-ignore
       const signedTransaction = await activeWallet.signTransaction(transaction);
       const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
@@ -238,77 +239,25 @@ export default function UserPositions() {
     } while (status === 'open' || status === 'pendingClose');
   };
 
-  if (!ready || !authenticated || !walletAddress) {
-    return (
-      <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
-        <h2 className="text-2xl font-bold mb-4 text-white">
-          Your Positions
-        </h2>
-        <p className="text-gray-500">
-          Connect your wallet to view your prediction market positions
-        </p>
-      </div>
-    );
-  }
+  
 
-  if (loading) {
-    return (
-      <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
-        <h2 className="text-2xl font-bold mb-4 text-white">
-          Your Positions
-        </h2>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-20 bg-gray-800/50 rounded-xl animate-pulse"
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  
 
   return (
-    <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-white">
-          Your Positions ({positions.length})
-        </h2>
-        <button
-          onClick={loadPositions}
-          className="px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition-colors border border-gray-700"
-        >
-          Refresh
-        </button>
-      </div>
+    <div className="bg-[var(--surface)]/50 backdrop-blur-sm border border-[var(--border-color)] rounded-2xl p-6">
+      
 
-      {error && (
-        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-          <p className="text-red-400 text-sm">{error}</p>
-        </div>
-      )}
 
-      {positions.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-2xl flex items-center justify-center">
-            <svg className="w-8 h-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <p className="text-gray-500">No prediction market positions found</p>
-          <p className="text-gray-600 text-sm mt-1">Start trading to see your positions here</p>
-        </div>
-      ) : (
+      
         <div className="space-y-3">
           {positions.map((position) => (
             <div
               key={position.mint}
-              className="p-4 bg-gray-800/30 border border-gray-800 rounded-xl hover:border-gray-700 transition-colors"
+              className="p-4 bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl hover:border-violet-500/30 transition-colors"
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-white">
+                  <h3 className="font-semibold text-[var(--text-primary)]">
                     {position.market?.title || 'Unknown Market'}
                   </h3>
                   <div className="flex gap-2 mt-2">
@@ -318,7 +267,7 @@ export default function UserPositions() {
                           ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                           : position.position === 'NO'
                           ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-gray-700 text-gray-400 border border-gray-600'
+                          : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)] border border-[var(--border-color)]'
                       }`}
                     >
                       {position.position}
@@ -331,10 +280,10 @@ export default function UserPositions() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-xl text-white">
+                  <p className="font-bold text-xl text-[var(--text-primary)]">
                     {position.balance.toLocaleString()}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-[var(--text-tertiary)]">
                     tokens
                   </p>
                 </div>
@@ -352,7 +301,7 @@ export default function UserPositions() {
             </div>
           ))}
         </div>
-      )}
+      
     </div>
   );
 }

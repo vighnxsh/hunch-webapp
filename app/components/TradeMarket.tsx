@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { Connection, Transaction } from '@solana/web3.js';
 import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
 import { Market } from '../lib/api';
 import { parseMarketTicker, formatMarketTitle } from '../lib/marketUtils';
+import { fetchMarketProbabilities, MarketProbabilities } from '../lib/probabilityUtils';
 
 interface TradeMarketProps {
   market: Market;
@@ -21,6 +22,12 @@ export default function TradeMarket({ market }: TradeMarketProps) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [orderData, setOrderData] = useState<OrderResponse | null>(null);
+  const [probabilities, setProbabilities] = useState<MarketProbabilities>({
+    yesProbability: null,
+    noProbability: null,
+    loading: true,
+    error: null,
+  });
 
   // Filter wallets to only Solana wallets
   // Solana addresses are base58 encoded (32-44 chars), Ethereum addresses are hex (0x + 40 chars)
@@ -64,6 +71,27 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
   const connection = new Connection(rpcUrl, 'confirmed');
+
+  // Fetch market probabilities
+  useEffect(() => {
+    if (market.status !== 'active') {
+      setProbabilities({
+        yesProbability: null,
+        noProbability: null,
+        loading: false,
+        error: null,
+      });
+      return;
+    }
+
+    const loadProbabilities = async () => {
+      setProbabilities(prev => ({ ...prev, loading: true }));
+      const result = await fetchMarketProbabilities(market);
+      setProbabilities(result);
+    };
+
+    loadProbabilities();
+  }, [market]);
 
   const getMintAddress = (type: 'yes' | 'no'): string | undefined => {
     if (market.accounts && typeof market.accounts === 'object') {
@@ -336,7 +364,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
       switch (orderStatus) {
         case 'closed': {
           if (fills.length > 0) {
-            const totalOut = fills.reduce((acc, f) => acc + BigInt(f.qtyOut || 0), 0n);
+            const totalOut = fills.reduce((acc, f) => acc + Number(f.qtyOut || 0), 0);
             setStatus(`✅ Trade completed! Received ${totalOut.toString()} tokens`);
             // Store trade in database
             await storeTrade(signature);
@@ -365,34 +393,60 @@ export default function TradeMarket({ market }: TradeMarketProps) {
   const displayTitle = formatMarketTitle(market.title || 'Untitled Market', market.ticker);
 
   return (
-    <div className="bg-gray-800/30 rounded-xl p-5 border border-gray-700/50">
-      <h3 className="text-lg font-bold mb-2 text-white">
-        {displayTitle}
-      </h3>
+    <div className="bg-[var(--card-bg)]/30 rounded-xl p-5 border border-[var(--border-color)]">
+    
       {dateInfo.formattedDate && (
         <div className="mb-3 p-2 bg-violet-500/10 border border-violet-500/30 rounded-lg">
           <p className="text-sm font-medium text-violet-300">
-            📅 Prediction Date: {dateInfo.formattedDate}
+            End date: {dateInfo.formattedDate}
           </p>
         </div>
       )}
-      <p className="text-xs text-gray-500 mb-4 font-mono">
+      <p className="text-xs text-[var(--text-tertiary)] mb-4 font-mono">
         {market.ticker}
       </p>
 
       <div className="space-y-4">
         {/* Side Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
+          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
             Position
           </label>
+          {/* Probability Display */}
+          {market.status === 'active' && !probabilities.loading && 
+           (probabilities.yesProbability !== null || probabilities.noProbability !== null) && (
+            <div className="flex gap-2 mb-2">
+              <div className="flex-1 text-center">
+                <div className="text-xs text-[var(--text-tertiary)] mb-1">YES Probability</div>
+                <div className="text-lg font-bold text-green-400">
+                  {probabilities.yesProbability !== null 
+                    ? `${probabilities.yesProbability}%` 
+                    : '--'}
+                </div>
+              </div>
+              <div className="flex-1 text-center">
+                <div className="text-xs text-[var(--text-tertiary)] mb-1">NO Probability</div>
+                <div className="text-lg font-bold text-red-400">
+                  {probabilities.noProbability !== null 
+                    ? `${probabilities.noProbability}%` 
+                    : '--'}
+                </div>
+              </div>
+            </div>
+          )}
+          {probabilities.loading && market.status === 'active' && (
+            <div className="flex items-center justify-center gap-2 mb-2 text-xs text-[var(--text-tertiary)]">
+              <div className="h-3 w-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              <span>Loading probabilities...</span>
+            </div>
+          )}
           <div className="flex gap-2">
             <button
               onClick={() => setSide('yes')}
               className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
                 side === 'yes'
                   ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
               }`}
             >
               YES
@@ -402,7 +456,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
               className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
                 side === 'no'
                   ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
               }`}
             >
               NO
@@ -412,7 +466,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
         {/* Amount Input */}
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
+          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
             Amount (USDC)
           </label>
           <input
@@ -423,7 +477,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
             step="0.01"
             min="0"
             disabled={!!orderData}
-            className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50 transition-all"
+            className="w-full px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50 transition-all"
           />
         </div>
 
@@ -470,12 +524,12 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
         {/* Order Info */}
         {orderData && (
-          <div className="p-4 bg-gray-800/50 rounded-xl text-sm border border-gray-700/50">
-            <p className="text-gray-400">
-              You'll receive: <span className="text-white font-semibold">{orderData.outAmount} tokens</span>
+          <div className="p-4 bg-[var(--surface-hover)] rounded-xl text-sm border border-[var(--border-color)]">
+            <p className="text-[var(--text-secondary)]">
+              You'll receive: <span className="text-[var(--text-primary)] font-semibold">{orderData.outAmount} tokens</span>
             </p>
-            <p className="text-gray-400 mt-1">
-              Execution Mode: <span className="text-white">{orderData.executionMode}</span>
+            <p className="text-[var(--text-secondary)] mt-1">
+              Execution Mode: <span className="text-[var(--text-primary)]">{orderData.executionMode}</span>
             </p>
           </div>
         )}

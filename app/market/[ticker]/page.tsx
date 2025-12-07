@@ -6,7 +6,6 @@ import { fetchMarkets, Market } from '@/app/lib/api';
 import TradeMarket from '@/app/components/TradeMarket';
 import ShareBlink from '@/app/components/ShareBlink';
 import { parseMarketTicker, formatMarketTitle } from '@/app/lib/marketUtils';
-import Navbar from '@/app/components/Navbar';
 
 export default function MarketPage() {
   const params = useParams();
@@ -44,8 +43,7 @@ export default function MarketPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0D0D0D]">
-        <Navbar />
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8">
           <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
             <div className="space-y-4">
               <div className="h-8 bg-gray-800 rounded-lg animate-pulse" />
@@ -61,8 +59,7 @@ export default function MarketPage() {
   if (error || !market) {
     return (
       <div className="min-h-screen bg-[#0D0D0D]">
-        <Navbar />
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8">
           <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
               <p className="text-red-400">Error: {error || 'Market not found'}</p>
@@ -78,7 +75,6 @@ export default function MarketPage() {
 
   return (
     <div className="min-h-screen bg-[#0D0D0D]">
-      <Navbar />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6">
           <div className="flex justify-between items-start mb-4">

@@ -7,10 +7,40 @@ export interface Market {
   yesMint?: string;
   noMint?: string;
   volume?: number;
+  eventTicker?: string;
+  marketType?: string;
+  subtitle?: string;
+  yesSubTitle?: string;
+  noSubTitle?: string;
+  openTime?: number;
+  closeTime?: number;
+  expirationTime?: number;
+  result?: string;
+  openInterest?: number;
+  canCloseEarly?: boolean;
+  earlyCloseCondition?: string;
+  rulesPrimary?: string;
+  rulesSecondary?: string;
+  yesBid?: string;
+  yesAsk?: string;
+  noBid?: string;
+  noAsk?: string;
   accounts?: {
     yesMint?: string;
     noMint?: string;
+    marketLedger?: string;
+    isInitialized?: boolean;
+    redemptionStatus?: string | null;
     [key: string]: any;
+  } | {
+    [key: string]: {
+      marketLedger?: string;
+      yesMint?: string;
+      noMint?: string;
+      isInitialized?: boolean;
+      redemptionStatus?: string | null;
+      [key: string]: any;
+    };
   };
   [key: string]: any; // For other fields that might exist
 }
@@ -68,12 +98,14 @@ export async function fetchMarkets(limit: number = 200): Promise<Market[]> {
 }
 
 export async function fetchEvents(
-  limit: number = 200,
+ 
+  limit: number = 500,
   options?: {
     status?: string;
     withNestedMarkets?: boolean;
   }
 ): Promise<Event[]> {
+ 
   try {
     const queryParams = new URLSearchParams();
     queryParams.append("limit", limit.toString());
@@ -85,6 +117,7 @@ export async function fetchEvents(
       queryParams.append("withNestedMarkets", "true");
     }
 
+   
     const response = await fetch(
       `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`,
       {
@@ -341,6 +374,36 @@ export async function fetchMarketsBatch(mints: string[]): Promise<Market[]> {
     return data.markets || [];
   } catch (error) {
     console.error("Error fetching markets batch:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch detailed market information by ticker
+ */
+export async function fetchMarketDetails(ticker: string): Promise<Market> {
+  try {
+    const response = await fetch(
+      `${METADATA_API_BASE_URL}/api/v1/market/${encodeURIComponent(ticker)}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API Error (${response.status}):`, errorText);
+      throw new Error(`Failed to fetch market details: ${response.status} ${response.statusText}`);
+    }
+
+    const market: Market = await response.json();
+    return market;
+  } catch (error) {
+    console.error("Error fetching market details:", error);
     throw error;
   }
 }

@@ -346,7 +346,7 @@ export default function Profile() {
 
   return (
     <div className="bg-[var(--surface)]/50 backdrop-blur-sm   rounded-2xl p-6">
-
+     
 
       {/* User Info Section */}
       <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
@@ -435,7 +435,7 @@ export default function Profile() {
                   onClick={async () => {
                     setCreatingWallet(true);
                     setError(null);
-
+                    
                     // Check if HTTPS is available
                     if (!isHttpsAvailable()) {
                       setError('Embedded wallets require HTTPS. Please use HTTPS or deploy to a staging environment.');
@@ -471,9 +471,9 @@ export default function Profile() {
                     {error.includes('HTTPS') && (
                       <p className="text-red-300/70 text-xs text-center mt-2">
                         For local development, you can use tools like{' '}
-                        <a
-                          href="https://github.com/FiloSottile/mkcert"
-                          target="_blank"
+                        <a 
+                          href="https://github.com/FiloSottile/mkcert" 
+                          target="_blank" 
                           rel="noopener noreferrer"
                           className="underline hover:text-red-200"
                         >
@@ -502,7 +502,7 @@ export default function Profile() {
         walletAddress={walletAddress || undefined}
       />
 
-
+    
 
       {/* User Trades Section */}
       {currentUserId && (
@@ -512,7 +512,7 @@ export default function Profile() {
       )}
 
       {/* User Discovery Section */}
-
+    
       {/* Followers/Following Modal */}
       <FollowersFollowingModal
         isOpen={modalOpen}

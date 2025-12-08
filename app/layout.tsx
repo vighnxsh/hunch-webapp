@@ -67,7 +67,7 @@ export default function RootLayout({
           <PrivyAuthProvider>
             <Navbar />
             <div className="md:pl-20">
-              {children}
+            {children}
             </div>
             <BottomNavbar />
           </PrivyAuthProvider>

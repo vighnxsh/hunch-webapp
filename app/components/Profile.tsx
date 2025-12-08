@@ -8,6 +8,7 @@ import UserPositions from './UserPositions';
 import UserTrades from './UserTrades';
 import CreditCard from './CreditCard';
 import { useTheme } from './ThemeProvider';
+import FollowersFollowingModal from './FollowersFollowingModal';
 
 export default function Profile() {
   const { ready, authenticated, user } = usePrivy();
@@ -28,6 +29,8 @@ export default function Profile() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'followers' | 'following'>('followers');
 
   // Check if HTTPS is available (required for embedded wallets)
   const isHttpsAvailable = () => {
@@ -343,7 +346,7 @@ export default function Profile() {
 
   return (
     <div className="bg-[var(--surface)]/50 backdrop-blur-sm   rounded-2xl p-6">
-     
+
 
       {/* User Info Section */}
       <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
@@ -368,22 +371,34 @@ export default function Profile() {
             {getUserEmail() && (
               <p className="text-[var(--text-secondary)] text-sm mb-2">{getUserEmail()}</p>
             )}
-            {/* Followers/Following Counts */}
+            {/* Followers/Following Counts - Clickable */}
             <div className="flex items-center gap-8 mt-4">
-              <div className="flex flex-col">
-                <span className="text-xl font-bold text-[var(--text-primary)]"> 234</span>
-                <span className="text-[var(--text-tertiary)] text-md">Followers</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-bold text-[var(--text-primary)]">41</span>
-                <span className="text-[var(--text-tertiary)] text-md">Following</span>
-              </div>
+              <button
+                onClick={() => {
+                  setModalType('followers');
+                  setModalOpen(true);
+                }}
+                className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
+              >
+                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-violet-400 transition-colors">{followersCount}</span>
+                <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Followers</span>
+              </button>
+              <button
+                onClick={() => {
+                  setModalType('following');
+                  setModalOpen(true);
+                }}
+                className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
+              >
+                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-violet-400 transition-colors">{followingCount}</span>
+                <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Following</span>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Wallet Creation Section (only shown if no wallet) */} 
+      {/* Wallet Creation Section (only shown if no wallet) */}
       {!walletAddress && (
         <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
           <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 uppercase tracking-wider">
@@ -420,7 +435,7 @@ export default function Profile() {
                   onClick={async () => {
                     setCreatingWallet(true);
                     setError(null);
-                    
+
                     // Check if HTTPS is available
                     if (!isHttpsAvailable()) {
                       setError('Embedded wallets require HTTPS. Please use HTTPS or deploy to a staging environment.');
@@ -456,9 +471,9 @@ export default function Profile() {
                     {error.includes('HTTPS') && (
                       <p className="text-red-300/70 text-xs text-center mt-2">
                         For local development, you can use tools like{' '}
-                        <a 
-                          href="https://github.com/FiloSottile/mkcert" 
-                          target="_blank" 
+                        <a
+                          href="https://github.com/FiloSottile/mkcert"
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="underline hover:text-red-200"
                         >
@@ -486,7 +501,7 @@ export default function Profile() {
         username={getUserDisplayName()}
       />
 
-    
+
 
       {/* User Trades Section */}
       {currentUserId && (
@@ -496,7 +511,15 @@ export default function Profile() {
       )}
 
       {/* User Discovery Section */}
-    
+
+      {/* Followers/Following Modal */}
+      <FollowersFollowingModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        userId={currentUserId || ''}
+        type={modalType}
+        currentUserId={currentUserId}
+      />
     </div>
   );
 }

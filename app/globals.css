@@ -282,6 +282,11 @@ html {
   transition: none !important;
 }
 
+/* Allow transform transitions for 3D effects */
+[style*="transform"] {
+  transition-property: transform !important;
+}
+
 /* Hide scrollbar utility */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -290,4 +295,13 @@ html {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Safe area for iOS devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }

@@ -499,6 +499,7 @@ export default function Profile() {
         solPrice={solPrice}
         tradesCount={tradesCount}
         username={getUserDisplayName()}
+        walletAddress={walletAddress || undefined}
       />
 
 

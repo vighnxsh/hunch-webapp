@@ -7,12 +7,12 @@ import { fetchEvents, fetchTagsByCategories, Event, TagsByCategories } from '../
 // Define topic filters with icons and keywords for matching
 const TOPIC_FILTERS = [
   { id: 'all', label: 'All', icon: '🌐', keywords: [] },
-  { id: 'crypto', label: 'Crypto', icon: '₿', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'coin'] },
-  { id: 'politics', label: 'Politics', icon: '🏛️', keywords: ['politics', 'election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'policy', 'bill'] },
-  { id: 'sports', label: 'Sports', icon: '⚽', keywords: ['sports', 'football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'racing', 'olympics', 'world cup', 'championship', 'game', 'match', 'playoff', 'super bowl'] },
-  { id: 'entertainment', label: 'Entertainment', icon: '🎬', keywords: ['entertainment', 'movie', 'film', 'music', 'celebrity', 'awards', 'oscar', 'grammy', 'emmy', 'tv', 'show', 'streaming', 'netflix', 'disney', 'spotify', 'concert', 'album'] },
-  { id: 'tech', label: 'Tech', icon: '💻', keywords: ['tech', 'technology', 'ai', 'artificial intelligence', 'apple', 'google', 'microsoft', 'amazon', 'meta', 'openai', 'chatgpt', 'software', 'hardware', 'iphone', 'startup', 'ipo'] },
-  { id: 'finance', label: 'Finance', icon: '📈', keywords: ['finance', 'stock', 'market', 'fed', 'interest rate', 'inflation', 'gdp', 'recession', 'economy', 'trading', 'investing', 'bank', 'wall street', 's&p', 'nasdaq', 'dow'] },
+  { id: 'crypto', label: 'Crypto', icon: '₿', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'] },
+  { id: 'politics', label: 'Politics', icon: '🏛️', keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'] },
+  { id: 'sports', label: 'Sports', icon: '⚽', keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'] },
+  { id: 'entertainment', label: 'Entertainment', icon: '🎬', keywords: ['movie', 'film', 'music', 'celebrity', 'awards', 'oscar', 'grammy', 'emmy', 'tv show', 'streaming', 'netflix', 'disney', 'spotify', 'concert', 'album', 'box office', 'actor', 'actress', 'singer', 'rapper'] },
+  { id: 'tech', label: 'Tech', icon: '💻', keywords: ['ai ', ' ai', 'artificial intelligence', 'openai', 'chatgpt', 'gpt-', 'llm', 'machine learning', 'robotics', 'autonomous', 'iphone', 'android', 'software', 'app launch', 'product launch', 'tech company', 'silicon valley', 'semiconductor', 'chip', 'nvidia'] },
+  { id: 'finance', label: 'Finance', icon: '📈', keywords: ['stock', 'fed ', 'federal reserve', 'interest rate', 'inflation', 'gdp', 'recession', 'economy', 'wall street', 's&p 500', 'nasdaq', 'dow jones', 'treasury', 'bond', 'yield', 'earnings', 'quarterly'] },
 ];
 
 export default function EventsList() {

@@ -16,8 +16,8 @@ export default function BottomNavbar() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-[var(--border-color)] bg-[var(--nav-bg)] backdrop-blur-xl">
-      <div className="flex justify-around items-center h-16 px-4">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-[var(--border-color)] bg-[var(--background)] backdrop-blur-xl safe-area-bottom">
+      <div className="flex justify-around items-center h-16 px-4 pb-safe">
         {/* Home Link - Left */}
         <Link
           href="/home"

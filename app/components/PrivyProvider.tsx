@@ -65,7 +65,7 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
           },
         },
         // Don't set default Ethereum chain - ensures no Ethereum wallets are created
-        defaultChain: undefined,
+       
       }}
     >
       {children}

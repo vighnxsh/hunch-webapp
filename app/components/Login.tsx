@@ -15,7 +15,12 @@ export default function Login() {
     },
     onError: (error) => {
       console.error('Login error:', error);
-      alert(`Login failed: ${String(error) || 'Unknown error'}`);
+      const errorMessage = String(error);
+      if (errorMessage.includes('Redirect URL is not allowed') || errorMessage.includes('401')) {
+        alert('Configuration Error: Please add http://localhost:3000 to your Privy app\'s allowed redirect URLs in the dashboard (Settings → OAuth → Redirect URLs)');
+      } else {
+        alert(`Login failed: ${errorMessage || 'Unknown error'}`);
+      }
     },
   });
 

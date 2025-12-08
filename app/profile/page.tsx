@@ -49,7 +49,7 @@ export default function ProfilePage() {
       <div className="fixed top-4 right-4 z-50">
         <button
           onClick={toggleTheme}
-          className="p-3 rounded-full bg-[var(--surface)] border border-[var(--border-color)] shadow-lg transition-all duration-200 hover:scale-110"
+          className="p-3 rounded-full bg-surface border border-border shadow-lg transition-all duration-200 hover:scale-110"
           title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
         >
           {theme === 'dark' ? (

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useFundWallet } from '@privy-io/react-auth/solana';
+import WithdrawModal from './WithdrawModal';
 
 interface CreditCardProps {
   theme: 'light' | 'dark';
@@ -26,14 +27,28 @@ export default function CreditCard({
 }: CreditCardProps) {
   const [flipped, setFlipped] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { fundWallet } = useFundWallet();
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+  const { fundWallet } = useFundWallet({
+    onUserExited() {
+      // Modal has been closed by the user
+      // This callback ensures the modal state is properly handled
+    },
+  });
 
   return (
     <div className="mb-6">
-      <button
-        type="button"
+      <div
         onClick={() => setFlipped((f) => !f)}
-        className="relative w-full max-w-md mx-auto aspect-[1.586/1] [perspective:1200px] focus:outline-none cursor-pointer block"
+        className="relative w-full max-w-md mx-auto aspect-[1.586/1] [perspective:1200px] focus:outline-none cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setFlipped((f) => !f);
+          }
+        }}
+        aria-label="Flip card"
       >
         <div
           className="relative h-full w-full [transform-style:preserve-3d]"
@@ -227,9 +242,6 @@ export default function CreditCard({
                       try {
                         await fundWallet({
                           address: walletAddress,
-                          options: {
-                            cluster: { name: 'mainnet-beta' },
-                          },
                         });
                       } catch (err) {
                         console.error('Fund wallet error:', err);
@@ -250,25 +262,10 @@ export default function CreditCard({
                 
                 <button
                   type="button"
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.stopPropagation();
-                    // Show receive/QR screen for withdrawing to external wallet
                     if (walletAddress) {
-                      try {
-                        await fundWallet({
-                          address: walletAddress,
-                          options: {
-                            cluster: { name: 'mainnet-beta' },
-                            defaultFundingMethod: 'manual',
-                            uiConfig: {
-                              receiveFundsTitle: 'Your Wallet Address',
-                              receiveFundsSubtitle: 'Send SOL from this address to withdraw to an external wallet.',
-                            },
-                          },
-                        });
-                      } catch (err) {
-                        console.error('Withdraw error:', err);
-                      }
+                      setWithdrawModalOpen(true);
                     }
                   }}
                   className={`flex-1 py-2.5 sm:py-3 px-4 font-bold rounded-xl transition-all text-sm sm:text-base flex items-center justify-center gap-2 ${
@@ -310,7 +307,17 @@ export default function CreditCard({
             }`} />
           </div>
         </div>
-      </button>
+      </div>
+
+      {/* Withdraw Modal */}
+      {walletAddress && (
+        <WithdrawModal
+          isOpen={withdrawModalOpen}
+          onClose={() => setWithdrawModalOpen(false)}
+          walletAddress={walletAddress}
+          solBalance={solBalance}
+        />
+      )}
     </div>
   );
 }

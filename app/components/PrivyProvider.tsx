@@ -1,6 +1,7 @@
 'use client';
 
 import { PrivyProvider } from '@privy-io/react-auth';
+import {createSolanaRpc, createSolanaRpcSubscriptions} from '@solana/kit';
 import { ReactNode } from 'react';
 
 interface PrivyAuthProviderProps {
@@ -10,6 +11,8 @@ interface PrivyAuthProviderProps {
 export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+  // WebSocket URL for subscriptions (can be configured via env var, defaults to mainnet)
+  const wsUrl = process.env.NEXT_PUBLIC_SOLANA_WS_URL || 'wss://api.mainnet-beta.solana.com';
 
   // Show a helpful message if Privy App ID is not configured
   if (!appId) {
@@ -51,6 +54,14 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
     <PrivyProvider
       appId={appId}
       config={{
+        solana: {
+          rpcs: {
+            'solana:mainnet': {
+              rpc: createSolanaRpc(rpcUrl),
+              rpcSubscriptions: createSolanaRpcSubscriptions(wsUrl),
+            },
+          },
+        },
         appearance: {
           theme: 'dark',
           accentColor: '#8B5CF6',
@@ -61,11 +72,8 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
         embeddedWallets: {
           solana: {
             createOnLogin: 'users-without-wallets' as const,
-            // Don't require RPC connection for wallet creation
           },
         },
-        // Don't set default Ethereum chain - ensures no Ethereum wallets are created
-       
       }}
     >
       {children}

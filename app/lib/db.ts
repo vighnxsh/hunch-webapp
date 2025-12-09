@@ -10,6 +10,7 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+
 // Create PostgreSQL connection pool
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {

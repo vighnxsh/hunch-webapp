@@ -83,10 +83,36 @@ export default function CreditCard({
           }`} />
         </div>
         
-        {/* Card Content */}
+            {/* Card Content */}
             <div className="relative h-full px-4 pb-4 pt-3 sm:px-7 sm:pb-7 sm:pt-4 flex flex-col justify-between">
               {/* Top Row */}
-              <div className="flex items-start justify-end">
+              <div className="flex items-start justify-between">
+                {/* Fund Wallet Button - Top Left */}
+                {!loading && solBalance !== null && solBalance === 0 && walletAddress ? (
+                 
+                 <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (walletAddress) {
+                        try {
+                          await fundWallet({
+                            address: walletAddress,
+                          });
+                        } catch (err) {
+                          console.error('Fund wallet error:', err);
+                        }
+                      }
+                    }}
+                    className={`px-4 py-2 sm:px-5 sm:py-2.5 opacity-80 font-semibold tracking-wider rounded-xl transition-all text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer ${
+                      theme === 'light'
+                        ? ' text-gray-800'
+                        : ' text-white'
+                    }`}
+                  >
+                    Fund Wallet
+                  </button>
+                ) : null}
                 <span className={`text-[10px] sm:text-xs uppercase tracking-wider ${
                   theme === 'light' ? 'text-gray-600' : 'text-white/50'
                 }`}>
@@ -95,32 +121,34 @@ export default function CreditCard({
           </div>
           
           {/* Middle Row - Cash Balance */}
-              <div className="flex-1 flex flex-col justify-center items-start -mt-2">
-                <p className={`text-sm sm:text-sm font-medium tracking-wider uppercase mb-1 ${
-                  theme === 'light' ? 'text-black/80' : 'text-white/60'
-            }`}>Cash Balance</p>
-            <div className="flex items-baseline gap-2">
-              {loading ? (
-                    <div className={`h-8 w-24 sm:h-12 sm:w-36 rounded animate-pulse ${
-                  theme === 'light' ? 'bg-gray-300/50' : 'bg-white/20'
-                }`} />
-              ) : error ? (
-                    <span className={`text-2xl sm:text-4xl font-bold ${
-                  theme === 'light' ? 'text-gray-400' : 'text-black'
-                }`}>--</span>
-              ) : solBalance !== null && solPrice !== null ? (
-                    <span className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
-                      theme === 'light' ? 'text-slate-900' : 'text-white'
-                  }`}>
-                    ${(solBalance * solPrice).toFixed(2)}
-                  </span>
-              ) : (
-                    <span className={`text-2xl sm:text-4xl font-bold ${
-                  theme === 'light' ? 'text-gray-700' : 'text-white/80'
-                }`}>$0.00</span>
+              {!(solBalance !== null && solBalance === 0) && (
+                <div className="flex-1 flex flex-col justify-center items-start -mt-2">
+                  <p className={`text-sm sm:text-sm font-medium tracking-wider uppercase mb-1 ${
+                    theme === 'light' ? 'text-black/80' : 'text-white/60'
+                  }`}>Cash Balance</p>
+                  <div className="flex items-baseline gap-2">
+                    {loading ? (
+                      <div className={`h-8 w-24 sm:h-12 sm:w-36 rounded animate-pulse ${
+                        theme === 'light' ? 'bg-gray-300/50' : 'bg-white/20'
+                      }`} />
+                    ) : error ? (
+                      <span className={`text-2xl sm:text-4xl font-bold ${
+                        theme === 'light' ? 'text-gray-400' : 'text-black'
+                      }`}>--</span>
+                    ) : solBalance !== null && solPrice !== null ? (
+                      <span className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
+                        theme === 'light' ? 'text-slate-900' : 'text-white'
+                      }`}>
+                        ${(solBalance * solPrice).toFixed(2)}
+                      </span>
+                    ) : (
+                      <span className={`text-2xl sm:text-4xl font-bold ${
+                        theme === 'light' ? 'text-gray-700' : 'text-white/80'
+                      }`}>$0.00</span>
+                    )}
+                  </div>
+                </div>
               )}
-            </div>
-          </div>
           
           {/* Bottom Row - Stats */}
           <div className="flex items-end justify-between">

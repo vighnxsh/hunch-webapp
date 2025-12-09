@@ -11,13 +11,14 @@ import { fetchMarketProbabilities, MarketProbabilities } from '../lib/probabilit
 
 interface TradeMarketProps {
   market: Market;
+  initialSide?: 'yes' | 'no';
 }
 
-export default function TradeMarket({ market }: TradeMarketProps) {
+export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarketProps) {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
-  const [side, setSide] = useState<'yes' | 'no'>('yes');
+  const [side, setSide] = useState<'yes' | 'no'>(initialSide);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string>('');
@@ -31,12 +32,17 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
   // Get the first Solana wallet from useWallets (already returns only Solana wallets)
   const solanaWallet = wallets[0];
-  
+
   const walletAddress = solanaWallet?.address;
   const activeWallet = solanaWallet;
 
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
   const connection = new Connection(rpcUrl, 'confirmed');
+
+  // Update side when initialSide changes
+  useEffect(() => {
+    setSide(initialSide);
+  }, [initialSide]);
 
   // Fetch market probabilities
   useEffect(() => {
@@ -68,7 +74,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
           return mint;
         }
       }
-      
+
       const accountKeys = Object.keys(market.accounts);
       for (const key of accountKeys) {
         const account = (market.accounts as any)[key];
@@ -80,12 +86,12 @@ export default function TradeMarket({ market }: TradeMarketProps) {
         }
       }
     }
-    
+
     const mint = type === 'yes' ? market.yesMint : market.noMint;
     if (mint) {
       return mint;
     }
-    
+
     return undefined;
   };
 
@@ -117,7 +123,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
       }
 
       const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000);
-      
+
       if (amountInSmallestUnit < 1) {
         setStatus('❌ Amount too small. Minimum is 0.000001 USDC');
         setLoading(false);
@@ -159,7 +165,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
       );
 
       setStatus('Signing and submitting transaction...');
-      
+
       // Use Privy's signAndSendTransaction to sign and send in one call
       const result = await signAndSendTransaction({
         transaction: transactionBytes,
@@ -170,7 +176,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
       // Convert Uint8Array to base58 string for Solana (Solana uses base58 encoding)
       // Try to use bs58 if available, otherwise use a workaround
       let signatureString: string;
-      
+
       // Check if result.signature is already a string (some Privy versions might return string)
       if (typeof result.signature === 'string') {
         signatureString = result.signature;
@@ -243,8 +249,8 @@ export default function TradeMarket({ market }: TradeMarketProps) {
         body: JSON.stringify({
           privyId: user.id,
           walletAddress: walletAddress,
-          displayName: user.twitter?.username 
-            ? `@${user.twitter.username}` 
+          displayName: user.twitter?.username
+            ? `@${user.twitter.username}`
             : user.google?.email?.split('@')[0] || null,
           avatarUrl: user.twitter?.profilePictureUrl || null,
         }),
@@ -359,19 +365,7 @@ export default function TradeMarket({ market }: TradeMarketProps) {
   const displayTitle = formatMarketTitle(market.title || 'Untitled Market', market.ticker);
 
   return (
-    <div className="bg-[var(--card-bg)]/30 rounded-xl p-5 border border-[var(--border-color)]">
-    
-      {dateInfo.formattedDate && (
-        <div className="mb-3 p-2 bg-violet-500/10 border border-violet-500/30 rounded-lg">
-          <p className="text-sm font-medium text-violet-300">
-            End date: {dateInfo.formattedDate}
-          </p>
-        </div>
-      )}
-      <p className="text-xs text-[var(--text-tertiary)] mb-4 font-mono">
-        {market.ticker}
-      </p>
-
+    <div className="space-y-4">
       <div className="space-y-4">
         {/* Side Selection */}
         <div>
@@ -379,27 +373,27 @@ export default function TradeMarket({ market }: TradeMarketProps) {
             Position
           </label>
           {/* Probability Display */}
-          {market.status === 'active' && !probabilities.loading && 
-           (probabilities.yesProbability !== null || probabilities.noProbability !== null) && (
-            <div className="flex gap-2 mb-2">
-              <div className="flex-1 text-center">
-                <div className="text-xs text-[var(--text-tertiary)] mb-1">YES Probability</div>
-                <div className="text-lg font-bold text-green-400">
-                  {probabilities.yesProbability !== null 
-                    ? `${probabilities.yesProbability}%` 
-                    : '--'}
+          {market.status === 'active' && !probabilities.loading &&
+            (probabilities.yesProbability !== null || probabilities.noProbability !== null) && (
+              <div className="flex gap-2 mb-2">
+                <div className="flex-1 text-center">
+                  <div className="text-xs text-[var(--text-tertiary)] mb-1">YES Probability</div>
+                  <div className="text-lg font-bold text-green-400">
+                    {probabilities.yesProbability !== null
+                      ? `${probabilities.yesProbability}%`
+                      : '--'}
+                  </div>
+                </div>
+                <div className="flex-1 text-center">
+                  <div className="text-xs text-[var(--text-tertiary)] mb-1">NO Probability</div>
+                  <div className="text-lg font-bold text-red-400">
+                    {probabilities.noProbability !== null
+                      ? `${probabilities.noProbability}%`
+                      : '--'}
+                  </div>
                 </div>
               </div>
-              <div className="flex-1 text-center">
-                <div className="text-xs text-[var(--text-tertiary)] mb-1">NO Probability</div>
-                <div className="text-lg font-bold text-red-400">
-                  {probabilities.noProbability !== null 
-                    ? `${probabilities.noProbability}%` 
-                    : '--'}
-                </div>
-              </div>
-            </div>
-          )}
+            )}
           {probabilities.loading && market.status === 'active' && (
             <div className="flex items-center justify-center gap-2 mb-2 text-xs text-[var(--text-tertiary)]">
               <div className="h-3 w-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
@@ -409,21 +403,19 @@ export default function TradeMarket({ market }: TradeMarketProps) {
           <div className="flex gap-2">
             <button
               onClick={() => setSide('yes')}
-              className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                side === 'yes'
-                  ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
-                  : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
-              }`}
+              className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${side === 'yes'
+                ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
+                : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
+                }`}
             >
               YES
             </button>
             <button
               onClick={() => setSide('no')}
-              className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                side === 'no'
-                  ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
-                  : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
-              }`}
+              className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${side === 'no'
+                ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
+                : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
+                }`}
             >
               NO
             </button>
@@ -477,13 +469,12 @@ export default function TradeMarket({ market }: TradeMarketProps) {
 
         {/* Status */}
         {status && (
-          <p className={`text-sm p-3 rounded-lg ${
-            status.includes('✅') 
-              ? 'bg-green-500/10 text-green-400 border border-green-500/30' 
-              : status.includes('❌') 
-              ? 'bg-red-500/10 text-red-400 border border-red-500/30' 
+          <p className={`text-sm p-3 rounded-lg ${status.includes('✅')
+            ? 'bg-green-500/10 text-green-400 border border-green-500/30'
+            : status.includes('❌')
+              ? 'bg-red-500/10 text-red-400 border border-red-500/30'
               : 'bg-violet-500/10 text-violet-400 border border-violet-500/30'
-          }`}>
+            }`}>
             {status}
           </p>
         )}

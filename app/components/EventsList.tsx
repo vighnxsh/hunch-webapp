@@ -1,30 +1,114 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchEvents, fetchTagsByCategories, Event, TagsByCategories } from '../lib/api';
 
-// Define topic filters with icons and keywords for matching
+// Topic filters with gradient colors
 const TOPIC_FILTERS = [
-  { id: 'all', label: 'All', icon: '🌐', keywords: [] },
-  { id: 'crypto', label: 'Crypto', icon: '₿', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'] },
-  { id: 'politics', label: 'Politics', icon: '🏛️', keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'] },
-  { id: 'sports', label: 'Sports', icon: '⚽', keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'] },
-  { id: 'entertainment', label: 'Entertainment', icon: '🎬', keywords: ['movie', 'film', 'music', 'celebrity', 'awards', 'oscar', 'grammy', 'emmy', 'tv show', 'streaming', 'netflix', 'disney', 'spotify', 'concert', 'album', 'box office', 'actor', 'actress', 'singer', 'rapper'] },
-  { id: 'tech', label: 'Tech', icon: '💻', keywords: ['ai ', ' ai', 'artificial intelligence', 'openai', 'chatgpt', 'gpt-', 'llm', 'machine learning', 'robotics', 'autonomous', 'iphone', 'android', 'software', 'app launch', 'product launch', 'tech company', 'silicon valley', 'semiconductor', 'chip', 'nvidia'] },
-  { id: 'finance', label: 'Finance', icon: '📈', keywords: ['stock', 'fed ', 'federal reserve', 'interest rate', 'inflation', 'gdp', 'recession', 'economy', 'wall street', 's&p 500', 'nasdaq', 'dow jones', 'treasury', 'bond', 'yield', 'earnings', 'quarterly'] },
+  { id: 'all', label: 'All', icon: '🌐', keywords: [], color: 'violet' },
+  { id: 'crypto', label: 'Crypto', icon: '₿', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'], color: 'orange' },
+  { id: 'politics', label: 'Politics', icon: '🏛️', keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'], color: 'blue' },
+  { id: 'sports', label: 'Sports', icon: '⚽', keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'], color: 'green' },
+  { id: 'entertainment', label: 'Fun', icon: '🎬', keywords: ['movie', 'film', 'music', 'celebrity', 'awards', 'oscar', 'grammy', 'emmy', 'tv show', 'streaming', 'netflix', 'disney', 'spotify', 'concert', 'album', 'box office', 'actor', 'actress', 'singer', 'rapper'], color: 'pink' },
+  { id: 'tech', label: 'Tech', icon: '💻', keywords: ['ai ', ' ai', 'artificial intelligence', 'openai', 'chatgpt', 'gpt-', 'llm', 'machine learning', 'robotics', 'autonomous', 'iphone', 'android', 'software', 'app launch', 'product launch', 'tech company', 'silicon valley', 'semiconductor', 'chip', 'nvidia'], color: 'indigo' },
+  { id: 'finance', label: 'Finance', icon: '📈', keywords: ['stock', 'fed ', 'federal reserve', 'interest rate', 'inflation', 'gdp', 'recession', 'economy', 'wall street', 's&p 500', 'nasdaq', 'dow jones', 'treasury', 'bond', 'yield', 'earnings', 'quarterly'], color: 'teal' },
 ];
+
+const EVENTS_PER_PAGE = 20;
+
+// Event Card Component with Image Left, Content Right
+function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
+  // Get top 2 markets from the event
+  const hotMarkets = (event.markets || []).slice(0, 2);
+
+  return (
+    <div
+      onClick={onClick}
+      className="group flex bg-[var(--surface)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:bg-[var(--surface-hover)] active:scale-[0.99]"
+    >
+      {/* Image - Left Side */}
+      <div className="relative w-32 h-auto min-h-[140px] flex-shrink-0">
+        {event.imageUrl ? (
+          <>
+            <img
+              src={event.imageUrl}
+              alt={event.title}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[var(--surface)]/20" />
+          </>
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+            <span className="text-3xl opacity-50">📊</span>
+          </div>
+        )}
+        {/* Live badge */}
+        <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-md">
+          <div className="w-2 h-2 rounded-full bg-green-400" />
+          <span className="text-[9px] font-bold text-white uppercase">Live</span>
+        </div>
+      </div>
+
+      {/* Content - Right Side */}
+      <div className="flex-1 p-4 min-w-0 flex flex-col justify-center">
+        {/* Title */}
+        <h3 className="font-semibold text-[var(--text-primary)] leading-snug line-clamp-2 text-[15px] group-hover:text-violet-400 transition-colors">
+          {event.title || 'Untitled Event'}
+        </h3>
+
+        {/* Hot Markets */}
+        {hotMarkets.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {hotMarkets.map((market: any, idx: number) => {
+              const label = market.yesSubTitle || market.noSubTitle || market.subtitle || `Option ${idx + 1}`;
+              const yesPrice = market.yesAsk ? Math.round(parseFloat(market.yesAsk) * 100) : null;
+              const noPrice = market.noAsk ? Math.round(parseFloat(market.noAsk) * 100) : null;
+
+              return (
+                <div key={market.ticker || idx} className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-[var(--text-secondary)] truncate">
+                    {label}
+                  </span>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <span className="px-1.5 py-0.5 rounded bg-green-500/15 text-[10px] font-bold text-green-400">
+                      {yesPrice !== null ? `${yesPrice}¢` : '—'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-[10px] font-bold text-red-400">
+                      {noPrice !== null ? `${noPrice}¢` : '—'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Fallback if no markets */}
+        {hotMarkets.length === 0 && event.subtitle && (
+          <p className="text-xs text-[var(--text-tertiary)] line-clamp-2 mt-2">
+            {event.subtitle}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 export default function EventsList() {
   const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string>('all');
   const [apiCategories, setApiCategories] = useState<TagsByCategories>({});
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [hasMore, setHasMore] = useState(true);
+  const observerTarget = useRef<HTMLDivElement>(null);
 
-  // Fetch categories from API (for future use)
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -37,34 +121,36 @@ export default function EventsList() {
     loadCategories();
   }, []);
 
+  const filterActiveEvents = (eventsList: Event[]) => {
+    return eventsList.filter((event) => {
+      if (event.markets && event.markets.length > 0) {
+        return event.markets.some(
+          (market: any) =>
+            market.status !== 'finalized' &&
+            market.status !== 'resolved' &&
+            market.status !== 'closed' &&
+            market.status === 'active'
+        );
+      }
+      return true;
+    });
+  };
+
   useEffect(() => {
     const loadEvents = async () => {
       try {
         setLoading(true);
         setError(null);
-        // Fetch events with nested markets and filter by active status
-        const data = await fetchEvents(200, {
+        const response = await fetchEvents(EVENTS_PER_PAGE, {
           status: 'active',
           withNestedMarkets: true,
         });
-        // Additional client-side filtering for safety
-        const activeEvents = data.filter((event) => {
-          // Check if event has markets and filter by market status
-          if (event.markets && event.markets.length > 0) {
-            // Keep event if it has at least one active market
-            return event.markets.some(
-              (market: any) =>
-                market.status !== 'finalized' &&
-                market.status !== 'resolved' &&
-                market.status !== 'closed' &&
-                market.status === 'active'
-            );
-          }
-          // If no markets info, include the event (will be filtered when details load)
-          return true;
-        });
+
+        const activeEvents = filterActiveEvents(response.events || []);
         setEvents(activeEvents);
         setFilteredEvents(activeEvents);
+        setCursor(response.cursor);
+        setHasMore(!!response.cursor);
       } catch (err: any) {
         setError(err.message || 'Failed to load events');
         console.error('Error loading events:', err);
@@ -76,7 +162,50 @@ export default function EventsList() {
     loadEvents();
   }, []);
 
-  // Filter events when topic changes
+  const loadMoreEvents = useCallback(async () => {
+    if (!cursor || loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      const response = await fetchEvents(EVENTS_PER_PAGE, {
+        status: 'active',
+        withNestedMarkets: true,
+        cursor,
+      });
+
+      const activeEvents = filterActiveEvents(response.events || []);
+      setEvents(prev => [...prev, ...activeEvents]);
+      setCursor(response.cursor);
+      setHasMore(!!response.cursor);
+    } catch (err: any) {
+      console.error('Error loading more events:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [cursor, loadingMore, hasMore]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMoreEvents();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, loadingMore, loadMoreEvents]);
+
   useEffect(() => {
     if (selectedTopic === 'all') {
       setFilteredEvents(events);
@@ -101,135 +230,117 @@ export default function EventsList() {
     router.push(`/event/${encodeURIComponent(eventTicker)}`);
   };
 
-  const handleTopicChange = (topicId: string) => {
-    setSelectedTopic(topicId);
-  };
-
+  // Loading skeleton
   if (loading) {
     return (
-      <div className="bg-[var(--surface)]/50 backdrop-blur-sm border border-[var(--border-color)] rounded-2xl p-6">
-        <h2 className="text-2xl font-bold mb-6 text-[var(--text-primary)]">
-          Events
-        </h2>
-        {/* Topic Filter Skeleton */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-10 w-24 bg-[var(--surface-hover)] rounded-full animate-pulse flex-shrink-0" />
+      <div className="space-y-4">
+        {/* Filter skeleton */}
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <div key={i} className="h-9 w-20 bg-[var(--surface)] rounded-full animate-pulse flex-shrink-0" />
           ))}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        {/* Cards skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div
-              key={i}
-              className="h-36 bg-[var(--surface-hover)] rounded-xl animate-pulse"
-            />
+            <div key={i} className="h-36 bg-[var(--surface)] rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <div className="bg-[var(--surface)]/50 backdrop-blur-sm border border-[var(--border-color)] rounded-2xl p-6">
-        <h2 className="text-2xl font-bold mb-6 text-[var(--text-primary)]">
-          Events
-        </h2>
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-          <p className="text-red-400">Error: {error}</p>
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="w-14 h-14 mb-4 bg-red-500/10 rounded-2xl flex items-center justify-center">
+          <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </div>
+        <p className="text-[var(--text-secondary)] text-sm mb-3">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-xl"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="bg-[var(--surface)]/50 backdrop-blur-sm border border-[var(--border-color)] rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-[var(--text-primary)]">
-            Events
-          </h2>
-          <span className="px-3 py-1 bg-fuchsia-500/20 text-fuchsia-400 text-sm font-medium rounded-lg border border-fuchsia-500/30">
-            {filteredEvents.length} active
-          </span>
-        </div>
-
-        {/* Topic Filters */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-          {TOPIC_FILTERS.map((topic) => (
+    <div className="space-y-4">
+      {/* Filters - Horizontal scroll on mobile */}
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+        {TOPIC_FILTERS.map((topic) => {
+          const isSelected = selectedTopic === topic.id;
+          return (
             <button
               key={topic.id}
-              onClick={() => handleTopicChange(topic.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-all duration-200 flex-shrink-0 ${
-                selectedTopic === topic.id
-                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30'
-                  : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] border border-[var(--border-color)]'
-              }`}
+              onClick={() => setSelectedTopic(topic.id)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-200 flex-shrink-0 ${isSelected
+                ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/25'
+                : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
             >
-              <span className="text-base">{topic.icon}</span>
+              <span className="text-sm">{topic.icon}</span>
               <span>{topic.label}</span>
-              {selectedTopic === topic.id && topic.id !== 'all' && (
-                <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded-full text-xs">
+              {isSelected && filteredEvents.length > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-full text-[10px] font-bold">
                   {filteredEvents.length}
                 </span>
               )}
             </button>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredEvents.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 bg-[var(--surface-hover)] rounded-2xl flex items-center justify-center">
-                <span className="text-3xl">
-                  {TOPIC_FILTERS.find(t => t.id === selectedTopic)?.icon || '🔍'}
-                </span>
-              </div>
-              <p className="text-[var(--text-tertiary)] mb-2">
-                No {selectedTopic !== 'all' ? TOPIC_FILTERS.find(t => t.id === selectedTopic)?.label : ''} events found
-              </p>
-              {selectedTopic !== 'all' && (
-                <button
-                  onClick={() => setSelectedTopic('all')}
-                  className="text-violet-400 hover:text-violet-300 text-sm font-medium transition-colors"
-                >
-                  View all events →
-                </button>
-              )}
+      {/* Events Grid - 1 col mobile, 2 cols tablet, 3 cols desktop */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredEvents.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center justify-center py-16">
+            <div className="w-16 h-16 mb-4 rounded-2xl bg-[var(--surface)] flex items-center justify-center">
+              <span className="text-3xl">{TOPIC_FILTERS.find(t => t.id === selectedTopic)?.icon || '🔍'}</span>
             </div>
-          ) : (
-            filteredEvents.map((event, index) => (
-              <div
-                key={event.ticker || index}
-                onClick={() => handleEventClick(event.ticker)}
-                className="group p-5 bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl hover:border-violet-500/50 hover:bg-[var(--surface-hover)] transition-all duration-300 cursor-pointer"
+            <p className="text-[var(--text-secondary)] text-sm mb-3">No events found</p>
+            {selectedTopic !== 'all' && (
+              <button
+                onClick={() => setSelectedTopic('all')}
+                className="text-violet-400 text-sm font-medium"
               >
-                <div className="mb-3">
-                  <p className="text-xs font-mono text-[var(--text-tertiary)] mb-2">
-                    {event.ticker}
-                  </p>
-                  <h3 className="font-semibold text-lg text-[var(--text-primary)] mb-2 group-hover:text-violet-400 transition-colors">
-                    {event.title || 'Untitled Event'}
-                  </h3>
-                  {event.subtitle && (
-                    <p className="text-sm text-[var(--text-secondary)] line-clamp-2">
-                      {event.subtitle}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--border-color)]">
-                  <span className="text-xs text-[var(--text-tertiary)] group-hover:text-violet-400 transition-colors">
-                    Click to view details
-                  </span>
-                  <svg className="w-4 h-4 text-[var(--text-tertiary)] group-hover:text-violet-400 group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            ))
+                View all →
+              </button>
+            )}
+          </div>
+        ) : (
+          filteredEvents.map((event, index) => (
+            <EventCard
+              key={event.ticker || index}
+              event={event}
+              onClick={() => handleEventClick(event.ticker)}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Infinite scroll trigger */}
+      {hasMore && (
+        <div ref={observerTarget} className="flex justify-center py-6">
+          {loadingMore && (
+            <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           )}
         </div>
-      </div>
-    </>
+      )}
+
+      {/* End indicator */}
+      {!hasMore && events.length > 0 && (
+        <p className="text-center text-xs text-[var(--text-tertiary)] py-4">
+          That's all for now
+        </p>
+      )}
+    </div>
   );
 }

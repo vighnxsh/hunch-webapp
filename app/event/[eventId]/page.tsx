@@ -162,102 +162,98 @@ export default function EventPage() {
                     
                     const yesMint = getMintAddress(marketData, 'yes');
                     const noMint = getMintAddress(marketData, 'no');
-                    const dateInfo = parseMarketTicker(marketData.ticker);
-                    const displayTitle = formatMarketTitle(marketData.title || 'Untitled Market', marketData.ticker);
+                    
+                    // Use subtitle instead of full title
+                    const displayTitle = marketData.yesSubTitle || marketData.noSubTitle || marketData.subtitle || 'Market Option';
+                    
+                    // Calculate prices
+                    const yesPrice = marketData.yesAsk ? Math.round(parseFloat(marketData.yesAsk) * 100) : null;
+                    const noPrice = marketData.noAsk ? Math.round(parseFloat(marketData.noAsk) * 100) : null;
 
                     // Format dates
                     const formatDate = (timestamp?: number) => {
                       if (!timestamp) return null;
                       return new Date(timestamp * 1000).toLocaleDateString('en-US', {
-                        year: 'numeric',
                         month: 'short',
                         day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                        year: 'numeric'
                       });
                     };
 
                     return (
                       <div
                         key={marketData.ticker || index}
-                        className="p-5 bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl hover:border-violet-500/30 transition-all"
+                        className="p-4 bg-[var(--surface)] rounded-2xl hover:bg-[var(--surface-hover)] transition-all"
                       >
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex-1 pr-4">
-                            <h3 className="font-semibold text-[var(--text-primary)] mb-2 text-lg">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-3 mb-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-[var(--text-primary)] text-lg leading-tight">
                               {displayTitle}
                             </h3>
-                            {marketData.subtitle && (
-                              <p className="text-sm text-[var(--text-secondary)] mb-2">{marketData.subtitle}</p>
+                            {marketData.closeTime && (
+                              <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                                Closes {formatDate(marketData.closeTime)}
+                              </p>
                             )}
-                            <ShareBlink market={marketData} />
-                          
-                            {/* Market Probabilities */}
-                           
-                            {/* Market Stats */}
-                            <div className="flex flex-wrap gap-3 mt-3 text-xs">
-                              {marketData.volume !== undefined && (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[var(--text-tertiary)]">Volume:</span>
-                                  <span className="text-[var(--text-primary)] font-semibold">
-                                    ${marketData.volume.toLocaleString()}
-                                  </span>
-                                </div>
-                              )}
-                              {marketData.openInterest !== undefined && (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[var(--text-tertiary)]">Open Interest:</span>
-                                  <span className="text-violet-400 font-semibold">
-                                    ${marketData.openInterest.toLocaleString()}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-
-                           
-
-                           
-
-                            {/* Market Timing */}
-                            {(marketData.openTime || marketData.closeTime) && (
-                              <div className="mt-2 text-xs text-[var(--text-tertiary)]">
-                                {marketData.openTime && (
-                                  <div>Opens: {formatDate(marketData.openTime)}</div>
-                                )}
-                                {marketData.closeTime && (
-                                  <div>Closes: {formatDate(marketData.closeTime)}</div>
-                                )}
-                              </div>
-                            )}
-
-                            {isLoadingDetails && (
-                              <div className="mt-2 flex items-center gap-2 text-xs text-[var(--text-tertiary)]">
-                                <div className="h-3 w-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                                <span>Loading details...</span>
-                              </div>
-                            )}
-                          
                           </div>
-                         
-                          <span
-                            className={`px-3 py-1 text-xs font-semibold rounded-lg shrink-0 ${
-                              marketData.status === 'active'
-                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                : marketData.status === 'resolved'
-                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)] border border-[var(--border-color)]'
-                            }`}
-                          >
-                          
+                          <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-md flex-shrink-0 ${
+                            marketData.status === 'active'
+                              ? 'bg-green-500/15 text-green-400'
+                              : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)]'
+                          }`}>
                             {marketData.status || 'unknown'}
                           </span>
                         </div>
+                        
+                        {/* Prices */}
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="flex-1 p-3 bg-green-500/10 rounded-xl text-center">
+                            <div className="text-xs text-green-400 mb-1">Yes</div>
+                            <div className="text-xl font-bold text-green-400">
+                              {yesPrice !== null ? `${yesPrice}¢` : '—'}
+                            </div>
+                          </div>
+                          <div className="flex-1 p-3 bg-red-500/10 rounded-xl text-center">
+                            <div className="text-xs text-red-400 mb-1">No</div>
+                            <div className="text-xl font-bold text-red-400">
+                              {noPrice !== null ? `${noPrice}¢` : '—'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="flex items-center gap-4 text-xs text-[var(--text-tertiary)] mb-4">
+                          {marketData.volume !== undefined && (
+                            <div>
+                              <span className="text-[var(--text-secondary)] font-medium">
+                                ${(marketData.volume / 100).toLocaleString()}
+                              </span>
+                              {' '}vol
+                            </div>
+                          )}
+                          {marketData.openInterest !== undefined && (
+                            <div>
+                              <span className="text-[var(--text-secondary)] font-medium">
+                                ${(marketData.openInterest / 100).toLocaleString()}
+                              </span>
+                              {' '}open
+                            </div>
+                          )}
+                        </div>
+
+                        {isLoadingDetails && (
+                          <div className="flex items-center gap-2 text-xs text-[var(--text-tertiary)] mb-3">
+                            <div className="h-3 w-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                            <span>Loading...</span>
+                          </div>
+                        )}
                        
                         {/* Trading Component and Share Blink */}
                         {marketData.status === 'active' && (
-                          <div className="mt-4 pt-4 border-t border-[var(--border-color)] space-y-3">
+                          <div className="pt-3 border-t border-[var(--border-color)]/50 space-y-3">
                             <TradeMarket market={marketData} />
-                           
+                            <ShareBlink market={marketData} />
                           </div>
                         )}
                       </div>

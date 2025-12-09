@@ -54,11 +54,17 @@ export interface Event {
   ticker: string;
   title: string;
   subtitle?: string;
+  imageUrl?: string;
+  volume?: number;
+  volume24h?: number;
+  liquidity?: number;
+  openInterest?: number;
   [key: string]: any; // For other fields that might exist
 }
 
 export interface EventsResponse {
   events: Event[];
+  cursor?: string; // Cursor for pagination
   [key: string]: any; // For pagination and other response fields
 }
 
@@ -98,26 +104,27 @@ export async function fetchMarkets(limit: number = 200): Promise<Market[]> {
 }
 
 export async function fetchEvents(
- 
   limit: number = 500,
   options?: {
     status?: string;
     withNestedMarkets?: boolean;
+    cursor?: string;
   }
-): Promise<Event[]> {
- 
+): Promise<EventsResponse> {
   try {
     const queryParams = new URLSearchParams();
     queryParams.append("limit", limit.toString());
-    
+
     if (options?.status) {
       queryParams.append("status", options.status);
     }
     if (options?.withNestedMarkets) {
       queryParams.append("withNestedMarkets", "true");
     }
+    if (options?.cursor) {
+      queryParams.append("cursor", options.cursor);
+    }
 
-   
     const response = await fetch(
       `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`,
       {
@@ -136,7 +143,7 @@ export async function fetchEvents(
     }
 
     const data: EventsResponse = await response.json();
-    return data.events || [];
+    return data;
   } catch (error) {
     console.error("Error fetching events:", error);
     throw error;
@@ -263,7 +270,7 @@ export async function fetchEventsBySeries(
     const queryParams = new URLSearchParams();
     const tickers = Array.isArray(seriesTickers) ? seriesTickers.join(",") : seriesTickers;
     queryParams.append("seriesTickers", tickers);
-    
+
     if (options?.withNestedMarkets) {
       queryParams.append("withNestedMarkets", "true");
     }

@@ -60,7 +60,7 @@ export default function HomePage() {
           if (account.address.length < 32) return false;
           return true;
         });
-        
+
         if (hasSolanaWallet) {
           return true;
         }
@@ -89,7 +89,7 @@ export default function HomePage() {
       setWalletCreating(true);
       setWalletCreationAttempted(true);
       setWalletError(null);
-      
+
       // Attempt to create wallet
       createWallet()
         .then(() => {
@@ -110,10 +110,10 @@ export default function HomePage() {
     // Poll for wallet creation (check every 1 second)
     let pollCount = 0;
     const maxPolls = 20; // 20 seconds max
-    
+
     const pollInterval = setInterval(() => {
       pollCount++;
-      
+
       if (checkForWallet()) {
         setWalletCreating(false);
         setWalletCreationAttempted(false);
@@ -157,11 +157,10 @@ export default function HomePage() {
     <div className="min-h-screen bg-[var(--background)]">
       {/* Wallet Creation Banner - Non-blocking */}
       {(walletCreating || walletError) && (
-        <div className={`sticky top-0 z-40 border-b ${
-          walletError 
-            ? 'bg-red-500/10 border-red-500/30' 
+        <div className={`sticky top-0 z-40 border-b ${walletError
+            ? 'bg-red-500/10 border-red-500/30'
             : 'bg-violet-500/10 border-violet-500/30'
-        }`}>
+          }`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -177,17 +176,16 @@ export default function HomePage() {
                   </svg>
                 )}
                 <div className="flex flex-col gap-1">
-                  <p className={`text-sm font-medium ${
-                    walletError ? 'text-red-300' : 'text-violet-300'
-                  }`}>
+                  <p className={`text-sm font-medium ${walletError ? 'text-red-300' : 'text-violet-300'
+                    }`}>
                     {walletError || 'Creating your Solana wallet... This will be ready shortly.'}
                   </p>
                   {walletError && walletError.includes('HTTPS') && (
                     <p className="text-red-300/70 text-xs">
                       For local development, use tools like{' '}
-                      <a 
-                        href="https://github.com/FiloSottile/mkcert" 
-                        target="_blank" 
+                      <a
+                        href="https://github.com/FiloSottile/mkcert"
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="underline hover:text-red-200"
                       >
@@ -203,11 +201,10 @@ export default function HomePage() {
                   setWalletCreating(false);
                   setWalletError(null);
                 }}
-                className={`text-sm transition-colors ${
-                  walletError 
-                    ? 'text-red-400 hover:text-red-300' 
+                className={`text-sm transition-colors ${walletError
+                    ? 'text-red-400 hover:text-red-300'
                     : 'text-violet-400 hover:text-violet-300'
-                }`}
+                  }`}
               >
                 Dismiss
               </button>
@@ -215,14 +212,8 @@ export default function HomePage() {
           </div>
         </div>
       )}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8">
-        {/* Hero Section */}
-        
-
-        {/* Events Section */}
-        <div className="mb-8">
-          <EventsList />
-        </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
+        <EventsList />
       </main>
     </div>
   );

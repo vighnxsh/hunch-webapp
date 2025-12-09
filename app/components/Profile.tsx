@@ -372,7 +372,7 @@ export default function Profile() {
               <p className="text-[var(--text-secondary)] text-sm mb-2">{getUserEmail()}</p>
             )}
             {/* Followers/Following Counts - Clickable */}
-            <div className="flex items-center gap-8 mt-4">
+            <div className="flex items-center gap-4 mt-4">
               <button
                 onClick={() => {
                   setModalType('followers');

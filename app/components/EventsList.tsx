@@ -17,79 +17,93 @@ const TOPIC_FILTERS = [
 
 const EVENTS_PER_PAGE = 20;
 
-// Event Card Component with Image Left, Content Right
+// Format helpers for the card UI
+const formatPercent = (value?: string | number) => {
+  if (value === undefined || value === null) return '—';
+  const numeric = typeof value === 'string' ? parseFloat(value) : value;
+  if (Number.isNaN(numeric)) return '—';
+  return `${Math.round(numeric * 100)}%`;
+};
+
+const formatVolume = (value?: number) => {
+  if (!value || Number.isNaN(value)) return '$—';
+  return `$${Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value)}`;
+};
+
+// Event Card Component with layout matching the provided design
 function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
-  // Get top 2 markets from the event
   const hotMarkets = (event.markets || []).slice(0, 2);
 
   return (
     <div
       onClick={onClick}
-      className="group flex bg-[var(--surface)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:bg-[var(--surface-hover)] active:scale-[0.99]"
+      className="group flex flex-col gap-3 bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
     >
-      {/* Image - Left Side */}
-      <div className="relative w-32 h-auto min-h-[140px] flex-shrink-0">
-        {event.imageUrl ? (
-          <>
-            <img
-              src={event.imageUrl}
-              alt={event.title}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[var(--surface)]/20" />
-          </>
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
-            <span className="text-3xl opacity-50">📊</span>
-          </div>
-        )}
-        {/* Live badge */}
-        <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-md">
-          <div className="w-2 h-2 rounded-full bg-green-400" />
-          <span className="text-[9px] font-bold text-white uppercase">Live</span>
+      <div className="flex items-start gap-3">
+        <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex-shrink-0 border border-[var(--border)]">
+          {event.imageUrl ? (
+            <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xl">📊</div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-[var(--text-primary)] leading-snug text-[16px] group-hover:text-green-500 transition-colors line-clamp-2">
+            {event.title || 'Untitled Event'}
+          </h3>
+          {event.subtitle && (
+            <p className="text-[13px] text-[var(--text-tertiary)] line-clamp-2 mt-1">
+              {event.subtitle}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Content - Right Side */}
-      <div className="flex-1 p-4 min-w-0 flex flex-col justify-center">
-        {/* Title */}
-        <h3 className="font-semibold text-[var(--text-primary)] leading-snug line-clamp-2 text-[15px] group-hover:text-violet-400 transition-colors">
-          {event.title || 'Untitled Event'}
-        </h3>
+      {hotMarkets.length > 0 && (
+        <div className="space-y-3">
+          {hotMarkets.map((market: any, idx: number) => {
+            const label =
+              market.yesSubTitle ||
+              market.noSubTitle ||
+              market.subtitle ||
+              market.title ||
+              `Option ${idx + 1}`;
+            const yesPercent = formatPercent(market.yesAsk ?? market.yesBid);
 
-        {/* Hot Markets */}
-        {hotMarkets.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {hotMarkets.map((market: any, idx: number) => {
-              const label = market.yesSubTitle || market.noSubTitle || market.subtitle || `Option ${idx + 1}`;
-              const yesPrice = market.yesAsk ? Math.round(parseFloat(market.yesAsk) * 100) : null;
-              const noPrice = market.noAsk ? Math.round(parseFloat(market.noAsk) * 100) : null;
-
-              return (
-                <div key={market.ticker || idx} className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-[var(--text-secondary)] truncate">
-                    {label}
+            return (
+              <div
+                key={market.ticker || idx}
+                className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-[var(--surface-hover)]"
+              >
+                <span className="text-sm text-[var(--text-primary)] truncate">{label}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-xl font-semibold text-[var(--text-primary)]">
+                    {yesPercent}
                   </span>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <span className="px-1.5 py-0.5 rounded bg-green-500/15 text-[10px] font-bold text-green-400">
-                      {yesPrice !== null ? `${yesPrice}¢` : '—'}
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-[10px] font-bold text-red-400">
-                      {noPrice !== null ? `${noPrice}¢` : '—'}
-                    </span>
-                  </div>
+                  <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-green-400 shadow-sm">
+                    Yes 
+                  </span>
+                  <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-red-500 text-white shadow-sm">
+                    No
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-        {/* Fallback if no markets */}
-        {hotMarkets.length === 0 && event.subtitle && (
-          <p className="text-xs text-[var(--text-tertiary)] line-clamp-2 mt-2">
-            {event.subtitle}
-          </p>
-        )}
+      {hotMarkets.length === 0 && event.subtitle && (
+        <div className="px-3 py-2 rounded-2xl bg-[var(--surface-hover)] text-sm text-[var(--text-secondary)]">
+          {event.subtitle}
+        </div>
+      )}
+
+      <div className="flex items-center text-xs text-[var(--text-tertiary)] pt-1">
+        <span>{formatVolume(event.volume ?? event.volume24h ?? event.openInterest)}</span>
       </div>
     </div>
   );

@@ -16,12 +16,12 @@ export default function BottomNavbar() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <div className="fixed bottom-2 left-0 right-0 z-50 md:hidden flex justify-center px-4">
-      <nav className="flex w-full max-w-lg items-center gap-6 px-6 py-2 bg-[var(--background)] border-2 border-[var(--border-color)] rounded-full shadow-xl">
+    <div className="fixed bottom-6 left-0 right-0 z-50 md:hidden flex justify-center safe-area-bottom">
+      <nav className="flex items-center gap-2 py-3 bg-[var(--background)] border-2 border-[var(--border-color)] rounded-full shadow-xl">
         {/* Home Link */}
         <Link
           href="/home"
-          className={`p-2.5 rounded-full transition-all duration-200 ${
+          className={`p-3 rounded-full transition-all duration-200 ${
             isActive('/home')
               ? 'bg-[var(--text-primary)] text-[var(--background)]'
               : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
@@ -45,7 +45,7 @@ export default function BottomNavbar() {
         {/* H Logo - Center */}
         <Link
           href="/social"
-          className={`px-6 mx-4 py-1.5 rounded-full transition-all duration-200 ${
+          className={`px-4 mx-5 py-2 rounded-full transition-all duration-200 ${
             isActive('/social')
               ? 'bg-[var(--text-primary)] text-[var(--background)]'
               : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
@@ -57,7 +57,7 @@ export default function BottomNavbar() {
         {/* Profile Link */}
         <Link
           href="/profile"
-          className={`p-2.5 rounded-full transition-all duration-200 ${
+          className={`p-3 rounded-full transition-all duration-200 ${
             isActive('/profile')
               ? 'bg-[var(--text-primary)] text-[var(--background)]'
               : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'

@@ -1,12 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  
 }
 
 datasource db {
@@ -19,14 +12,13 @@ model User {
   walletAddress  String   @unique
   displayName    String?
   avatarUrl      String?
-  followerCount  Int      @default(0)
-  followingCount Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  trades         Trade[]
+  followerCount  Int      @default(0)
+  followingCount Int      @default(0)
   followers      Follow[] @relation("Follower")
   following      Follow[] @relation("Following")
+  trades         Trade[]
 
   @@index([privyId])
   @@index([walletAddress])
@@ -35,12 +27,12 @@ model User {
 model Trade {
   id             String   @id @default(cuid())
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   marketTicker   String
-  side           String   // "yes" or "no"
-  amount         String   // Store as string for precision
+  side           String
+  amount         String
   transactionSig String   @unique
   createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
@@ -51,12 +43,11 @@ model Follow {
   id          String   @id @default(cuid())
   followerId  String
   followingId String
+  createdAt   DateTime @default(now())
   follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
   following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
 }
-

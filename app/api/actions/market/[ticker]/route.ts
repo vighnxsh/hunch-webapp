@@ -41,21 +41,21 @@ export async function GET(
     // Fetch market data from DFlow API
     // Try multiple sources: direct markets endpoint and events with nested markets
     let market: any = null;
-    
+
     try {
       // First, try direct markets endpoint
       const markets = await fetchMarkets(200);
       console.log(`[GET] Fetched ${markets.length} markets from direct endpoint`);
       market = markets.find((m) => m.ticker === ticker);
-      
+
       // If not found, try searching in events with nested markets
       if (!market) {
         console.log(`[GET] Market not found in direct endpoint, searching in events...`);
-        const events = await fetchEvents(200, { withNestedMarkets: true });
-        console.log(`[GET] Fetched ${events.length} events with nested markets`);
-        
+        const eventsResponse = await fetchEvents(200, { withNestedMarkets: true });
+        console.log(`[GET] Fetched ${eventsResponse.events.length} events with nested markets`);
+
         // Search through all events' nested markets
-        for (const event of events) {
+        for (const event of eventsResponse.events) {
           if (event.markets && Array.isArray(event.markets)) {
             const foundMarket = event.markets.find((m: any) => m.ticker === ticker);
             if (foundMarket) {
@@ -110,8 +110,8 @@ export async function GET(
     const isDisabled = market.status !== 'active';
     const error = isDisabled
       ? {
-          message: `Market is not active. Current status: ${market.status || 'unknown'}`,
-        }
+        message: `Market is not active. Current status: ${market.status || 'unknown'}`,
+      }
       : undefined;
 
     // Get mint addresses
@@ -323,19 +323,19 @@ export async function POST(
 
     // Fetch market data - try multiple sources like GET endpoint
     let market: any = null;
-    
+
     try {
       // First, try direct markets endpoint
       const markets = await fetchMarkets(200);
       market = markets.find((m) => m.ticker === ticker);
-      
+
       // If not found, try searching in events with nested markets
       if (!market) {
         console.log(`[POST] Market not found in direct endpoint, searching in events...`);
-        const events = await fetchEvents(200, { withNestedMarkets: true });
-        
+        const eventsResponse = await fetchEvents(200, { withNestedMarkets: true });
+
         // Search through all events' nested markets
-        for (const event of events) {
+        for (const event of eventsResponse.events) {
           if (event.markets && Array.isArray(event.markets)) {
             const foundMarket = event.markets.find((m: any) => m.ticker === ticker);
             if (foundMarket) {

@@ -47,7 +47,16 @@ export async function syncUser(data: CreateUserData): Promise<UserProfile> {
         displayName: data.displayName ?? existingUser.displayName,
         avatarUrl: data.avatarUrl ?? existingUser.avatarUrl,
       },
-      include: {
+      select: {
+        id: true,
+        privyId: true,
+        walletAddress: true,
+        displayName: true,
+        avatarUrl: true,
+        followerCount: true,
+        followingCount: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             trades: true,
@@ -91,7 +100,16 @@ export async function syncUser(data: CreateUserData): Promise<UserProfile> {
       displayName: data.displayName,
       avatarUrl: data.avatarUrl,
     },
-    include: {
+    select: {
+      id: true,
+      privyId: true,
+      walletAddress: true,
+      displayName: true,
+      avatarUrl: true,
+      followerCount: true,
+      followingCount: true,
+      createdAt: true,
+      updatedAt: true,
       _count: {
         select: {
           trades: true,
@@ -136,7 +154,16 @@ export async function getUserById(userId: string, skipCache: boolean = false): P
   // Fetch from database (counts are denormalized in User model)
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: {
+    select: {
+      id: true,
+      privyId: true,
+      walletAddress: true,
+      displayName: true,
+      avatarUrl: true,
+      followerCount: true,
+      followingCount: true,
+      createdAt: true,
+      updatedAt: true,
       _count: {
         select: {
           trades: true,
@@ -192,6 +219,11 @@ export async function getUserCounts(userId: string): Promise<{ followerCount: nu
   // Fetch from database (counts are denormalized)
   const user = await prisma.user.findUnique({
     where: { id: userId },
+    select: {
+      id: true,
+      followerCount: true,
+      followingCount: true,
+    },
   });
 
   if (!user) {
@@ -199,8 +231,9 @@ export async function getUserCounts(userId: string): Promise<{ followerCount: nu
   }
 
   const counts = {
-    followerCount: (user as any).followerCount || 0,
-    followingCount: (user as any).followingCount || 0,
+    followerCount: user.followerCount || 0,
+    followingCount: user.followingCount || 0,
+
   };
 
   // Cache counts
@@ -219,7 +252,16 @@ export async function getUserCounts(userId: string): Promise<{ followerCount: nu
 export async function getUserByPrivyId(privyId: string): Promise<UserProfile | null> {
   const user = await prisma.user.findUnique({
     where: { privyId },
-    include: {
+    select: {
+      id: true,
+      privyId: true,
+      walletAddress: true,
+      displayName: true,
+      avatarUrl: true,
+      followerCount: true,
+      followingCount: true,
+      createdAt: true,
+      updatedAt: true,
       _count: {
         select: {
           trades: true,
@@ -259,7 +301,16 @@ export async function getUserByPrivyId(privyId: string): Promise<UserProfile | n
 export async function getUserByWalletAddress(walletAddress: string): Promise<UserProfile | null> {
   const user = await prisma.user.findUnique({
     where: { walletAddress },
-    include: {
+    select: {
+      id: true,
+      privyId: true,
+      walletAddress: true,
+      displayName: true,
+      avatarUrl: true,
+      followerCount: true,
+      followingCount: true,
+      createdAt: true,
+      updatedAt: true,
       _count: {
         select: {
           trades: true,
@@ -305,7 +356,16 @@ export async function searchUsers(query: string, limit: number = 10): Promise<Us
       ],
     },
     take: limit,
-    include: {
+    select: {
+      id: true,
+      privyId: true,
+      walletAddress: true,
+      displayName: true,
+      avatarUrl: true,
+      followerCount: true,
+      followingCount: true,
+      createdAt: true,
+      updatedAt: true,
       _count: {
         select: {
           trades: true,

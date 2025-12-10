@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client/edge';
+import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
@@ -10,22 +10,32 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-
-// Create PostgreSQL connection pool
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
+// Check if using Prisma Accelerate (URL starts with "prisma://")
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
+const isAccelerate = databaseUrl.startsWith('prisma://');
+
+// Create Prisma Client configuration
+const prismaConfig: {
+  log?: ('error' | 'warn')[];
+  adapter?: PrismaPg;
+} = {
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+};
+
+// Only use adapter if NOT using Accelerate (Accelerate handles connection pooling)
+if (!isAccelerate) {
+  const pool = new Pool({ connectionString: databaseUrl });
+  const adapter = new PrismaPg(pool);
+  prismaConfig.adapter = adapter;
+}
 
 export const prisma =
   globalForPrisma.prisma ??
-  new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  });
+  new PrismaClient(prismaConfig);
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 

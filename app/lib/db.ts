@@ -22,12 +22,16 @@ const isAccelerate = databaseUrl.startsWith('prisma://');
 const prismaConfig: {
   log?: ('error' | 'warn')[];
   adapter?: PrismaPg;
+  accelerateUrl?: string;
 } = {
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 };
 
-// Only use adapter if NOT using Accelerate (Accelerate handles connection pooling)
-if (!isAccelerate) {
+if (isAccelerate) {
+  // When using Accelerate, provide the accelerateUrl
+  prismaConfig.accelerateUrl = databaseUrl;
+} else {
+  // Otherwise, use adapter with connection pool
   const pool = new Pool({ connectionString: databaseUrl });
   const adapter = new PrismaPg(pool);
   prismaConfig.adapter = adapter;

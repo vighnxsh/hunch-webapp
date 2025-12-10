@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 import { formatMarketTitle } from '../lib/marketUtils';
+import { getCachedUserId, syncUserOnLogin, needsSync } from '../lib/authSync';
 
 interface FeedItem {
   id: string;
@@ -168,14 +169,32 @@ export default function SocialFeed() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync user and get user ID
+  // Initialize from cache immediately
+  useEffect(() => {
+    const cachedUserId = getCachedUserId();
+    if (cachedUserId) {
+      setCurrentUserId(cachedUserId);
+    }
+  }, []);
+
+  // Sync user ONLY if needed (on first login or user change)
   useEffect(() => {
     if (!ready || !authenticated || !user) {
       setCurrentUserId(null);
       return;
     }
 
-    const syncAndGetUserId = async () => {
+    // Check if sync is needed
+    if (!needsSync(user.id)) {
+      // Already synced, just use cached data
+      const cachedUserId = getCachedUserId();
+      if (cachedUserId) {
+        setCurrentUserId(cachedUserId);
+      }
+      return;
+    }
+
+    const performSync = async () => {
       try {
         // Get wallet address
         const walletAccount = user.linkedAccounts?.find(
@@ -194,29 +213,24 @@ export default function SocialFeed() {
         }
 
         // Sync user
-        const syncResponse = await fetch('/api/users/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            privyId: user.id,
-            walletAddress: walletAddress,
-            displayName: user.twitter?.username
-              ? `@${user.twitter.username}`
-              : user.google?.email?.split('@')[0] || null,
-            avatarUrl: user.twitter?.profilePictureUrl || null,
-          }),
-        });
+        const result = await syncUserOnLogin(
+          user.id,
+          walletAddress,
+          user.twitter?.username
+            ? `@${user.twitter.username}`
+            : user.google?.email?.split('@')[0] || null,
+          user.twitter?.profilePictureUrl || null
+        );
 
-        if (syncResponse.ok) {
-          const syncedUser = await syncResponse.json();
-          setCurrentUserId(syncedUser.id);
+        if (result) {
+          setCurrentUserId(result.userId);
         }
       } catch (error) {
         console.error('Error syncing user:', error);
       }
     };
 
-    syncAndGetUserId();
+    performSync();
   }, [ready, authenticated, user]);
 
   // Load feed

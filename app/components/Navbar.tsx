@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from './ThemeProvider';
+import { clearAuthCache } from '../lib/authSync';
 
 export default function Navbar() {
   const { ready, authenticated, user, logout } = usePrivy();
@@ -26,11 +27,11 @@ export default function Navbar() {
     }
     return false;
   });
-  
+
   const solanaWallet = solanaWallets.find(
     (wallet) => wallet.walletClientType === 'privy'
   ) || solanaWallets[0];
-  
+
   const walletAddress = solanaWallet?.address;
 
   const truncateAddress = (address: string) => {
@@ -72,8 +73,8 @@ export default function Navbar() {
   return (
     <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-20 flex-col items-center py-6 bg-[var(--nav-bg)] backdrop-blur-xl border-r border-[var(--border-color)] z-50">
       {/* Logo */}
-      <Link 
-        href={authenticated ? '/home' : '/'} 
+      <Link
+        href={authenticated ? '/home' : '/'}
         className="text-xl font-black text-[var(--text-primary)] tracking-tighter hover:opacity-80 transition-opacity mb-8"
       >
         h
@@ -85,11 +86,10 @@ export default function Navbar() {
           {/* Home */}
           <Link
             href="/home"
-            className={`p-3 rounded-xl transition-all duration-200 ${
-              isActive('/home')
-                ? 'bg-[var(--surface)] text-[var(--text-primary)]'
-                : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-            }`}
+            className={`p-3 rounded-xl transition-all duration-200 ${isActive('/home')
+              ? 'bg-[var(--surface)] text-[var(--text-primary)]'
+              : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+              }`}
             title="Home"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -105,11 +105,10 @@ export default function Navbar() {
           {/* Social Feed */}
           <Link
             href="/social"
-            className={`p-3 rounded-xl transition-all duration-200 ${
-              isActive('/social')
-                ? 'bg-[var(--surface)] text-[var(--text-primary)]'
-                : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-            }`}
+            className={`p-3 rounded-xl transition-all duration-200 ${isActive('/social')
+              ? 'bg-[var(--surface)] text-[var(--text-primary)]'
+              : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+              }`}
             title="Social Feed"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -125,11 +124,10 @@ export default function Navbar() {
           {/* Profile */}
           <Link
             href="/profile"
-            className={`p-3 rounded-xl transition-all duration-200 ${
-              isActive('/profile')
-                ? 'bg-[var(--surface)] text-[var(--text-primary)]'
-                : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
-            }`}
+            className={`p-3 rounded-xl transition-all duration-200 ${isActive('/profile')
+              ? 'bg-[var(--surface)] text-[var(--text-primary)]'
+              : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+              }`}
             title="Profile"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -257,6 +255,7 @@ export default function Navbar() {
                     <button
                       onClick={() => {
                         setShowDropdown(false);
+                        clearAuthCache(); // Clear cached auth data
                         logout();
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors text-sm font-medium"

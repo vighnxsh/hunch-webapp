@@ -9,6 +9,14 @@ import UserTrades from './UserTrades';
 import CreditCard from './CreditCard';
 import { useTheme } from './ThemeProvider';
 import FollowersFollowingModal from './FollowersFollowingModal';
+import {
+  getCachedUserId,
+  getCachedUserCounts,
+  syncUserOnLogin,
+  fetchUserCounts,
+  needsSync,
+  updateCachedCounts,
+} from '../lib/authSync';
 
 export default function Profile() {
   const { ready, authenticated, user } = usePrivy();
@@ -122,11 +130,37 @@ export default function Profile() {
   // Track if user has been synced in this session to avoid redundant syncs
   const hasSyncedRef = useRef(false);
 
-  // Sync user and get user ID - only once after successful login
+  // Initialize from cache immediately for instant display
+  useEffect(() => {
+    const cachedUserId = getCachedUserId();
+    const cachedCounts = getCachedUserCounts();
+
+    if (cachedUserId) {
+      setCurrentUserId(cachedUserId);
+    }
+
+    if (cachedCounts) {
+      setFollowersCount(cachedCounts.followerCount);
+      setFollowingCount(cachedCounts.followingCount);
+    }
+  }, []);
+
+  // Sync user ONLY if needed (on first login or user change)
   useEffect(() => {
     if (!ready || !authenticated || !user || !walletAddress) {
       setCurrentUserId(null);
-      hasSyncedRef.current = false; // Reset sync flag when user logs out
+      hasSyncedRef.current = false;
+      return;
+    }
+
+    // Check if sync is needed
+    if (!needsSync(user.id)) {
+      // Already synced, just use cached data
+      const cachedUserId = getCachedUserId();
+      if (cachedUserId) {
+        setCurrentUserId(cachedUserId);
+        hasSyncedRef.current = true;
+      }
       return;
     }
 
@@ -135,35 +169,21 @@ export default function Profile() {
       return;
     }
 
-    const syncAndGetUserId = async () => {
+    const performSync = async () => {
       try {
-        const syncResponse = await fetch('/api/users/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            privyId: user.id,
-            walletAddress: walletAddress,
-            displayName: user.twitter?.username
-              ? `@${user.twitter.username}`
-              : user.google?.email?.split('@')[0] || null,
-            avatarUrl: user.twitter?.profilePictureUrl || null,
-          }),
-        });
+        const result = await syncUserOnLogin(
+          user.id,
+          walletAddress,
+          user.twitter?.username
+            ? `@${user.twitter.username}`
+            : user.google?.email?.split('@')[0] || null,
+          user.twitter?.profilePictureUrl || null
+        );
 
-        if (syncResponse.ok) {
-          const syncedUser = await syncResponse.json();
-          console.log('syncedUser from /api/users/sync:', syncedUser);
-          setCurrentUserId(syncedUser.id);
-          // Set initial counts immediately from synced user (denormalized counts)
-          if (syncedUser.followerCount !== undefined) {
-            console.log('Setting followerCount from sync:', syncedUser.followerCount);
-            setFollowersCount(syncedUser.followerCount);
-          }
-          if (syncedUser.followingCount !== undefined) {
-            console.log('Setting followingCount from sync:', syncedUser.followingCount);
-            setFollowingCount(syncedUser.followingCount);
-          }
-          // Mark as synced to prevent redundant syncs
+        if (result) {
+          setCurrentUserId(result.userId);
+          setFollowersCount(result.counts.followerCount);
+          setFollowingCount(result.counts.followingCount);
           hasSyncedRef.current = true;
         }
       } catch (error) {
@@ -171,10 +191,10 @@ export default function Profile() {
       }
     };
 
-    syncAndGetUserId();
+    performSync();
   }, [ready, authenticated, user, walletAddress]);
 
-  // Fetch follower/following counts and trades count
+  // Fetch follower/following counts and trades count in background (non-blocking)
   useEffect(() => {
     if (currentUserId) {
       fetchProfileStats();
@@ -235,6 +255,9 @@ export default function Profile() {
         const followingCount = userProfile.followingCount || 0;
         setFollowersCount(followerCount);
         setFollowingCount(followingCount);
+
+        // Update cache with fresh data
+        updateCachedCounts({ followerCount, followingCount });
       }
 
       if (tradesRes.ok) {
@@ -253,8 +276,10 @@ export default function Profile() {
     // Optimistically update following count immediately
     if (isFollowing) {
       setFollowingCount((prev) => prev + 1);
+      updateCachedCounts({ followingCount: followingCount + 1 });
     } else {
       setFollowingCount((prev) => Math.max(0, prev - 1));
+      updateCachedCounts({ followingCount: Math.max(0, followingCount - 1) });
     }
 
     // Refresh from server to sync after a delay to ensure DB update and cache invalidation complete
@@ -346,7 +371,7 @@ export default function Profile() {
 
   return (
     <div className="bg-[var(--surface)]/50 backdrop-blur-sm   rounded-2xl p-6">
-     
+
 
       {/* User Info Section */}
       <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
@@ -435,7 +460,7 @@ export default function Profile() {
                   onClick={async () => {
                     setCreatingWallet(true);
                     setError(null);
-                    
+
                     // Check if HTTPS is available
                     if (!isHttpsAvailable()) {
                       setError('Embedded wallets require HTTPS. Please use HTTPS or deploy to a staging environment.');
@@ -471,9 +496,9 @@ export default function Profile() {
                     {error.includes('HTTPS') && (
                       <p className="text-red-300/70 text-xs text-center mt-2">
                         For local development, you can use tools like{' '}
-                        <a 
-                          href="https://github.com/FiloSottile/mkcert" 
-                          target="_blank" 
+                        <a
+                          href="https://github.com/FiloSottile/mkcert"
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="underline hover:text-red-200"
                         >
@@ -502,7 +527,7 @@ export default function Profile() {
         walletAddress={walletAddress || undefined}
       />
 
-    
+
 
       {/* User Trades Section */}
       {currentUserId && (
@@ -512,7 +537,7 @@ export default function Profile() {
       )}
 
       {/* User Discovery Section */}
-    
+
       {/* Followers/Following Modal */}
       <FollowersFollowingModal
         isOpen={modalOpen}

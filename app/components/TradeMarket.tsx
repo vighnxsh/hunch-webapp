@@ -30,6 +30,22 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
     error: null,
   });
 
+  // Calculate "to win" amount based on market price
+  const calculateToWin = (): string | null => {
+    if (!amount || parseFloat(amount) <= 0) return null;
+    
+    const price = side === 'yes' 
+      ? (market.yesAsk ? parseFloat(market.yesAsk) : null)
+      : (market.noAsk ? parseFloat(market.noAsk) : null);
+    
+    if (!price || price <= 0) return null;
+    
+    const toWin = parseFloat(amount) / price;
+    return toWin.toFixed(2);
+  };
+
+  const toWinAmount = calculateToWin();
+
   // Get the first Solana wallet from useWallets (already returns only Solana wallets)
   const solanaWallet = wallets[0];
 
@@ -437,6 +453,16 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
             disabled={!!orderData}
             className="w-full px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50 transition-all"
           />
+          
+          {/* To Win Display */}
+          {toWinAmount && (
+            <div className="mt-2 flex items-center justify-between animate-fadeIn">
+              <span className="text-sm text-[var(--text-secondary)]">To win</span>
+              <span className="text-lg font-bold text-green-400">
+                ${toWinAmount}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

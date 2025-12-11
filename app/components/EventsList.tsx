@@ -35,7 +35,19 @@ const formatVolume = (value?: number) => {
 
 // Event Card Component with layout matching the provided design
 function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
-  const hotMarkets = (event.markets || []).slice(0, 2);
+  // Filter active markets and sort by chance (yesBid) descending, then take top 2
+  const hotMarkets = (event.markets || [])
+    .filter((m: any) => 
+      m.status !== 'finalized' && 
+      m.status !== 'resolved' && 
+      m.status !== 'closed'
+    )
+    .sort((a: any, b: any) => {
+      const aChance = a.yesBid ? parseFloat(a.yesBid) : 0;
+      const bChance = b.yesBid ? parseFloat(b.yesBid) : 0;
+      return bChance - aChance; // Descending order - highest chance first
+    })
+    .slice(0, 2);
 
   return (
     <div

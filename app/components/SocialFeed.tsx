@@ -423,9 +423,8 @@ export default function SocialFeed() {
 
   return (
     <div className="space-y-6">
-      {/* Minimal Search Bar - Centered, Expandable */}
       {/* Minimal Search Bar - Left aligned, Expandable */}
-      <div className="mb-4">
+      <div className="relative mb-4 z-50">
         <div className={`relative transition-all duration-300 ease-out ${isSearchFocused || searchQuery ? 'w-72' : 'w-48'}`}>
           {/* Search Icon */}
           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -466,47 +465,48 @@ export default function SocialFeed() {
             </button>
           )}
         </div>
+
+        {/* Search Results - Dropdown Overlay on top of everything */}
+        {(searchResults.length > 0 || (searchQuery.trim() && !searching && searchResults.length === 0)) && (
+          <div className="absolute top-full left-0 mt-2 w-96 bg-[var(--card-bg)] rounded-xl shadow-2xl border border-[var(--border-color)] max-h-72 overflow-y-auto">
+            {searchResults.length > 0 ? (
+              <div className="p-2">
+                {searchResults.map((result) => (
+                  <UserSearchResultItem
+                    key={result.id}
+                    user={result}
+                    currentUserId={currentUserId}
+                    onFollowChange={() => {
+                      performSearch(searchQuery);
+                      loadFeed();
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-[var(--text-tertiary)] text-sm">No users found</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Search Results - Compact */}
-      {searchResults.length > 0 && (
-        <div className="space-y-2 mb-4">
-          {searchResults.map((result) => (
-            <UserSearchResultItem
-              key={result.id}
-              user={result}
-              currentUserId={currentUserId}
-              onFollowChange={() => {
-                performSearch(searchQuery);
-                loadFeed();
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* No results - Minimal */}
-      {searchQuery.trim() && !searching && searchResults.length === 0 && (
-        <div className="text-center py-4 mb-4">
-          <p className="text-[var(--text-tertiary)] text-sm">No users found</p>
-        </div>
-      )}
-
       {/* Feed Section */}
-      <div className="bg-gradient-to-b from-[var(--card-bg)]/50 to-[var(--card-bg)]/30 rounded-2xl p-6 border border-[var(--border-color)]">
+      <div>
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             {/* <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            </div> */}
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div> */}
             <h2 className="text-xl font-bold text-[var(--text-primary)]">Activity Feed</h2>
           </div>
           <button
             onClick={loadFeed}
             disabled={loading || !currentUserId}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium border border-[var(--border-color)]"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium"
           >
             {loading ? (
               <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -556,7 +556,7 @@ export default function SocialFeed() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="divide-y divide-[var(--border-color)]">
             {feedItems.map((item) => {
               const displayName = item.user.displayName || truncateAddress(item.user.walletAddress);
               const hasQuote = item.quote && item.quote.trim().length > 0;
@@ -571,7 +571,7 @@ export default function SocialFeed() {
               const probability = yesBid ? Math.round(parseFloat(yesBid) * 100) : null;
 
               return (
-                <div key={item.id} className="border-b border-[var(--border-color)] pb-3 last:border-b-0">
+                <div key={item.id} className="py-4">
                   {/* Header: Avatar + Name + Action + Time - all inline */}
                   <div className="flex items-center gap-2 mb-2">
                     <button
@@ -661,6 +661,6 @@ export default function SocialFeed() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 }

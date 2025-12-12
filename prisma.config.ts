@@ -9,6 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // Use DIRECT_DATABASE_URL for migrations, fallback to DATABASE_URL for queries
+    url: env("DIRECT_DATABASE_URL") || env("DATABASE_URL"),
   },
 });

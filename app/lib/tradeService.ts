@@ -4,18 +4,24 @@ import redis, { CacheKeys } from './redis';
 export interface CreateTradeData {
   userId: string;
   marketTicker: string;
+  eventTicker?: string;
   side: 'yes' | 'no';
   amount: string;
   transactionSig: string;
+  quote?: string;
+  isDummy?: boolean;
 }
 
 export interface TradeWithUser {
   id: string;
   userId: string;
   marketTicker: string;
+  eventTicker: string | null;
   side: string;
   amount: string;
   transactionSig: string;
+  quote: string | null;
+  isDummy: boolean;
   createdAt: Date;
   user: {
     id: string;
@@ -27,24 +33,19 @@ export interface TradeWithUser {
 
 /**
  * Create a new trade
+ * TODO: Remove isDummy default when DFlow API is ready
  */
 export async function createTrade(data: CreateTradeData) {
-  // Check if trade already exists (idempotency)
-  const existingTrade = await prisma.trade.findUnique({
-    where: { transactionSig: data.transactionSig },
-  });
-
-  if (existingTrade) {
-    return existingTrade;
-  }
-
   const trade = await prisma.trade.create({
     data: {
       userId: data.userId,
       marketTicker: data.marketTicker,
+      eventTicker: data.eventTicker || null,
       side: data.side,
       amount: data.amount,
       transactionSig: data.transactionSig,
+      quote: data.quote || null,
+      isDummy: data.isDummy !== undefined ? data.isDummy : true,
     },
   });
 
@@ -106,6 +107,34 @@ export async function getTradesBySignatures(signatures: string[]): Promise<Trade
   });
 
   return trades;
+}
+
+/**
+ * Update a trade's quote
+ */
+export async function updateTradeQuote(tradeId: string, quote: string, userId: string) {
+  // Verify the trade belongs to the user
+  const trade = await prisma.trade.findUnique({
+    where: { id: tradeId },
+  });
+
+  if (!trade) {
+    throw new Error('Trade not found');
+  }
+
+  if (trade.userId !== userId) {
+    throw new Error('Unauthorized: You can only update your own trades');
+  }
+
+  const updatedTrade = await prisma.trade.update({
+    where: { id: tradeId },
+    data: { quote },
+  });
+
+  // Invalidate feed caches for all followers of this user
+  await invalidateUserFeedCaches(userId);
+
+  return updatedTrade;
 }
 
 /**

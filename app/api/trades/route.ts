@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createTrade, getUserTrades } from '@/app/lib/tradeService';
+import { createTrade, getUserTrades, updateTradeQuote } from '@/app/lib/tradeService';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, marketTicker, side, amount, transactionSig } = body;
+    const { userId, marketTicker, eventTicker, side, amount, transactionSig, quote, isDummy } = body;
 
     if (!userId || !marketTicker || !side || !amount || !transactionSig) {
       return NextResponse.json(
@@ -23,9 +23,12 @@ export async function POST(request: NextRequest) {
     const trade = await createTrade({
       userId,
       marketTicker,
+      eventTicker: eventTicker || undefined,
       side: side as 'yes' | 'no',
       amount,
       transactionSig,
+      quote: quote || undefined,
+      isDummy: isDummy !== undefined ? isDummy : true,
     });
 
     return NextResponse.json(trade, { status: 201 });
@@ -59,6 +62,37 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching trades:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to fetch trades' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { tradeId, quote, userId } = body;
+
+    if (!tradeId || !userId) {
+      return NextResponse.json(
+        { error: 'tradeId and userId are required' },
+        { status: 400 }
+      );
+    }
+
+    if (quote && quote.length > 280) {
+      return NextResponse.json(
+        { error: 'Quote must be 280 characters or less' },
+        { status: 400 }
+      );
+    }
+
+    const updatedTrade = await updateTradeQuote(tradeId, quote || '', userId);
+
+    return NextResponse.json(updatedTrade, { status: 200 });
+  } catch (error: any) {
+    console.error('Error updating trade quote:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to update trade quote' },
       { status: 500 }
     );
   }

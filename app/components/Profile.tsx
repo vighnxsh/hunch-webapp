@@ -370,6 +370,7 @@ export default function Profile() {
   }
 
   return (
+    <>
     <div className="bg-[var(--surface)]/50 backdrop-blur-sm   rounded-2xl p-6">
 
 
@@ -537,16 +538,17 @@ export default function Profile() {
       )}
 
       {/* User Discovery Section */}
-
-      {/* Followers/Following Modal */}
-      <FollowersFollowingModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        userId={currentUserId || ''}
-        type={modalType}
-        currentUserId={currentUserId}
-      />
     </div>
+    
+    {/* Followers/Following Modal */}
+    <FollowersFollowingModal
+      isOpen={modalOpen}
+      onClose={() => setModalOpen(false)}
+      userId={currentUserId || ''}
+      type={modalType}
+      currentUserId={currentUserId}
+    />
+    </>
   );
 }
 

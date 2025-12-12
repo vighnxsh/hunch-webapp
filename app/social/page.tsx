@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 import SocialFeed from '../components/SocialFeed';
+import EventMarketplace from '../components/EventMarketplace';
 
 export default function SocialPage() {
   const { ready, authenticated } = usePrivy();
@@ -42,12 +43,13 @@ export default function SocialPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8">
-        {/* Social Feed Component */}
-        <div className="mb-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8 space-y-8">
+        {/* Activity Feed Section */}
+        <section>
           <SocialFeed />
-        </div>
+        </section>
       </main>
     </div>
   );
 }
+

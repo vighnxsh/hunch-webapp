@@ -72,6 +72,7 @@ export interface EventDetails {
   ticker: string;
   title: string;
   subtitle?: string;
+  imageUrl?: string;
   markets?: Market[];
   [key: string]: any; // For other fields that might exist
 }

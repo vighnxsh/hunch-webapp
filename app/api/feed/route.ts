@@ -7,9 +7,12 @@ export interface FeedItem {
   id: string;
   userId: string;
   marketTicker: string;
+  eventTicker: string | null;
   side: string;
   amount: string;
   transactionSig: string;
+  quote: string | null;
+  isDummy: boolean;
   createdAt: Date;
   user: {
     id: string;

@@ -5,14 +5,26 @@ import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 import { formatMarketTitle } from '../lib/marketUtils';
 import { getCachedUserId, syncUserOnLogin, needsSync } from '../lib/authSync';
+import { fetchMarketDetails, fetchEventDetails, Market, EventDetails } from '../lib/api';
+
+// Market data cache for feed items
+interface MarketData {
+  market: Market | null;
+  event: EventDetails | null;
+  loading: boolean;
+  error: string | null;
+}
 
 interface FeedItem {
   id: string;
   userId: string;
   marketTicker: string;
+  eventTicker: string | null;
   side: string;
   amount: string;
   transactionSig: string;
+  quote: string | null;
+  isDummy: boolean;
   createdAt: string;
   user: {
     id: string;
@@ -108,49 +120,36 @@ function UserSearchResultItem({
   return (
     <div
       onClick={handleCardClick}
-      className="bg-[var(--surface-hover)]/60 backdrop-blur-sm rounded-xl p-4 border border-[var(--border-color)] flex items-center justify-between transition-all duration-200 hover:bg-[var(--surface-hover)] hover:border-violet-500/20 hover:shadow-lg hover:shadow-violet-500/5 cursor-pointer group"
+      className="flex items-center justify-between py-2.5 px-2 hover:bg-[var(--surface-hover)]/40 rounded-lg cursor-pointer group transition-colors"
     >
       <div className="flex items-center gap-3">
         {user.avatarUrl ? (
           <img
             src={user.avatarUrl}
             alt={displayName}
-            className="w-11 h-11 rounded-full border-2 border-violet-500/30 shadow-lg transition-transform group-hover:scale-105"
+            className="w-9 h-9 rounded-full"
           />
         ) : (
-          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center border-2 border-violet-500/30 shadow-lg transition-transform group-hover:scale-105">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
             <span className="text-white text-sm font-bold">
               {displayName.charAt(0).toUpperCase()}
             </span>
           </div>
         )}
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="text-[var(--text-primary)] text-sm font-semibold group-hover:text-violet-400 transition-colors">{displayName}</p>
-            <svg className="w-4 h-4 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-          <p className="text-[var(--text-tertiary)] text-xs font-mono opacity-70">{user.walletAddress.slice(0, 8)}...</p>
-          {user._count && (
-            <p className="text-[var(--text-tertiary)] text-xs mt-0.5">
-              <span className="text-violet-400">{user._count.followers}</span> followers • <span className="text-violet-400">{user._count.trades}</span> trades
-            </p>
-          )}
-        </div>
+        <span className="text-[var(--text-primary)] text-sm font-medium group-hover:text-violet-400 transition-colors">
+          {displayName}
+        </span>
       </div>
       <button
         onClick={handleFollowClick}
         disabled={followLoading || !currentUserId || currentUserId === user.id}
-        className={`px-5 py-2.5 text-xs font-semibold rounded-xl transition-all duration-200 ${isFollowing
-          ? 'bg-[var(--surface-hover)] hover:bg-red-500/10 hover:text-red-400 text-[var(--text-secondary)] border border-[var(--border-color)]'
-          : 'bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 text-white shadow-lg shadow-violet-500/25'
+        className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${isFollowing
+          ? 'bg-[var(--surface-hover)] hover:bg-red-500/10 hover:text-red-400 text-[var(--text-secondary)]'
+          : 'bg-violet-600 hover:bg-violet-500 text-white'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {followLoading ? (
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          </span>
+          <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" />
         ) : isFollowing ? 'Unfollow' : 'Follow'}
       </button>
     </div>
@@ -158,6 +157,7 @@ function UserSearchResultItem({
 }
 
 export default function SocialFeed() {
+  const router = useRouter();
   const { ready, authenticated, user } = usePrivy();
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -168,6 +168,10 @@ export default function SocialFeed() {
   const [searching, setSearching] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Market data cache for displaying event cards
+  const [marketDataCache, setMarketDataCache] = useState<Map<string, MarketData>>(new Map());
+  const loadedTickersRef = useRef<Set<string>>(new Set());
 
   // Initialize from cache immediately
   useEffect(() => {
@@ -266,6 +270,56 @@ export default function SocialFeed() {
     }
   };
 
+  // Fetch market and event data for feed items
+  useEffect(() => {
+    const fetchMarketData = async (marketTicker: string) => {
+      // Skip if already loaded or loading
+      if (loadedTickersRef.current.has(marketTicker)) return;
+      loadedTickersRef.current.add(marketTicker);
+
+      // Set loading state
+      setMarketDataCache(prev => {
+        const newCache = new Map(prev);
+        newCache.set(marketTicker, { market: null, event: null, loading: true, error: null });
+        return newCache;
+      });
+
+      try {
+        // 1. Fetch market details
+        const market = await fetchMarketDetails(marketTicker);
+
+        let eventData: EventDetails | null = null;
+
+        // 2. If market has eventTicker, fetch event details
+        if (market.eventTicker) {
+          try {
+            eventData = await fetchEventDetails(market.eventTicker);
+          } catch (eventError) {
+            console.error('Error fetching event details:', eventError);
+          }
+        }
+
+        setMarketDataCache(prev => {
+          const newCache = new Map(prev);
+          newCache.set(marketTicker, { market, event: eventData, loading: false, error: null });
+          return newCache;
+        });
+      } catch (error: any) {
+        console.error('Error fetching market data:', error);
+        setMarketDataCache(prev => {
+          const newCache = new Map(prev);
+          newCache.set(marketTicker, { market: null, event: null, loading: false, error: error.message });
+          return newCache;
+        });
+      }
+    };
+
+    // Fetch data for all feed items
+    feedItems.forEach(item => {
+      fetchMarketData(item.marketTicker);
+    });
+  }, [feedItems]);
+
   // Debounced search function
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim() || !currentUserId) {
@@ -349,8 +403,13 @@ export default function SocialFeed() {
     }
   };
 
-  const formatAmount = (amount: string) => {
-    const num = parseFloat(amount) / 1_000_000; // Convert from smallest unit
+  const formatAmount = (amount: string, isDummy: boolean) => {
+    // For dummy trades, display amount as-is; for real trades, convert from smallest unit
+    if (isDummy) {
+      const num = parseFloat(amount);
+      return num.toFixed(2);
+    }
+    const num = parseFloat(amount) / 1_000_000; // Convert from smallest unit for real trades
     return num.toFixed(2);
   };
 
@@ -364,22 +423,19 @@ export default function SocialFeed() {
 
   return (
     <div className="space-y-6">
-      {/* Search Section */}
-      <div className={`bg-gradient-to-b from-[var(--card-bg)]/50 to-[var(--card-bg)]/30 rounded-2xl p-6 border transition-all duration-300 ${isSearchFocused ? 'border-violet-500/40 shadow-lg shadow-violet-500/10' : 'border-[var(--border-color)]'
-        }`}>
-        <h2 className="text-xl font-bold text-[var(--text-primary)] mb-5">Discover Users</h2>
-
-        {/* Search Input - No Button */}
-        <div className="relative">
+      {/* Minimal Search Bar - Centered, Expandable */}
+      {/* Minimal Search Bar - Left aligned, Expandable */}
+      <div className="mb-4">
+        <div className={`relative transition-all duration-300 ease-out ${isSearchFocused || searchQuery ? 'w-72' : 'w-48'}`}>
           {/* Search Icon */}
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
             {searching ? (
-              <svg className="w-5 h-5 text-violet-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-violet-400 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             ) : (
-              <svg className="w-5 h-5 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             )}
@@ -391,8 +447,8 @@ export default function SocialFeed() {
             onChange={(e) => handleSearchChange(e.target.value)}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
-            placeholder="Search by name..."
-            className="w-full pl-12 pr-12 py-4 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all duration-200 text-sm"
+            placeholder="Search friends..."
+            className={`w-full pl-9 pr-9 py-2.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm transition-all duration-300 outline-none ${isSearchFocused ? 'ring-2 ring-violet-500/50 bg-[var(--card-bg)]' : 'hover:bg-[var(--card-bg)]'}`}
           />
 
           {/* Clear button */}
@@ -402,55 +458,49 @@ export default function SocialFeed() {
                 setSearchQuery('');
                 setSearchResults([]);
               }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors p-1"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           )}
         </div>
-
-        {/* Search Results */}
-        {searchResults.length > 0 && (
-          <div className="mt-4 space-y-2">
-            {searchResults.map((result) => (
-              <UserSearchResultItem
-                key={result.id}
-                user={result}
-                currentUserId={currentUserId}
-                onFollowChange={() => {
-                  performSearch(searchQuery);
-                  loadFeed();
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* No results message */}
-        {searchQuery.trim() && !searching && searchResults.length === 0 && (
-          <div className="mt-4 text-center py-6">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[var(--surface-hover)] flex items-center justify-center">
-              <svg className="w-6 h-6 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <p className="text-[var(--text-secondary)] text-sm">No users found</p>
-            <p className="text-[var(--text-tertiary)] text-xs mt-1">Try a different search term</p>
-          </div>
-        )}
       </div>
+
+      {/* Search Results - Compact */}
+      {searchResults.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {searchResults.map((result) => (
+            <UserSearchResultItem
+              key={result.id}
+              user={result}
+              currentUserId={currentUserId}
+              onFollowChange={() => {
+                performSearch(searchQuery);
+                loadFeed();
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* No results - Minimal */}
+      {searchQuery.trim() && !searching && searchResults.length === 0 && (
+        <div className="text-center py-4 mb-4">
+          <p className="text-[var(--text-tertiary)] text-sm">No users found</p>
+        </div>
+      )}
 
       {/* Feed Section */}
       <div className="bg-gradient-to-b from-[var(--card-bg)]/50 to-[var(--card-bg)]/30 rounded-2xl p-6 border border-[var(--border-color)]">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+            {/* <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
-            </div>
+            </div> */}
             <h2 className="text-xl font-bold text-[var(--text-primary)]">Activity Feed</h2>
           </div>
           <button
@@ -506,96 +556,105 @@ export default function SocialFeed() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {feedItems.map((item) => {
-              const displayTitle = formatMarketTitle('', item.marketTicker);
               const displayName = item.user.displayName || truncateAddress(item.user.walletAddress);
+              const hasQuote = item.quote && item.quote.trim().length > 0;
+              const marketData = marketDataCache.get(item.marketTicker);
+              const isLoadingMarket = !marketData || marketData.loading;
+              const eventImage = marketData?.event?.imageUrl;
+              const marketTitle = marketData?.market?.title || formatMarketTitle('', item.marketTicker);
+              const eventTicker = marketData?.market?.eventTicker || item.eventTicker;
+
+              // Calculate probability from yesBid if available
+              const yesBid = marketData?.market?.yesBid;
+              const probability = yesBid ? Math.round(parseFloat(yesBid) * 100) : null;
 
               return (
-                <div
-                  key={item.id}
-                  className="bg-[var(--surface-hover)]/60 backdrop-blur-sm rounded-xl p-4 border border-[var(--border-color)] hover:border-violet-500/20 hover:shadow-lg hover:shadow-violet-500/5 transition-all duration-200"
-                >
-                  <div className="flex items-start gap-4">
-                    {/* User Avatar */}
-                    {item.user.avatarUrl ? (
-                      <img
-                        src={item.user.avatarUrl}
-                        alt={displayName}
-                        className="w-11 h-11 rounded-full border-2 border-violet-500/30 shadow-lg"
-                      />
-                    ) : (
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center border-2 border-violet-500/30 shadow-lg">
-                        <span className="text-white text-sm font-bold">
-                          {displayName.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Trade Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[var(--text-primary)] font-semibold">{displayName}</span>
-                        <span className="text-[var(--text-tertiary)]">•</span>
-                        <span className="text-[var(--text-secondary)] text-sm">
-                          {formatTimeAgo(item.createdAt)}
-                        </span>
-                      </div>
-
-                      <div className="mb-2">
-                        <p className="text-[var(--text-secondary)] text-sm mb-1">
-                          Traded{' '}
-                          <span
-                            className={`font-semibold ${item.side === 'yes' ? 'text-green-400' : 'text-red-400'
-                              }`}
-                          >
-                            {item.side.toUpperCase()}
-                          </span>{' '}
-                          on{' '}
-                          <span className="text-[var(--text-primary)] font-medium">{displayTitle}</span>
-                        </p>
-                        <p className="text-[var(--text-tertiary)] text-xs font-mono mb-1">
-                          {item.marketTicker}
-                        </p>
-                        <p className="text-[var(--text-secondary)] text-xs">
-                          Amount: {formatAmount(item.amount)} USDC
-                        </p>
-                      </div>
-
-                      {/* Transaction Link */}
-                      <a
-                        href={`https://solscan.io/tx/${item.transactionSig}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-violet-400 hover:text-violet-300 text-xs transition-colors"
-                      >
-                        View on Solscan
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
-                        </svg>
-                      </a>
-                    </div>
-
-                    {/* Side Badge */}
-                    <div
-                      className={`px-3 py-1 rounded-lg text-xs font-semibold ${item.side === 'yes'
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                        }`}
+                <div key={item.id} className="border-b border-[var(--border-color)] pb-3 last:border-b-0">
+                  {/* Header: Avatar + Name + Action + Time - all inline */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <button
+                      onClick={() => router.push(`/user/${item.user.id}`)}
+                      className="flex items-center gap-2 focus:outline-none hover:opacity-80"
                     >
-                      {item.side.toUpperCase()}
-                    </div>
+                      {item.user.avatarUrl ? (
+                        <img
+                          src={item.user.avatarUrl}
+                          alt={displayName}
+                          className="w-6 h-6 rounded-full"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                          <span className="text-white text-[10px] font-bold">
+                            {displayName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <span className="font-semibold text-[var(--text-primary)] text-sm hover:text-violet-400">
+                        {displayName}
+                      </span>
+                    </button>
+                    <span className="text-[var(--text-secondary)] text-sm">
+                      Bought <span className="font-semibold">${formatAmount(item.amount, item.isDummy)}</span>
+                      {' '}
+                      <span className={`font-semibold ${item.side === 'yes' ? 'text-green-400' : 'text-red-400'}`}>
+                        {item.side.toUpperCase()}
+                      </span>
+                    </span>
+                    <span className="text-[var(--text-tertiary)] text-xs ml-auto">
+                      {formatTimeAgo(item.createdAt)}
+                    </span>
                   </div>
+
+                  {/* Quote if present - HIGHLIGHTED with special styling */}
+                  {hasQuote && (
+                    <div className="ml-8 my-3 px-4 py-3 bg-gradient-to-r from-violet-500/10 to-transparent border-l-4 border-violet-500 rounded-r-lg">
+                      <p className="text-[var(--text-primary)] text-base font-medium">
+                        {item.quote}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Horizontal Market Card: Image Left, Content Right - Same indent as quote */}
+                  <button
+                    onClick={() => eventTicker && router.push(`/event/${encodeURIComponent(eventTicker)}`)}
+                    className="ml-8 w-[calc(100%-2rem)] text-left focus:outline-none group"
+                    disabled={!eventTicker}
+                  >
+                    <div className="flex rounded-xl border border-[var(--border-color)] overflow-hidden bg-[var(--card-bg)]/40 hover:bg-[var(--surface-hover)]/50 hover:border-violet-500/30 transition-all">
+                      {/* Image - Left */}
+                      <div className="flex-shrink-0 w-28 h-20 relative overflow-hidden">
+                        {isLoadingMarket ? (
+                          <div className="w-full h-full bg-[var(--surface-hover)] animate-pulse" />
+                        ) : eventImage ? (
+                          <img
+                            src={eventImage}
+                            alt={marketTitle}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-violet-600/20 to-fuchsia-600/20 flex items-center justify-center">
+                            <svg className="w-6 h-6 text-violet-400/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Content - Right */}
+                      <div className="flex-1 p-3 min-w-0 flex flex-col justify-center">
+                        <h3 className="text-[var(--text-primary)] text-sm font-medium line-clamp-2 leading-snug group-hover:text-violet-400 transition-colors">
+                          {marketTitle}
+                        </h3>
+                        {probability !== null && (
+                          <span className={`mt-1 text-xs font-semibold ${probability >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                            {probability}% chance
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
                 </div>
               );
             })}

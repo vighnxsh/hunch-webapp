@@ -28,15 +28,20 @@ model Trade {
   id             String   @id @default(cuid())
   userId         String
   marketTicker   String
+  eventTicker    String?
   side           String
   amount         String
-  transactionSig String   @unique
+  transactionSig String
+  quote          String?
+  isDummy        Boolean  @default(true)
   createdAt      DateTime @default(now())
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
   @@index([transactionSig])
+  @@index([isDummy])
+  @@index([eventTicker])
 }
 
 model Follow {

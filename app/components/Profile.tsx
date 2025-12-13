@@ -381,10 +381,10 @@ export default function Profile() {
             <img
               src={getUserAvatar()!}
               alt="Profile"
-              className="w-16 h-16 rounded-full border-2 border-violet-500/30"
+              className="w-16 h-16 rounded-full border-2 border-cyan-500/30"
             />
           ) : (
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center border-2 border-violet-500/30">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center border-2 border-cyan-500/30">
               <span className="text-white text-xl font-bold">
                 {getUserDisplayName().charAt(0).toUpperCase()}
               </span>
@@ -406,7 +406,7 @@ export default function Profile() {
                 }}
                 className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
               >
-                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-violet-400 transition-colors">{followersCount}</span>
+                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">{followersCount}</span>
                 <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Followers</span>
               </button>
               <button
@@ -416,7 +416,7 @@ export default function Profile() {
                 }}
                 className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
               >
-                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-violet-400 transition-colors">{followingCount}</span>
+                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">{followingCount}</span>
                 <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Following</span>
               </button>
             </div>
@@ -433,11 +433,11 @@ export default function Profile() {
           <div className="bg-[var(--card-bg)]/30 rounded-xl p-6 border border-[var(--border-color)]">
             {creatingWallet ? (
               <div className="flex flex-col items-center justify-center gap-4 py-4">
-                <svg className="w-8 h-8 text-violet-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <p className="text-violet-300 text-sm font-medium">
+                <p className="text-cyan-300 text-sm font-medium">
                   Creating your wallet...
                 </p>
                 <p className="text-[var(--text-tertiary)] text-xs text-center max-w-sm">
@@ -446,8 +446,8 @@ export default function Profile() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-4 py-4">
-                <div className="w-12 h-12 rounded-full bg-violet-500/10 border border-violet-500/30 flex items-center justify-center mb-2">
-                  <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-2">
+                  <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
                 </div>
@@ -487,7 +487,7 @@ export default function Profile() {
                     }
                   }}
                   disabled={creatingWallet}
-                  className="px-6 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {creatingWallet ? 'Creating...' : 'Create Solana Wallet'}
                 </button>
@@ -651,10 +651,10 @@ function UserSearchResult({
           <img
             src={user.avatarUrl}
             alt={displayName}
-            className="w-8 h-8 rounded-full border border-violet-500/30"
+            className="w-8 h-8 rounded-full border border-cyan-500/30"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center border border-violet-500/30">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center border border-cyan-500/30">
             <span className="text-white text-xs font-bold">
               {displayName.charAt(0).toUpperCase()}
             </span>
@@ -670,7 +670,7 @@ function UserSearchResult({
         disabled={loading}
         className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${isFollowing
           ? 'bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)]'
-          : 'bg-violet-600 hover:bg-violet-500 text-white'
+          : 'bg-cyan-600 hover:bg-cyan-500 text-white'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {loading ? '...' : isFollowing ? 'Unfollow' : 'Follow'}

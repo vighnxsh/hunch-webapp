@@ -74,7 +74,7 @@ export default function MarketsList() {
         <h2 className="text-2xl font-bold text-white">
           Markets
         </h2>
-        <span className="px-3 py-1 bg-violet-500/20 text-violet-400 text-sm font-medium rounded-lg border border-violet-500/30">
+        <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 text-sm font-medium rounded-lg border border-cyan-500/30">
           {markets.length} active
         </span>
       </div>
@@ -104,7 +104,7 @@ export default function MarketsList() {
                     {displayTitle}
                   </h3>
                   {dateInfo.formattedDate && (
-                    <p className="text-xs text-violet-400 mb-2 flex items-center gap-1">
+                    <p className="text-xs text-cyan-400 mb-2 flex items-center gap-1">
                       <span>📅</span> {dateInfo.formattedDate}
                     </p>
                   )}
@@ -147,7 +147,7 @@ export default function MarketsList() {
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setSelectedMarket(selectedMarket?.ticker === market.ticker ? null : market)}
-                      className="px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl transition-all duration-200 text-sm font-semibold"
+                      className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition-all duration-200 text-sm font-semibold"
                     >
                       {selectedMarket?.ticker === market.ticker ? 'Hide Trading' : 'Trade'}
                     </button>

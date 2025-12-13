@@ -47,10 +47,10 @@ function EventCard({ event, onClick }: EventCardProps) {
     return (
         <div
             onClick={onClick}
-            className="group relative flex-shrink-0 w-[280px] sm:w-[300px] bg-gradient-to-b from-[var(--surface)] to-[var(--surface-hover)]/50 border border-[var(--border-color)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-violet-500/40 hover:shadow-xl hover:shadow-violet-500/10 hover:-translate-y-1"
+            className="group relative flex-shrink-0 w-[280px] sm:w-[300px] bg-gradient-to-b from-[var(--surface)] to-[var(--surface-hover)]/50 border border-[var(--border-color)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1"
         >
             {/* Event Image */}
-            <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20">
+            <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
                 {event.imageUrl ? (
                     <img
                         src={event.imageUrl}
@@ -76,7 +76,7 @@ function EventCard({ event, onClick }: EventCardProps) {
             {/* Content */}
             <div className="p-4 space-y-3">
                 {/* Title */}
-                <h3 className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight line-clamp-2 group-hover:text-violet-400 transition-colors">
+                <h3 className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight line-clamp-2 group-hover:text-cyan-400 transition-colors">
                     {event.title || 'Untitled Event'}
                 </h3>
 
@@ -110,7 +110,7 @@ function EventCard({ event, onClick }: EventCardProps) {
 
                 {/* CTA */}
                 <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs text-violet-400 font-medium group-hover:text-violet-300 transition-colors">
+                    <span className="text-xs text-cyan-400 font-medium group-hover:text-cyan-300 transition-colors">
                         View Markets →
                     </span>
                 </div>
@@ -190,7 +190,7 @@ export default function EventMarketplace() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
                         <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                         </svg>
@@ -199,7 +199,7 @@ export default function EventMarketplace() {
                 </div>
                 <button
                     onClick={() => router.push('/home')}
-                    className="text-xs text-violet-400 hover:text-violet-300 font-medium transition-colors"
+                    className="text-xs text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
                 >
                     View All →
                 </button>

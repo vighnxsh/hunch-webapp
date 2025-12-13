@@ -182,7 +182,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center py-16">
-                <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
+                <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-[var(--text-secondary)] text-sm">Loading profile...</p>
             </div>
         );
@@ -199,7 +199,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                 <p className="text-[var(--text-secondary)] text-lg mb-2">{error}</p>
                 <Link
                     href="/social"
-                    className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 text-sm mt-4"
+                    className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm mt-4"
                 >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -236,10 +236,10 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                             <img
                                 src={profile.avatarUrl}
                                 alt={displayName}
-                                className="w-16 h-16 rounded-full border-2 border-violet-500/30"
+                                className="w-16 h-16 rounded-full border-2 border-cyan-500/30"
                             />
                         ) : (
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center border-2 border-violet-500/30">
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center border-2 border-cyan-500/30">
                                 <span className="text-white text-xl font-bold">
                                     {displayName.charAt(0).toUpperCase()}
                                 </span>
@@ -264,7 +264,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                         disabled={followLoading || checkingFollow}
                                         className={`px-5 py-2 text-sm font-semibold rounded-xl transition-all duration-200 ${isFollowing
                                             ? 'bg-[var(--surface-hover)] hover:bg-red-500/10 hover:text-red-400 text-[var(--text-secondary)] border border-[var(--border-color)]'
-                                            : 'bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 text-white shadow-lg shadow-violet-500/25'
+                                            : 'bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white shadow-lg shadow-cyan-500/25'
                                             } disabled:opacity-50 disabled:cursor-not-allowed`}
                                     >
                                         {followLoading || checkingFollow ? (
@@ -285,7 +285,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                     }}
                                     className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
                                 >
-                                    <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-violet-400 transition-colors">{profile.followerCount}</span>
+                                    <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">{profile.followerCount}</span>
                                     <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Followers</span>
                                 </button>
                                 <button
@@ -295,7 +295,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                     }}
                                     className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
                                 >
-                                    <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-violet-400 transition-colors">{profile.followingCount}</span>
+                                    <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">{profile.followingCount}</span>
                                     <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Following</span>
                                 </button>
                             </div>
@@ -322,9 +322,9 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                 : 'bg-gradient-to-br from-emerald-900/40 via-lime-900/40 to-green-900/40'
                                 }`}>
                                 {/* Decorative circles */}
-                                <div className={`absolute -top-20 -right-20 w-64 h-64 rounded-full blur-2xl ${theme === 'light' ? 'bg-violet-200/40' : 'bg-white/10'
+                                <div className={`absolute -top-20 -right-20 w-64 h-64 rounded-full blur-2xl ${theme === 'light' ? 'bg-cyan-200/40' : 'bg-white/10'
                                     }`} />
-                                <div className={`absolute -bottom-20 -left-20 w-48 h-48 rounded-full blur-3xl ${theme === 'light' ? 'bg-fuchsia-200/30' : 'bg-violet-400/20'
+                                <div className={`absolute -bottom-20 -left-20 w-48 h-48 rounded-full blur-3xl ${theme === 'light' ? 'bg-fuchsia-200/30' : 'bg-cyan-400/20'
                                     }`} />
                             </div>
 

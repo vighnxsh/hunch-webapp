@@ -73,13 +73,13 @@ export default function CreditCard({
         }`}>
           {/* Decorative circles */}
           <div className={`absolute -top-20 -right-20 w-64 h-64 rounded-full blur-2xl ${
-            theme === 'light' ? 'bg-violet-200/40' : 'bg-white/10'
+            theme === 'light' ? 'bg-cyan-200/40' : 'bg-white/10'
           }`} />
           <div className={`absolute -bottom-20 -left-20 w-48 h-48 rounded-full blur-3xl ${
-            theme === 'light' ? 'bg-fuchsia-200/30' : 'bg-violet-400/20'
+            theme === 'light' ? 'bg-blue-200/30' : 'bg-cyan-400/20'
           }`} />
           <div className={`absolute top-1/2 right-1/4 w-32 h-32 rounded-full blur-2xl ${
-            theme === 'light' ? 'bg-pink-200/20' : 'bg-fuchsia-300/10'
+            theme === 'light' ? 'bg-pink-200/20' : 'bg-blue-300/10'
           }`} />
         </div>
         

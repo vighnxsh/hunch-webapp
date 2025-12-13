@@ -120,7 +120,7 @@ export default function UserTrades({ userId }: UserTradesProps) {
     return (
       <div className="bg-[var(--surface)]/50 backdrop-blur-sm border border-[var(--border-color)] rounded-2xl p-6">
         <div className="flex items-center justify-center py-8">
-          <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -181,7 +181,7 @@ export default function UserTrades({ userId }: UserTradesProps) {
             return (
               <div
                 key={trade.id}
-                className="bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl p-4 hover:border-violet-500/30 transition-all"
+                className="bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl p-4 hover:border-cyan-500/30 transition-all"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -199,7 +199,7 @@ export default function UserTrades({ userId }: UserTradesProps) {
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-lg ${
                             market.status === 'active'
-                              ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+                              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                               : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)] border border-[var(--border-color)]'
                           }`}
                         >
@@ -222,7 +222,7 @@ export default function UserTrades({ userId }: UserTradesProps) {
                     href={`https://solscan.io/tx/${trade.transactionSig}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-4 p-2 text-[var(--text-tertiary)] hover:text-violet-400 transition-colors"
+                    className="ml-4 p-2 text-[var(--text-tertiary)] hover:text-cyan-400 transition-colors"
                     title="View on Solscan"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

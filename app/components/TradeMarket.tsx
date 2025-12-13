@@ -269,7 +269,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               )}
             {probabilities.loading && market.status === 'active' && (
               <div className="flex items-center justify-center gap-2 mb-2 text-xs text-[var(--text-tertiary)]">
-                <div className="h-3 w-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                <div className="h-3 w-3 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
                 <span>Loading probabilities...</span>
               </div>
             )}
@@ -308,7 +308,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               step="0.01"
               min="0"
               disabled={loading}
-              className="w-full px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50 transition-all"
+              className="w-full px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 transition-all"
             />
             
             {/* To Win Display */}
@@ -335,7 +335,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
           <button
             onClick={handleDummyTrade}
             disabled={!ready || !authenticated || !walletAddress || loading || !amount || parseFloat(amount) <= 0}
-            className="w-full px-4 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all font-semibold"
+            className="w-full px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all font-semibold"
           >
             {loading ? 'Placing Order...' : !amount || parseFloat(amount) <= 0 ? 'Enter Amount' : 'Place Order'}
           </button>
@@ -346,7 +346,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               ? 'bg-green-500/10 text-green-400 border border-green-500/30'
               : status.includes('❌')
                 ? 'bg-red-500/10 text-red-400 border border-red-500/30'
-                : 'bg-violet-500/10 text-violet-400 border border-violet-500/30'
+                : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
               }`}>
               {status}
             </p>

@@ -253,7 +253,7 @@ export default function UserPositions() {
           {positions.map((position) => (
             <div
               key={position.mint}
-              className="p-4 bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl hover:border-violet-500/30 transition-colors"
+              className="p-4 bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl hover:border-cyan-500/30 transition-colors"
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
@@ -273,7 +273,7 @@ export default function UserPositions() {
                       {position.position}
                     </span>
                     {position.market?.status && (
-                      <span className="px-3 py-1 text-xs font-medium rounded-lg bg-violet-500/20 text-violet-400 border border-violet-500/30">
+                      <span className="px-3 py-1 text-xs font-medium rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
                         {position.market.status}
                       </span>
                     )}
@@ -293,7 +293,7 @@ export default function UserPositions() {
                 <button
                   onClick={() => handleRedeem(position)}
                   disabled={redeemingMint === position.mint}
-                  className="mt-3 w-full px-4 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all text-sm font-semibold"
+                  className="mt-3 w-full px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all text-sm font-semibold"
                 >
                   {redeemingMint === position.mint ? 'Redeeming...' : 'Redeem Tokens'}
                 </button>

@@ -141,7 +141,7 @@ export default function EventPage() {
                         </svg>
                     </div>
                     <p className="text-[var(--text-secondary)] mb-4">{error}</p>
-                    <button onClick={() => router.back()} className="px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-medium">
+                    <button onClick={() => router.back()} className="px-4 py-2 bg-cyan-600 text-white rounded-xl text-sm font-medium">
                         Go Back
                     </button>
                 </div>
@@ -181,7 +181,7 @@ export default function EventPage() {
                                     />
                                 </div>
                             ) : (
-                                <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center flex-shrink-0">
+                                <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
                                     <span className="text-2xl">📊</span>
                                 </div>
                             )}
@@ -298,7 +298,7 @@ export default function EventPage() {
                             {!showAllMarkets && activeMarkets.length > 4 && (
                                 <button
                                     onClick={() => setShowAllMarkets(true)}
-                                    className="w-full p-3 bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-xl text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-2 border-dashed border-[var(--border-color)] hover:border-violet-500/30"
+                                    className="w-full p-3 bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-xl text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-2 border-dashed border-[var(--border-color)] hover:border-cyan-500/30"
                                 >
                                     Show {activeMarkets.length - 4} More Markets
                                 </button>

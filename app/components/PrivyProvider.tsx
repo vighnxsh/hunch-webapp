@@ -27,7 +27,7 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
             Privy App ID is not configured. Please add your Privy App ID to your environment variables.
           </p>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-left">
-            <p className="text-gray-500 text-sm mb-2">Add to your <code className="text-violet-400">.env.local</code> file:</p>
+            <p className="text-gray-500 text-sm mb-2">Add to your <code className="text-cyan-400">.env.local</code> file:</p>
             <code className="text-green-400 text-sm font-mono">
               NEXT_PUBLIC_PRIVY_APP_ID=your_app_id_here
             </code>
@@ -38,7 +38,7 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
               href="https://dashboard.privy.io" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-violet-400 hover:text-violet-300 underline"
+              className="text-cyan-400 hover:text-cyan-300 underline"
             >
               dashboard.privy.io
             </a>
@@ -55,6 +55,11 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
     <PrivyProvider
       appId={appId}
       config={{
+        externalWallets: {
+          solana: {
+             
+          },
+        },
         appearance: {
           theme: 'dark',
           accentColor: '#8B5CF6',

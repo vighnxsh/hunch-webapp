@@ -59,7 +59,7 @@ export default function Login() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
         <div className="animate-pulse">
-          <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -73,9 +73,9 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--background)] relative overflow-hidden">
       {/* Background gradient effects */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-cyan-900/20 via-transparent to-transparent rounded-full blur-3xl" />
-        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-blue-900/20 via-transparent to-transparent rounded-full blur-3xl" />
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-violet-900/20 via-transparent to-transparent rounded-full blur-3xl" />
+        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-fuchsia-900/20 via-transparent to-transparent rounded-full blur-3xl" />
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl animate-pulse" />
       </div>
 
       {/* Grid pattern overlay */}
@@ -90,10 +90,7 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-md px-6">
         {/* Logo and branding */}
         <div className="text-center mb-12">
-          <div className="flex justify-center mb-4">
-            <img src="/image.png" alt="Hunch" className="w-24 h-24 object-contain" />
-          </div>
-          <h1 className="text-4xl font-black tracking-tighter text-[var(--text-primary)] mb-3" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+          <h1 className="text-6xl font-black tracking-tighter text-[var(--text-primary)] mb-3" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
             hunch
           </h1>
           <p className="text-[var(--text-secondary)] text-lg font-light tracking-wide">
@@ -177,11 +174,11 @@ export default function Login() {
           {/* Terms notice */}
           <p className="text-center text-[var(--text-tertiary)] text-xs mt-8 leading-relaxed">
             By continuing, you agree to our{' '}
-            <a href="#" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
+            <a href="#" className="text-violet-400 hover:text-violet-300 underline underline-offset-2">
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="#" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
+            <a href="#" className="text-violet-400 hover:text-violet-300 underline underline-offset-2">
               Privacy Policy
             </a>
           </p>
@@ -191,7 +188,7 @@ export default function Login() {
         <div className="text-center mt-8">
           <p className="text-[var(--text-tertiary)] text-sm">
             Powered by{' '}
-            <span className="text-cyan-400 font-medium">Solana</span>
+            <span className="text-violet-400 font-medium">Solana</span>
           </p>
         </div>
       </div>

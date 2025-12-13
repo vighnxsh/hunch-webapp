@@ -6,7 +6,7 @@ import { fetchEvents, fetchTagsByCategories, Event, TagsByCategories } from '../
 
 // Topic filters with gradient colors
 const TOPIC_FILTERS = [
-  { id: 'all', label: 'All', icon: '🌐', keywords: [], color: 'cyan' },
+  { id: 'all', label: 'All', icon: '🌐', keywords: [], color: 'violet' },
   { id: 'crypto', label: 'Crypto', icon: '₿', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'], color: 'orange' },
   { id: 'politics', label: 'Politics', icon: '🏛️', keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'], color: 'blue' },
   { id: 'sports', label: 'Sports', icon: '⚽', keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'], color: 'green' },
@@ -34,27 +34,9 @@ const formatVolume = (value?: number) => {
 };
 
 // Event Card Component with layout matching the provided design
-function EventCard({ event, onClick, isSportsView = false }: { event: Event; onClick: () => void; isSportsView?: boolean }) {
-  const [expandedSelection, setExpandedSelection] = useState<{ id: string; side: 'yes' | 'no' } | null>(null);
-
-  const toggleSelection = (id: string, side: 'yes' | 'no') => {
-    setExpandedSelection((prev) => {
-      if (prev && prev.id === id && prev.side === side) return null;
-      return { id, side };
-    });
-  };
-
-  const formatPayoutExample = (price?: string | number | null) => {
-    if (price === undefined || price === null) return null;
-    const numeric = typeof price === 'string' ? parseFloat(price) : price;
-    if (Number.isNaN(numeric) || numeric <= 0 || numeric >= 1) return null;
-    const stake = 100;
-    const potential = stake * (1 / numeric);
-    return `$${stake.toLocaleString()} → $${Math.round(potential).toLocaleString()}`;
-  };
-
-  // Active markets sorted by chance (yesBid) descending
-  const activeMarkets = (event.markets || [])
+function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
+  // Filter active markets and sort by chance (yesBid) descending, then take top 2
+  const hotMarkets = (event.markets || [])
     .filter((m: any) => 
       m.status !== 'finalized' && 
       m.status !== 'resolved' && 
@@ -64,18 +46,16 @@ function EventCard({ event, onClick, isSportsView = false }: { event: Event; onC
       const aChance = a.yesBid ? parseFloat(a.yesBid) : 0;
       const bChance = b.yesBid ? parseFloat(b.yesBid) : 0;
       return bChance - aChance; // Descending order - highest chance first
-    });
-
-  // Default view shows just top 2 “hot” markets
-  const hotMarkets = activeMarkets.slice(0, 2);
+    })
+    .slice(0, 2);
 
   return (
     <div
       onClick={onClick}
-      className="event-card group flex flex-col gap-3 rounded-3xl p-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+      className="group flex flex-col gap-3 bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
     >
       <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex-shrink-0">
+        <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex-shrink-0 border border-[var(--border)]">
           {event.imageUrl ? (
             <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
           ) : (
@@ -94,56 +74,7 @@ function EventCard({ event, onClick, isSportsView = false }: { event: Event; onC
         </div>
       </div>
 
-      {/* Sports view: show multiple markets (up to 4) in a compact scoreboard style */}
-      {isSportsView && activeMarkets.length > 0 && (
-        <div className="space-y-3">
-          {activeMarkets.slice(0, 4).map((market: any, idx: number) => {
-            const label =
-              market.yesSubTitle ||
-              market.noSubTitle ||
-              market.subtitle ||
-              market.title ||
-              `Option ${idx + 1}`;
-            const yesPercent = formatPercent(market.yesBid ?? market.yesAsk);
-            const noPercent = formatPercent(market.noBid ?? market.noAsk);
-
-            return (
-              <div
-                key={market.ticker || idx}
-                className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-[var(--surface-hover)]"
-              >
-                <div className="flex flex-col">
-                  <span className="text-sm text-[var(--text-primary)] truncate">{label}</span>
-                  {market.subtitle && (
-                    <span className="text-[11px] text-[var(--text-tertiary)] truncate">
-                      {market.subtitle}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-500/15 text-green-400 border border-green-500/30">
-                    Yes {yesPercent}
-                  </span>
-                  <span className="text-xs font-semibold px-3 py-1 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">
-                    No {noPercent}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-          {activeMarkets.length > 4 && (
-            <button
-              onClick={onClick}
-              className="w-full text-center text-[12px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors py-1"
-            >
-              View all markets →
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Default view: compact two hot markets with expandable payout preview */}
-      {!isSportsView && hotMarkets.length > 0 && (
+      {hotMarkets.length > 0 && (
         <div className="space-y-3">
           {hotMarkets.map((market: any, idx: number) => {
             const label =
@@ -153,77 +84,24 @@ function EventCard({ event, onClick, isSportsView = false }: { event: Event; onC
               market.title ||
               `Option ${idx + 1}`;
             const yesPercent = formatPercent(market.yesAsk ?? market.yesBid);
-            const marketKey = market.ticker || String(idx);
-            const isExpanded = expandedSelection?.id === marketKey;
-            const selectedSide = expandedSelection?.side;
-            const yesPayout = formatPayoutExample(market.yesAsk ?? market.yesBid);
-            const noPayout = formatPayoutExample(market.noAsk ?? market.noBid ?? (1 - (market.yesAsk ?? market.yesBid || 0)));
 
             return (
               <div
                 key={market.ticker || idx}
-                className="flex flex-col gap-2 px-3 py-2 rounded-2xl bg-[var(--surface-hover)]"
+                className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-[var(--surface-hover)]"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-[var(--text-primary)] truncate">{label}</span>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xl font-semibold text-[var(--text-primary)]">
-                      {yesPercent}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSelection(marketKey, 'yes');
-                      }}
-                      className={`text-[12px] font-semibold px-3 py-1 rounded-full transition-transform ${selectedSide === 'yes' && isExpanded
-                        ? 'bg-green-500 text-white scale-105 shadow-lg'
-                        : 'bg-green-400/80 text-white hover:scale-105'
-                        }`}
-                    >
-                      Yes
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSelection(marketKey, 'no');
-                      }}
-                      className={`text-[12px] font-semibold px-3 py-1 rounded-full transition-transform ${selectedSide === 'no' && isExpanded
-                        ? 'bg-red-500 text-white scale-105 shadow-lg'
-                        : 'bg-red-500/90 text-white hover:scale-105'
-                        }`}
-                    >
-                      No
-                    </button>
-                  </div>
+                <span className="text-sm text-[var(--text-primary)] truncate">{label}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-xl font-semibold text-[var(--text-primary)]">
+                    {yesPercent}
+                  </span>
+                  <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-green-400 shadow-sm">
+                    Yes 
+                  </span>
+                  <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-red-500 text-white shadow-sm">
+                    No
+                  </span>
                 </div>
-                {isExpanded && (
-                  <div className="mt-1 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-lg">
-                    <div className="text-xs text-[var(--text-tertiary)] mb-2">Payout preview (per $100)</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div className={`flex items-center justify-between rounded-xl px-3 py-2 transition-all ${selectedSide === 'yes'
-                        ? 'bg-green-500/10 border border-green-500/40 scale-[1.02]'
-                        : 'bg-[var(--surface-hover)]'
-                        }`}>
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">Yes payout</span>
-                        <span className="text-sm text-[var(--text-secondary)]">
-                          {yesPayout || 'Shown when priced'}
-                        </span>
-                      </div>
-                      <div className={`flex items-center justify-between rounded-xl px-3 py-2 transition-all ${selectedSide === 'no'
-                        ? 'bg-red-500/10 border border-red-500/40 scale-[1.02]'
-                        : 'bg-[var(--surface-hover)]'
-                        }`}>
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">No payout</span>
-                        <span className="text-sm text-[var(--text-secondary)]">
-                          {noPayout || 'Shown when priced'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">
-                      Tap Yes/No again to collapse.
-                    </p>
-                  </div>
-                )}
               </div>
             );
           })}
@@ -411,7 +289,7 @@ export default function EventsList() {
         <p className="text-[var(--text-secondary)] text-sm mb-3">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-xl"
+          className="px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-xl"
         >
           Retry
         </button>
@@ -430,7 +308,7 @@ export default function EventsList() {
               key={topic.id}
               onClick={() => setSelectedTopic(topic.id)}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-200 flex-shrink-0 ${isSelected
-                ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/25'
+                ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/25'
                 : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
             >
@@ -457,7 +335,7 @@ export default function EventsList() {
             {selectedTopic !== 'all' && (
               <button
                 onClick={() => setSelectedTopic('all')}
-                className="text-cyan-400 text-sm font-medium"
+                className="text-violet-400 text-sm font-medium"
               >
                 View all →
               </button>
@@ -468,7 +346,6 @@ export default function EventsList() {
             <EventCard
               key={event.ticker || index}
               event={event}
-              isSportsView={selectedTopic === 'sports'}
               onClick={() => handleEventClick(event.ticker)}
             />
           ))
@@ -479,7 +356,7 @@ export default function EventsList() {
       {hasMore && (
         <div ref={observerTarget} className="flex justify-center py-6">
           {loadingMore && (
-            <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           )}
         </div>
       )}

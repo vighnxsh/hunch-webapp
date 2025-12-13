@@ -14,8 +14,8 @@
   --surface-hover: #222222;
   --muted: #71717a;
   --muted-foreground: #a1a1aa;
-  --accent: #06b6d4;
-  --accent-light: #22d3ee;
+  --accent: #8B5CF6;
+  --accent-light: #a78bfa;
   --accent-fuchsia: #D946EF;
   --success: #22c55e;
   --danger: #ef4444;
@@ -29,11 +29,11 @@
   --shimmer-1: rgba(255, 255, 255, 0.05);
   --shimmer-2: rgba(255, 255, 255, 0.1);
   --glass-bg: rgba(255, 255, 255, 0.05);
-  --selection-bg: rgba(6, 182, 212, 0.3);
+  --selection-bg: rgba(139, 92, 246, 0.3);
   --selection-color: white;
   --scrollbar-track: rgba(255, 255, 255, 0.05);
-  --scrollbar-thumb: rgba(6, 182, 212, 0.3);
-  --scrollbar-thumb-hover: rgba(6, 182, 212, 0.5);
+  --scrollbar-thumb: rgba(139, 92, 246, 0.3);
+  --scrollbar-thumb-hover: rgba(139, 92, 246, 0.5);
 }
 
 [data-theme="light"] {
@@ -45,8 +45,8 @@
   --surface-hover: #F3F4F6;
   --muted: #9CA3AF;
   --muted-foreground: #6B7280;
-  --accent: #0891b2;
-  --accent-light: #06b6d4;
+  --accent: #7C3AED;
+  --accent-light: #8B5CF6;
   --accent-fuchsia: #C026D3;
   --success: #16a34a;
   --danger: #dc2626;
@@ -60,11 +60,11 @@
   --shimmer-1: rgba(0, 0, 0, 0.04);
   --shimmer-2: rgba(0, 0, 0, 0.08);
   --glass-bg: rgba(255, 255, 255, 0.8);
-  --selection-bg: rgba(8, 145, 178, 0.2);
+  --selection-bg: rgba(124, 58, 237, 0.2);
   --selection-color: #1a1a1a;
   --scrollbar-track: rgba(0, 0, 0, 0.05);
-  --scrollbar-thumb: rgba(8, 145, 178, 0.3);
-  --scrollbar-thumb-hover: rgba(8, 145, 178, 0.5);
+  --scrollbar-thumb: rgba(124, 58, 237, 0.3);
+  --scrollbar-thumb-hover: rgba(124, 58, 237, 0.5);
 }
 
 @theme inline {
@@ -161,7 +161,7 @@ textarea {
 
 /* Focus outline */
 :focus-visible {
-  outline: 2px solid rgba(6, 182, 212, 0.5);
+  outline: 2px solid rgba(139, 92, 246, 0.5);
   outline-offset: 2px;
 }
 
@@ -188,7 +188,7 @@ textarea {
 
 /* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  background: linear-gradient(135deg, #8B5CF6, #D946EF);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -202,8 +202,8 @@ textarea {
 }
 
 /* Glow effects */
-.glow-cyan {
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+.glow-violet {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
 }
 
 .glow-fuchsia {
@@ -217,7 +217,7 @@ textarea {
 
 .btn-hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.25);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
 }
 
 /* Card hover effect */
@@ -233,30 +233,6 @@ textarea {
 /* Light theme specific overrides */
 [data-theme="light"] .card-hover:hover {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-}
-
-/* Home event card styling */
-.event-card {
-  background:
-    radial-gradient(circle at 20% 20%, rgba(6, 182, 212, 0.14), transparent 38%),
-    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.12), transparent 34%),
-    linear-gradient(145deg, #0d1020 0%, #090c17 55%, #070810 100%);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
-}
-
-[data-theme="light"] .event-card {
-  background: linear-gradient(145deg, #ffffff 0%, #f6f7fb 60%, #eef1f8 100%);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="dark"] .event-card {
-  box-shadow: 0 0 24px rgba(6, 182, 212, 0.18);
-}
-
-[data-theme="dark"] .event-card:hover {
-  box-shadow: 0 0 32px rgba(6, 182, 212, 0.22);
 }
 
 /* Theme-aware utility classes */
@@ -297,7 +273,7 @@ textarea {
   --privy-color-foreground: #fafafa !important;
   --privy-color-foreground-2: #a1a1aa !important;
   --privy-color-foreground-3: #71717a !important;
-  --privy-color-accent: #06b6d4 !important;
+  --privy-color-accent: #8B5CF6 !important;
   --privy-border-radius-sm: 8px !important;
   --privy-border-radius-md: 12px !important;
   --privy-border-radius-lg: 16px !important;
@@ -310,7 +286,7 @@ textarea {
   --privy-color-foreground: #1a1a1a !important;
   --privy-color-foreground-2: #4b5563 !important;
   --privy-color-foreground-3: #9ca3af !important;
-  --privy-color-accent: #0891b2 !important;
+  --privy-color-accent: #7C3AED !important;
   --privy-border-radius-sm: 8px !important;
   --privy-border-radius-md: 12px !important;
   --privy-border-radius-lg: 16px !important;

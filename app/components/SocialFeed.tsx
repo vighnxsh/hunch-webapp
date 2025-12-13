@@ -130,13 +130,13 @@ function UserSearchResultItem({
             className="w-9 h-9 rounded-full"
           />
         ) : (
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
             <span className="text-white text-sm font-bold">
               {displayName.charAt(0).toUpperCase()}
             </span>
           </div>
         )}
-        <span className="text-[var(--text-primary)] text-sm font-medium group-hover:text-cyan-400 transition-colors">
+        <span className="text-[var(--text-primary)] text-sm font-medium group-hover:text-violet-400 transition-colors">
           {displayName}
         </span>
       </div>
@@ -145,7 +145,7 @@ function UserSearchResultItem({
         disabled={followLoading || !currentUserId || currentUserId === user.id}
         className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${isFollowing
           ? 'bg-[var(--surface-hover)] hover:bg-red-500/10 hover:text-red-400 text-[var(--text-secondary)]'
-          : 'bg-cyan-600 hover:bg-cyan-500 text-white'
+          : 'bg-violet-600 hover:bg-violet-500 text-white'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {followLoading ? (
@@ -429,7 +429,7 @@ export default function SocialFeed() {
           {/* Search Icon */}
           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
             {searching ? (
-              <svg className="w-4 h-4 text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-violet-400 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
@@ -447,7 +447,7 @@ export default function SocialFeed() {
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
             placeholder="Search friends..."
-            className={`w-full pl-9 pr-9 py-2.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm transition-all duration-300 outline-none ${isSearchFocused ? 'ring-2 ring-cyan-500/50 bg-[var(--card-bg)]' : 'hover:bg-[var(--card-bg)]'}`}
+            className={`w-full pl-9 pr-9 py-2.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm transition-all duration-300 outline-none ${isSearchFocused ? 'ring-2 ring-violet-500/50 bg-[var(--card-bg)]' : 'hover:bg-[var(--card-bg)]'}`}
           />
 
           {/* Clear button */}
@@ -496,7 +496,7 @@ export default function SocialFeed() {
       <div>
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            {/* <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+            {/* <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
@@ -530,7 +530,7 @@ export default function SocialFeed() {
 
         {loading && feedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4" />
+            <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
             <p className="text-[var(--text-secondary)] text-sm">Loading feed...</p>
           </div>
         ) : feedItems.length === 0 ? (
@@ -585,13 +585,13 @@ export default function SocialFeed() {
                           className="w-6 h-6 rounded-full"
                         />
                       ) : (
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
                           <span className="text-white text-[10px] font-bold">
                             {displayName.charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}
-                      <span className="font-semibold text-[var(--text-primary)] text-sm hover:text-cyan-400">
+                      <span className="font-semibold text-[var(--text-primary)] text-sm hover:text-violet-400">
                         {displayName}
                       </span>
                     </button>
@@ -609,7 +609,7 @@ export default function SocialFeed() {
 
                   {/* Quote if present - HIGHLIGHTED with special styling */}
                   {hasQuote && (
-                    <div className="ml-8 my-3 px-4 py-3 bg-gradient-to-r from-cyan-500/10 to-transparent border-l-4 border-cyan-500 rounded-r-lg">
+                    <div className="ml-8 my-3 px-4 py-3 bg-gradient-to-r from-violet-500/10 to-transparent border-l-4 border-violet-500 rounded-r-lg">
                       <p className="text-[var(--text-primary)] text-base font-medium">
                         {item.quote}
                       </p>
@@ -622,7 +622,7 @@ export default function SocialFeed() {
                     className="ml-8 w-[calc(100%-2rem)] text-left focus:outline-none group"
                     disabled={!eventTicker}
                   >
-                    <div className="flex rounded-xl border border-[var(--border-color)] overflow-hidden bg-[var(--card-bg)]/40 hover:bg-[var(--surface-hover)]/50 hover:border-cyan-500/30 transition-all">
+                    <div className="flex rounded-xl border border-[var(--border-color)] overflow-hidden bg-[var(--card-bg)]/40 hover:bg-[var(--surface-hover)]/50 hover:border-violet-500/30 transition-all">
                       {/* Image - Left */}
                       <div className="flex-shrink-0 w-28 h-20 relative overflow-hidden">
                         {isLoadingMarket ? (
@@ -634,8 +634,8 @@ export default function SocialFeed() {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-cyan-600/20 to-blue-600/20 flex items-center justify-center">
-                            <svg className="w-6 h-6 text-cyan-400/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <div className="w-full h-full bg-gradient-to-br from-violet-600/20 to-fuchsia-600/20 flex items-center justify-center">
+                            <svg className="w-6 h-6 text-violet-400/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                             </svg>
                           </div>
@@ -644,7 +644,7 @@ export default function SocialFeed() {
 
                       {/* Content - Right */}
                       <div className="flex-1 p-3 min-w-0 flex flex-col justify-center">
-                        <h3 className="text-[var(--text-primary)] text-sm font-medium line-clamp-2 leading-snug group-hover:text-cyan-400 transition-colors">
+                        <h3 className="text-[var(--text-primary)] text-sm font-medium line-clamp-2 leading-snug group-hover:text-violet-400 transition-colors">
                           {marketTitle}
                         </h3>
                         {probability !== null && (

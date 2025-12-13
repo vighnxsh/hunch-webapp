@@ -83,7 +83,7 @@ export default function MarketPage() {
                 {displayTitle}
               </h1>
               {dateInfo.formattedDate && (
-                <p className="text-sm text-cyan-400 mb-2 flex items-center gap-1">
+                <p className="text-sm text-violet-400 mb-2 flex items-center gap-1">
                   <span>📅</span> {dateInfo.formattedDate}
                 </p>
               )}

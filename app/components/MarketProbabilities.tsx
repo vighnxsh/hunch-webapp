@@ -44,7 +44,7 @@ export default function MarketProbabilitiesDisplay({ market }: MarketProbabiliti
   if (probabilities.loading) {
     return (
       <div className="flex items-center gap-2 text-sm">
-        <div className="h-4 w-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+        <div className="h-4 w-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
         <span className="text-gray-400">Loading probabilities...</span>
       </div>
     );

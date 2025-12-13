@@ -22,7 +22,7 @@ export default function SocialPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-[var(--text-secondary)] text-sm">Initializing...</p>
         </div>
       </div>
@@ -34,7 +34,7 @@ export default function SocialPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-[var(--text-secondary)] text-sm">Redirecting...</p>
         </div>
       </div>

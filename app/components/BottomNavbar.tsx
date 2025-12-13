@@ -42,16 +42,16 @@ export default function BottomNavbar() {
           </svg>
         </Link>
 
-        {/* Logo - Center */}
+        {/* H Logo - Center */}
         <Link
           href="/social"
-          className={`px-3 mx-5 py-2 rounded-full transition-all duration-200 ${
+          className={`px-4 mx-5 py-2 rounded-full transition-all duration-200 ${
             isActive('/social')
-              ? 'bg-[var(--text-primary)]'
-              : 'hover:bg-[var(--surface-hover)]'
+              ? 'bg-[var(--text-primary)] text-[var(--background)]'
+              : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
           }`}
         >
-          <img src="/image.png" alt="Hunch" className="w-6 h-6 object-contain" />
+          <span className="text-2xl font-black">H</span>
         </Link>
 
         {/* Profile Link */}

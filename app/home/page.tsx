@@ -133,7 +133,7 @@ export default function HomePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-[var(--text-secondary)] text-sm">Initializing...</p>
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function HomePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-[var(--text-secondary)] text-sm">Redirecting...</p>
         </div>
       </div>
@@ -159,13 +159,13 @@ export default function HomePage() {
       {(walletCreating || walletError) && (
         <div className={`sticky top-0 z-40 border-b ${walletError
             ? 'bg-red-500/10 border-red-500/30'
-            : 'bg-violet-500/10 border-violet-500/30'
+            : 'bg-cyan-500/10 border-cyan-500/30'
           }`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {walletCreating && !walletError && (
-                  <svg className="animate-spin h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-5 w-5 text-cyan-400" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
@@ -176,7 +176,7 @@ export default function HomePage() {
                   </svg>
                 )}
                 <div className="flex flex-col gap-1">
-                  <p className={`text-sm font-medium ${walletError ? 'text-red-300' : 'text-violet-300'
+                  <p className={`text-sm font-medium ${walletError ? 'text-red-300' : 'text-cyan-300'
                     }`}>
                     {walletError || 'Creating your Solana wallet... This will be ready shortly.'}
                   </p>
@@ -203,7 +203,7 @@ export default function HomePage() {
                 }}
                 className={`text-sm transition-colors ${walletError
                     ? 'text-red-400 hover:text-red-300'
-                    : 'text-violet-400 hover:text-violet-300'
+                    : 'text-cyan-400 hover:text-cyan-300'
                   }`}
               >
                 Dismiss

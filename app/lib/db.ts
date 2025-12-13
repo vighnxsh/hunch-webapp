@@ -11,7 +11,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 // Check if using Prisma Accelerate (URL starts with "prisma://")
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.DIRECT_DATABASE_URL;
 if (!databaseUrl) {
   throw new Error('DATABASE_URL environment variable is not set');
 }

@@ -6,7 +6,7 @@ import { fetchEvents, fetchTagsByCategories, Event, TagsByCategories } from '../
 
 // Topic filters with gradient colors
 const TOPIC_FILTERS = [
-  { id: 'all', label: 'All', icon: '🌐', keywords: [], color: 'violet' },
+  { id: 'all', label: 'All', icon: '🌐', keywords: [], color: 'cyan' },
   { id: 'crypto', label: 'Crypto', icon: '₿', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'], color: 'orange' },
   { id: 'politics', label: 'Politics', icon: '🏛️', keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'], color: 'blue' },
   { id: 'sports', label: 'Sports', icon: '⚽', keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'], color: 'green' },
@@ -55,7 +55,7 @@ function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
       className="group flex flex-col gap-3 bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
     >
       <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex-shrink-0 border border-[var(--border)]">
+        <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex-shrink-0 border border-[var(--border)]">
           {event.imageUrl ? (
             <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
           ) : (
@@ -289,7 +289,7 @@ export default function EventsList() {
         <p className="text-[var(--text-secondary)] text-sm mb-3">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-xl"
+          className="px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-xl"
         >
           Retry
         </button>
@@ -308,7 +308,7 @@ export default function EventsList() {
               key={topic.id}
               onClick={() => setSelectedTopic(topic.id)}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-200 flex-shrink-0 ${isSelected
-                ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/25'
+                ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/25'
                 : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
             >
@@ -335,7 +335,7 @@ export default function EventsList() {
             {selectedTopic !== 'all' && (
               <button
                 onClick={() => setSelectedTopic('all')}
-                className="text-violet-400 text-sm font-medium"
+                className="text-cyan-400 text-sm font-medium"
               >
                 View all →
               </button>
@@ -356,7 +356,7 @@ export default function EventsList() {
       {hasMore && (
         <div ref={observerTarget} className="flex justify-center py-6">
           {loadingMore && (
-            <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
           )}
         </div>
       )}

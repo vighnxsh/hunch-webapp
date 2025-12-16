@@ -7,13 +7,13 @@ import TradeMarket from './TradeMarket';
 
 // Topic filters with gradient colors
 const TOPIC_FILTERS = [
-  { id: 'all', label: 'All',  keywords: [], color: 'cyan' },
-  { id: 'crypto', label: 'Crypto',  keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'], color: 'orange' },
-  { id: 'politics', label: 'Politics',  keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'], color: 'blue' },
-  { id: 'sports', label: 'Sports',  keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'], color: 'green' },
-  { id: 'entertainment', label: 'Fun',  keywords: ['movie', 'film', 'music', 'celebrity', 'awards', 'oscar', 'grammy', 'emmy', 'tv show', 'streaming', 'netflix', 'disney', 'spotify', 'concert', 'album', 'box office', 'actor', 'actress', 'singer', 'rapper'], color: 'pink' },
-  { id: 'tech', label: 'Tech',  keywords: ['ai ', ' ai', 'artificial intelligence', 'openai', 'chatgpt', 'gpt-', 'llm', 'machine learning', 'robotics', 'autonomous', 'iphone', 'android', 'software', 'app launch', 'product launch', 'tech company', 'silicon valley', 'semiconductor', 'chip', 'nvidia'], color: 'indigo' },
-  { id: 'finance', label: 'Finance',  keywords: ['stock', 'fed ', 'federal reserve', 'interest rate', 'inflation', 'gdp', 'recession', 'economy', 'wall street', 's&p 500', 'nasdaq', 'dow jones', 'treasury', 'bond', 'yield', 'earnings', 'quarterly'], color: 'teal' },
+  { id: 'all', label: 'All', keywords: [], color: 'cyan' },
+  { id: 'crypto', label: 'Crypto', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'], color: 'orange' },
+  { id: 'politics', label: 'Politics', keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'], color: 'blue' },
+  { id: 'sports', label: 'Sports', keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'], color: 'green' },
+  { id: 'entertainment', label: 'Fun', keywords: ['movie', 'film', 'music', 'celebrity', 'awards', 'oscar', 'grammy', 'emmy', 'tv show', 'streaming', 'netflix', 'disney', 'spotify', 'concert', 'album', 'box office', 'actor', 'actress', 'singer', 'rapper'], color: 'pink' },
+  { id: 'tech', label: 'Tech', keywords: ['ai ', ' ai', 'artificial intelligence', 'openai', 'chatgpt', 'gpt-', 'llm', 'machine learning', 'robotics', 'autonomous', 'iphone', 'android', 'software', 'app launch', 'product launch', 'tech company', 'silicon valley', 'semiconductor', 'chip', 'nvidia'], color: 'indigo' },
+  { id: 'finance', label: 'Finance', keywords: ['stock', 'fed ', 'federal reserve', 'interest rate', 'inflation', 'gdp', 'recession', 'economy', 'wall street', 's&p 500', 'nasdaq', 'dow jones', 'treasury', 'bond', 'yield', 'earnings', 'quarterly'], color: 'teal' },
 ];
 
 const EVENTS_PER_PAGE = 20;
@@ -50,9 +50,9 @@ function EventCard({
 
   // Filter active markets and sort by chance (yesBid) descending, then take top 2
   const hotMarkets = (event.markets || [])
-    .filter((m: any) => 
-      m.status !== 'finalized' && 
-      m.status !== 'resolved' && 
+    .filter((m: any) =>
+      m.status !== 'finalized' &&
+      m.status !== 'resolved' &&
       m.status !== 'closed'
     )
     .sort((a: any, b: any) => {
@@ -91,7 +91,7 @@ function EventCard({
   return (
     <div
       onClick={onClick}
-      className="group relative flex flex-col gap-3 bg-gradient-to-br from-slate-900 via-slate-500/10 to-black rounded-3xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      className="group relative flex flex-col gap-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-3xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
     >
       {/* Header (image + title) – always visible */}
       <div className="flex items-start gap-3">
@@ -135,13 +135,13 @@ function EventCard({
               const yesPrice = market.yesAsk
                 ? parseFloat(market.yesAsk)
                 : market.yesBid
-                ? parseFloat(market.yesBid)
-                : null;
+                  ? parseFloat(market.yesBid)
+                  : null;
 
               return (
                 <div
                   key={key}
-                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-black"
+                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-[var(--surface)]"
                 >
                   <span className="text-sm text-[var(--text-primary)] truncate">
                     {label}
@@ -267,7 +267,7 @@ function EventCard({
                       </p>
                     </div>
                     <div className="flex flex-col items-end">
-                      
+
                       <span className="text-lg font-semibold text-[var(--text-primary)]">
                         {yesPercent}
                       </span>
@@ -319,7 +319,7 @@ function EventCard({
                     </div>
                   </div>
 
-                 
+
                 </div>
               </div>
             </div>
@@ -564,7 +564,7 @@ export default function EventsList() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredEvents.length === 0 ? (
           <div className="col-span-full flex flex-col items-center justify-center py-16">
-           
+
             <p className="text-[var(--text-secondary)] text-sm mb-3">No events found</p>
             {selectedTopic !== 'all' && (
               <button

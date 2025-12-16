@@ -79,7 +79,7 @@ export default function Login() {
       </div>
 
       {/* Grid pattern overlay */}
-      <div 
+      <div
         className="absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage: `linear-gradient(var(--text-primary) 1px, transparent 1px), linear-gradient(90deg, var(--text-primary) 1px, transparent 1px)`,
@@ -90,21 +90,17 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-md px-6">
         {/* Logo and branding */}
         <div className="text-center mb-12">
-          <div className="flex justify-center mb-4">
-            <img src="/logo.png" alt="Logo" className="h-16 w-auto object-contain" />
-          </div>
-          <p className="text-[var(--text-secondary)] text-lg font-light tracking-wide">
-            Predict the future. Own your outcomes.
-          </p>
+
         </div>
 
         {/* Login card */}
-        <div className="bg-gradient-to-b from-[var(--surface)]/80 to-[var(--surface)]/40 backdrop-blur-xl border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Welcome back</h2>
-            <p className="text-[var(--text-tertiary)] text-sm">Sign in to access prediction markets</p>
+        <div className="bg-gradient-to-b from-[var(--surface)]/95 to-[var(--surface)]/70 backdrop-blur-xl border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl">
+          <div className="flex justify-center mb-4">
+            <img src="/logo.png" alt="Logo" className="h-16 w-auto object-contain" />
           </div>
-
+          <p className="text-center text-[var(--text-secondary)] text-lg font-light tracking-wide mb-8">
+            Predict with frens, <span className="text-cyan-400 font-medium">Just Hunch it.</span>
+          </p>
           {error && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
               <p className="text-red-400 text-sm">{error}</p>
@@ -112,11 +108,11 @@ export default function Login() {
           )}
 
           <div className="space-y-4">
-            {/* Google Login Button */}
+            {/* X (Twitter) Login Button */}
             <button
-              onClick={handleGoogleLogin}
+              onClick={handleTwitterLogin}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white hover:bg-gray-100 text-gray-900 font-semibold rounded-2xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-black hover:bg-gray-900 text-white font-semibold rounded-2xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed border border-gray-800 hover:border-gray-700 shadow-lg hover:shadow-xl"
             >
               {isLoading && (
                 <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -124,6 +120,32 @@ export default function Login() {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               )}
+              <span>Login with</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+            </button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 my-6">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-color)] to-transparent" />
+              <span className="text-[var(--text-tertiary)] text-sm font-medium">or</span>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-color)] to-transparent" />
+            </div>
+
+            {/* Google Login Button */}
+            <button
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-white hover:bg-gray-100 text-gray-900 font-semibold rounded-2xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+            >
+              {isLoading && (
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              <span>Login with</span>
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -142,54 +164,8 @@ export default function Login() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              Continue with Google
-            </button>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4 my-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-color)] to-transparent" />
-              <span className="text-[var(--text-tertiary)] text-sm font-medium">or</span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[var(--border-color)] to-transparent" />
-            </div>
-
-            {/* X (Twitter) Login Button */}
-            <button
-              onClick={handleTwitterLogin}
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-black hover:bg-gray-900 text-white font-semibold rounded-2xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed border border-gray-800 hover:border-gray-700 shadow-lg hover:shadow-xl"
-            >
-              {isLoading && (
-                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              )}
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-              Continue with X
             </button>
           </div>
-
-          {/* Terms notice */}
-          <p className="text-center text-[var(--text-tertiary)] text-xs mt-8 leading-relaxed">
-            By continuing, you agree to our{' '}
-            <a href="#" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
-              Terms of Service
-            </a>{' '}
-            and{' '}
-            <a href="#" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
-              Privacy Policy
-            </a>
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-[var(--text-tertiary)] text-sm">
-            Powered by{' '}
-            <span className="text-cyan-400 font-medium">Solana</span>
-          </p>
         </div>
       </div>
     </div>

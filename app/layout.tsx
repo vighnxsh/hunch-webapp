@@ -5,6 +5,7 @@ import { PrivyAuthProvider } from "./components/PrivyProvider";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Navbar from "./components/Navbar";
 import BottomNavbar from "./components/BottomNavbar";
+import LayoutContent from "./components/LayoutContent";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -73,9 +74,7 @@ export default function RootLayout({
         <ThemeProvider>
           <PrivyAuthProvider>
             <Navbar />
-            <div className="md:pl-36">
-            {children}
-            </div>
+            <LayoutContent>{children}</LayoutContent>
             <BottomNavbar />
           </PrivyAuthProvider>
         </ThemeProvider>

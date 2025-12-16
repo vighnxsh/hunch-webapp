@@ -98,10 +98,10 @@ function EventCard({ event, onClick }: EventCardProps) {
                             </span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-bold text-green-400">
+                            <span className="text-sm font-bold text-cyan-400">
                                 {formatPercent(hotMarket.yesBid)}
                             </span>
-                            <span className="text-[10px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded font-semibold">
+                            <span className="text-[10px] px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded font-semibold">
                                 YES
                             </span>
                         </div>

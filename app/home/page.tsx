@@ -5,7 +5,6 @@ import { useCreateWallet } from '@privy-io/react-auth/solana';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import EventsList from '../components/EventsList';
-import UserPositions from '../components/UserPositions';
 
 export default function HomePage() {
   const { ready, authenticated, user } = usePrivy();

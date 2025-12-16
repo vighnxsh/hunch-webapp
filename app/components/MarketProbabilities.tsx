@@ -59,13 +59,13 @@ export default function MarketProbabilitiesDisplay({ market }: MarketProbabiliti
       <div className="flex-1">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-gray-400">YES</span>
-          <span className="text-sm font-semibold text-green-400">
+          <span className="text-sm font-semibold text-cyan-400">
             {probabilities.yesProbability !== null ? `${probabilities.yesProbability}%` : '--'}
           </span>
         </div>
         <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
           <div
-            className="h-full bg-green-500/30 transition-all duration-300"
+            className="h-full bg-cyan-500/30 transition-all duration-300"
             style={{ width: `${probabilities.yesProbability || 0}%` }}
           />
         </div>
@@ -73,13 +73,13 @@ export default function MarketProbabilitiesDisplay({ market }: MarketProbabiliti
       <div className="flex-1">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-gray-400">NO</span>
-          <span className="text-sm font-semibold text-red-400">
+          <span className="text-sm font-semibold text-pink-400">
             {probabilities.noProbability !== null ? `${probabilities.noProbability}%` : '--'}
           </span>
         </div>
         <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
           <div
-            className="h-full bg-red-500/30 transition-all duration-300"
+            className="h-full bg-pink-500/30 transition-all duration-300"
             style={{ width: `${probabilities.noProbability || 0}%` }}
           />
         </div>

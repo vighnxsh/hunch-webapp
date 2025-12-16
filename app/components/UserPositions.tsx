@@ -264,9 +264,9 @@ export default function UserPositions() {
                     <span
                       className={`px-3 py-1 text-xs font-semibold rounded-lg ${
                         position.position === 'YES'
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                           : position.position === 'NO'
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
                           : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)] border border-[var(--border-color)]'
                       }`}
                     >

@@ -120,7 +120,7 @@ export default function TradeQuoteModal({
               <span className="text-sm text-gray-400">Position</span>
               <span
                 className={`text-sm font-bold ${
-                  tradeData.side === 'yes' ? 'text-green-400' : 'text-red-400'
+                  tradeData.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'
                 }`}
               >
                 {tradeData.side.toUpperCase()}

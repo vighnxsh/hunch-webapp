@@ -16,8 +16,8 @@ export default function BottomNavbar() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <div className="fixed bottom-6 left-0 right-0 z-50 md:hidden flex justify-center safe-area-bottom">
-      <nav className="flex items-center gap-2 py-3 bg-[var(--background)] border-2 border-[var(--border-color)] rounded-full shadow-xl">
+    <div className="fixed bottom-6 left-0  right-0 z-50 md:hidden flex justify-center safe-area-bottom">
+      <nav className="flex items-center px-4 gap-2 py-3  bg-[var(--background)] border-2 border-[var(--border-color)] rounded-full shadow-xl">
         {/* Home Link */}
         <Link
           href="/home"
@@ -42,16 +42,28 @@ export default function BottomNavbar() {
           </svg>
         </Link>
 
-        {/* Logo - Center */}
+        {/* Social Feed Link */}
         <Link
           href="/social"
-          className={`px-2 mx-5 py-2 rounded-full transition-all duration-200 ${
+          className={`p-3 mx-5 rounded-full transition-all duration-200 ${
             isActive('/social')
-              ? 'bg-[var(--text-primary)]'
-              : ''
+              ? 'bg-[var(--text-primary)] text-[var(--background)]'
+              : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
           }`}
         >
-          <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
         </Link>
 
         {/* Profile Link */}

@@ -253,10 +253,10 @@ export default function EventPage() {
                                                             <div className="h-10 bg-[var(--surface-hover)] rounded-lg animate-pulse" />
                                                         ) : (
                                                             <div className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:min-w-[100px] text-center transition-all cursor-pointer ${isSelected && selectedSide === 'yes'
-                                                                    ? 'bg-green-500 border-2 border-green-400 shadow-lg shadow-green-500/25'
-                                                                    : 'bg-green-500/15 border border-green-500/30 hover:bg-green-500/25'
+                                                                    ? 'bg-cyan-500 border-2 border-cyan-400 shadow-lg shadow-cyan-500/25'
+                                                                    : 'bg-cyan-500/15 border border-cyan-500/30 hover:bg-cyan-500/25'
                                                                 }`}>
-                                                                <span className={`font-bold text-xs sm:text-sm ${isSelected && selectedSide === 'yes' ? 'text-white' : 'text-green-400'
+                                                                <span className={`font-bold text-xs sm:text-sm ${isSelected && selectedSide === 'yes' ? 'text-white' : 'text-cyan-400'
                                                                     }`}>
                                                                     Yes {yesPrice !== null ? `${yesPrice}¢` : '—'}
                                                                 </span>
@@ -277,10 +277,10 @@ export default function EventPage() {
                                                             <div className="h-10 bg-[var(--surface-hover)] rounded-lg animate-pulse" />
                                                         ) : (
                                                             <div className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:min-w-[100px] text-center transition-all cursor-pointer ${isSelected && selectedSide === 'no'
-                                                                    ? 'bg-red-500 border-2 border-red-400 shadow-lg shadow-red-500/25'
-                                                                    : 'bg-red-500/15 border border-red-500/30 hover:bg-red-500/25'
+                                                                    ? 'bg-pink-500 border-2 border-pink-400 shadow-lg shadow-pink-500/25'
+                                                                    : 'bg-pink-500/15 border border-pink-500/30 hover:bg-pink-500/25'
                                                                 }`}>
-                                                                <span className={`font-bold text-xs sm:text-sm ${isSelected && selectedSide === 'no' ? 'text-white' : 'text-red-400'
+                                                                <span className={`font-bold text-xs sm:text-sm ${isSelected && selectedSide === 'no' ? 'text-white' : 'text-pink-400'
                                                                     }`}>
                                                                     No {noPrice !== null ? `${noPrice}¢` : '—'}
                                                                 </span>

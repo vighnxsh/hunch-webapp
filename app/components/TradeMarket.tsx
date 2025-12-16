@@ -251,7 +251,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
                 <div className="flex gap-2 mb-2">
                   <div className="flex-1 text-center">
                     <div className="text-xs text-[var(--text-tertiary)] mb-1">YES Probability</div>
-                    <div className="text-lg font-bold text-green-400">
+                    <div className="text-lg font-bold text-cyan-400">
                       {probabilities.yesProbability !== null
                         ? `${probabilities.yesProbability}%`
                         : '--'}
@@ -259,7 +259,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
                   </div>
                   <div className="flex-1 text-center">
                     <div className="text-xs text-[var(--text-tertiary)] mb-1">NO Probability</div>
-                    <div className="text-lg font-bold text-red-400">
+                    <div className="text-lg font-bold text-pink-400">
                       {probabilities.noProbability !== null
                         ? `${probabilities.noProbability}%`
                         : '--'}
@@ -277,7 +277,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               <button
                 onClick={() => setSide('yes')}
                 className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${side === 'yes'
-                  ? 'bg-green-500 text-white shadow-lg shadow-green-500/25'
+                  ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
                   : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
                   }`}
               >
@@ -286,7 +286,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               <button
                 onClick={() => setSide('no')}
                 className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${side === 'no'
-                  ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
+                  ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/25'
                   : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
                   }`}
               >

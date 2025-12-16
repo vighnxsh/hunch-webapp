@@ -371,7 +371,7 @@ export default function Profile() {
 
   return (
     <>
-    <div className="bg-[var(--surface)]/50 backdrop-blur-sm   rounded-2xl p-6">
+    <div className=" backdrop-blur-sm   rounded-2xl p-6">
 
 
       {/* User Info Section */}

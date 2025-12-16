@@ -154,7 +154,7 @@ export default function UserTrades({ userId }: UserTradesProps) {
           onClick={() => setActiveTab('previous')}
           className={`px-4 py-2 font-bold text-xl transition-colors border-b-2 ${
             activeTab === 'previous'
-              ? 'border-[var(--text-primary)] text-[var(--text-primary)]'
+              ? 'border-red-400 text-red-400'
               : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
           }`}
         >
@@ -189,8 +189,8 @@ export default function UserTrades({ userId }: UserTradesProps) {
                       <span
                         className={`px-2 py-1 text-xs font-semibold rounded-lg ${
                           trade.side === 'yes'
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                            : 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
                         }`}
                       >
                         {trade.side.toUpperCase()}

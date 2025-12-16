@@ -159,6 +159,7 @@ export default function SocialFeed() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Market data cache for displaying event cards
@@ -415,8 +416,9 @@ export default function SocialFeed() {
 
   return (
     <div className="space-y-6">
-      {/* Minimal Search Bar - Left aligned, Expandable */}
-      <div className="relative mb-4 z-50">
+      {/* Minimal Search Bar - Left aligned, Expandable - Hidden on mobile */}
+    
+      <div className="hidden md:block relative mb-4 pl-54  z-50">
         <div className={`relative transition-all duration-300 ease-out ${isSearchFocused || searchQuery ? 'w-72' : 'w-48'}`}>
           {/* Search Icon */}
           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -439,7 +441,7 @@ export default function SocialFeed() {
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
             placeholder="Search friends..."
-            className={`w-full pl-9 pr-9 py-2.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm transition-all duration-300 outline-none ${isSearchFocused ? 'ring-2 ring-cyan-500/50 bg-[var(--card-bg)]' : 'hover:bg-[var(--card-bg)]'}`}
+            className={`w-full  pr-9 pl-18  py-2.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm transition-all duration-300 outline-none ${isSearchFocused ? 'bg-[var(--card-bg)]' : 'hover:bg-[var(--card-bg)]'}`}
           />
 
           {/* Clear button */}
@@ -486,15 +488,14 @@ export default function SocialFeed() {
 
       {/* Feed Section */}
       <div>
-        <div className="flex items-center justify-between mb-5">
+        <div className="hidden md:flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             {/* <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center">
                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
               </div> */}
-            <h2 className="text-xl font-bold text-[var(--text-primary)]">Activity Feed</h2>
-          </div>
+            </div>
           <button
             onClick={loadFeed}
             disabled={loading || !currentUserId}
@@ -582,7 +583,7 @@ export default function SocialFeed() {
                     <span className="text-[var(--text-secondary)] text-sm">
                       Bought <span className="font-semibold">${formatAmount(item.amount, item.isDummy)}</span>
                       {' '}
-                      <span className={`font-semibold ${item.side === 'yes' ? 'text-green-400' : 'text-red-400'}`}>
+                      <span className={`font-semibold ${item.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'}`}>
                         {item.side.toUpperCase()}
                       </span>
                     </span>
@@ -645,6 +646,93 @@ export default function SocialFeed() {
           </div>
         )}
       </div>
+
+      {/* Mobile Floating Search Button - Bottom Right */}
+      <button
+        onClick={() => setIsMobileSearchOpen(true)}
+        className="md:hidden fixed bottom-24 right-4 w-14 h-14 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 rounded-full shadow-lg flex items-center justify-center z-50 transition-all hover:scale-110"
+      >
+        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </button>
+
+      {/* Mobile Search Modal */}
+      {isMobileSearchOpen && (
+        <div className="md:hidden fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-16">
+          <div className="w-full max-w-md mx-4 bg-[var(--card-bg)] rounded-2xl shadow-2xl border border-[var(--border-color)] max-h-[80vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Search Friends</h3>
+              <button
+                onClick={() => {
+                  setIsMobileSearchOpen(false);
+                  setSearchQuery('');
+                  setSearchResults([]);
+                }}
+                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-4 border-b border-[var(--border-color)]">
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  {searching ? (
+                    <svg className="w-5 h-5 text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="Search friends..."
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-[var(--surface-hover)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm outline-none"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Search Results */}
+            <div className="flex-1 overflow-y-auto">
+              {searchResults.length > 0 ? (
+                <div className="p-2">
+                  {searchResults.map((result) => (
+                    <UserSearchResultItem
+                      key={result.id}
+                      user={result}
+                      currentUserId={currentUserId}
+                      onFollowChange={() => {
+                        performSearch(searchQuery);
+                        loadFeed();
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : searchQuery.trim() && !searching ? (
+                <div className="text-center py-8">
+                  <p className="text-[var(--text-tertiary)] text-sm">No users found</p>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-[var(--text-tertiary)] text-sm">Start typing to search...</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div >
   );
 }

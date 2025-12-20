@@ -398,7 +398,7 @@ export default function Profile() {
                 }}
                 className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
               >
-                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">{followersCount}</span>
+                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{followersCount}</span>
                 <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Followers</span>
               </button>
               <button
@@ -408,7 +408,7 @@ export default function Profile() {
                 }}
                 className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
               >
-                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">{followingCount}</span>
+                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{followingCount}</span>
                 <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Following</span>
               </button>
             </div>

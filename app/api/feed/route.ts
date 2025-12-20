@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFollowingIds } from '@/app/lib/followService';
-import { getUserTrades } from '@/app/lib/tradeService';
+import { getUserTrades, getAllRecentTrades } from '@/app/lib/tradeService';
 import redis, { CacheKeys, CacheTTL } from '@/app/lib/redis';
 
 export interface FeedItem {
@@ -26,17 +26,34 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const mode = searchParams.get('mode') || 'following'; // 'following' or 'global'
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
-      );
+    // Global feed - return all recent trades (for unauthenticated users or discovery)
+    if (mode === 'global' || !userId) {
+      const globalCacheKey = 'feed:global';
+      
+      // Try cache first for global feed
+      if (offset === 0) {
+        const cached = await redis.get<FeedItem[]>(globalCacheKey);
+        if (cached) {
+          return NextResponse.json(cached.slice(0, limit), { status: 200 });
+        }
+      }
+
+      // Fetch all recent trades
+      const trades = await getAllRecentTrades(limit, offset);
+      
+      // Cache global feed
+      if (offset === 0) {
+        await redis.setex(globalCacheKey, CacheTTL.FEED, JSON.stringify(trades));
+      }
+
+      return NextResponse.json(trades, { status: 200 });
     }
 
-    // Try cache first
+    // Personalized feed - return trades from followed users
     const cacheKey = CacheKeys.feed(userId);
     const cached = await redis.get<FeedItem[]>(cacheKey);
     
@@ -96,4 +113,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

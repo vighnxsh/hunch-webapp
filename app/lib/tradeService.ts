@@ -138,6 +138,33 @@ export async function updateTradeQuote(tradeId: string, quote: string, userId: s
 }
 
 /**
+ * Get all recent trades (global feed)
+ * Used for unauthenticated users or discovery feed
+ */
+export async function getAllRecentTrades(
+  limit: number = 50,
+  offset: number = 0
+): Promise<TradeWithUser[]> {
+  const trades = await prisma.trade.findMany({
+    include: {
+      user: {
+        select: {
+          id: true,
+          displayName: true,
+          avatarUrl: true,
+          walletAddress: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    skip: offset,
+  });
+
+  return trades;
+}
+
+/**
  * Invalidate feed caches for all followers of a user
  * This is called when a user makes a new trade
  */

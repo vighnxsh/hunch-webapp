@@ -1,11 +1,9 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function LayoutContent({ children }: { children: React.ReactNode }) {
-    const { authenticated } = usePrivy();
     const pathname = usePathname();
     const [mounted, setMounted] = useState(false);
 
@@ -18,11 +16,11 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
         return <div>{children}</div>;
     }
 
-    // Don't apply padding on login page or when not authenticated
-    const shouldApplyPadding = authenticated && pathname !== '/';
+    // Apply padding on all pages except the root login redirect page
+    const shouldApplyPadding = pathname !== '/';
 
     return (
-        <div className={shouldApplyPadding ? 'md:pl-36' : ''}>
+        <div className={shouldApplyPadding ? 'md:pl-24' : ''}>
             {children}
         </div>
     );

@@ -230,23 +230,27 @@ export default function SocialFeed() {
     performSync();
   }, [ready, authenticated, user]);
 
-  // Load feed
+  // Load feed - for authenticated users show personalized feed, for others show global
   useEffect(() => {
-    if (currentUserId) {
-      loadFeed();
-    } else {
-      setFeedItems([]);
-    }
-  }, [currentUserId]);
+    loadFeed();
+  }, [currentUserId, authenticated]);
 
   const loadFeed = async () => {
-    if (!currentUserId) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/feed?userId=${currentUserId}&limit=50`);
+      // If authenticated and has userId, fetch personalized feed (following)
+      // Otherwise, fetch global feed (all recent trades)
+      let url = '/api/feed?limit=50';
+      
+      if (authenticated && currentUserId) {
+        url += `&userId=${currentUserId}&mode=following`;
+      } else {
+        url += '&mode=global';
+      }
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error('Failed to load feed');
@@ -313,9 +317,9 @@ export default function SocialFeed() {
     });
   }, [feedItems]);
 
-  // Debounced search function
+  // Debounced search function (only works for authenticated users)
   const performSearch = useCallback(async (query: string) => {
-    if (!query.trim() || !currentUserId) {
+    if (!query.trim() || !authenticated || !currentUserId) {
       setSearchResults([]);
       setSearching(false);
       return;
@@ -338,7 +342,7 @@ export default function SocialFeed() {
     } finally {
       setSearching(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, authenticated]);
 
   // Handle search input change with debounce
   const handleSearchChange = useCallback((value: string) => {
@@ -410,16 +414,21 @@ export default function SocialFeed() {
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
 
-  if (!ready || !authenticated) {
-    return null;
+  if (!ready) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-[var(--text-secondary)] text-sm">Loading...</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      {/* Minimal Search Bar - Left aligned, Expandable - Hidden on mobile */}
+      {/* Minimal Search Bar - Left aligned, Expandable - Hidden on mobile, only for authenticated users */}
     
-      <div className="hidden md:block relative mb-4 pl-54  z-50">
-        <div className={`relative transition-all duration-300 ease-out ${isSearchFocused || searchQuery ? 'w-72' : 'w-48'}`}>
+      {authenticated && <div className="hidden md:flex justify-center relative mb-4 z-50">
+        <div className={`relative transition-all duration-300 ease-out ${isSearchFocused || searchQuery ? 'w-96' : 'w-72'}`}>
           {/* Search Icon */}
           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
             {searching ? (
@@ -462,7 +471,7 @@ export default function SocialFeed() {
 
         {/* Search Results - Dropdown Overlay on top of everything */}
         {(searchResults.length > 0 || (searchQuery.trim() && !searching && searchResults.length === 0)) && (
-          <div className="absolute top-full left-0 mt-2 w-96 bg-[var(--card-bg)] rounded-xl shadow-2xl border border-[var(--border-color)] max-h-72 overflow-y-auto">
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-96 bg-[var(--card-bg)] rounded-xl shadow-2xl border border-[var(--border-color)] max-h-72 overflow-y-auto">
             {searchResults.length > 0 ? (
               <div className="p-2">
                 {searchResults.map((result) => (
@@ -484,7 +493,7 @@ export default function SocialFeed() {
             )}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Feed Section */}
       <div>
@@ -498,7 +507,7 @@ export default function SocialFeed() {
             </div>
           <button
             onClick={loadFeed}
-            disabled={loading || !currentUserId}
+            disabled={loading}
             className="flex items-center gap-2 px-4 py-2 bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium"
           >
             {loading ? (
@@ -545,7 +554,9 @@ export default function SocialFeed() {
             </div>
             <p className="text-[var(--text-secondary)] text-lg mb-2">No trades yet</p>
             <p className="text-[var(--text-tertiary)] text-sm">
-              Follow users to see their trades in your feed
+              {authenticated 
+                ? 'Follow users to see their trades in your feed'
+                : 'Be the first to make a prediction!'}
             </p>
           </div>
         ) : (
@@ -559,87 +570,114 @@ export default function SocialFeed() {
               const marketTitle = marketData?.market?.title || formatMarketTitle('', item.marketTicker);
               const eventTicker = marketData?.market?.eventTicker || item.eventTicker;
 
+              // Get market answer based on side (yesSubTitle for YES, noSubTitle for NO)
+              const marketAnswer = item.side === 'yes' 
+                ? marketData?.market?.yesSubTitle 
+                : marketData?.market?.noSubTitle;
+
               // Calculate probability from yesBid if available
               const yesBid = marketData?.market?.yesBid;
               const probability = yesBid ? Math.round(parseFloat(yesBid) * 100) : null;
 
               return (
-                <div key={item.id} className="py-4">
-                  {/* Header: Avatar + Name + Action + Time - all inline */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <button
-                      onClick={() => router.push(`/user/${item.user.id}`)}
-                      className="flex items-center gap-2 focus:outline-none hover:opacity-80"
-                    >
-                      <img
-                        src={item.user.avatarUrl || '/default.png'}
-                        alt={displayName}
-                        className="w-6 h-6 rounded-full"
-                      />
-                      <span className="font-semibold text-[var(--text-primary)] text-sm hover:text-cyan-400">
-                        {displayName}
-                      </span>
-                    </button>
-                    <span className="text-[var(--text-secondary)] text-sm">
-                      Bought <span className="font-semibold">${formatAmount(item.amount, item.isDummy)}</span>
-                      {' '}
-                      <span className={`font-semibold ${item.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'}`}>
-                        {item.side.toUpperCase()}
-                      </span>
-                    </span>
-                    <span className="text-[var(--text-tertiary)] text-xs ml-auto">
-                      {formatTimeAgo(item.createdAt)}
-                    </span>
-                  </div>
-
-                  {/* Quote if present - HIGHLIGHTED with special styling */}
+                <div key={item.id} className="py-4 relative">
+                  {/* Comment overlay - shown on top if present */}
                   {hasQuote && (
-                    <div className="ml-8 my-3 px-4 py-3 bg-gradient-to-r from-cyan-500/10 to-transparent border-l-4 border-cyan-500 rounded-r-lg">
+                    <div className="mb-3 px-4 py-3 bg-gradient-to-r from-cyan-500/10 to-transparent border-l-4 border-cyan-500 rounded-r-lg">
                       <p className="text-[var(--text-primary)] text-base font-medium">
                         {item.quote}
                       </p>
                     </div>
                   )}
 
-                  {/* Horizontal Market Card: Image Left, Content Right - Same indent as quote */}
-                  <button
-                    onClick={() => eventTicker && router.push(`/event/${encodeURIComponent(eventTicker)}`)}
-                    className="ml-8 w-[calc(100%-2rem)] text-left focus:outline-none group"
-                    disabled={!eventTicker}
-                  >
-                    <div className="flex rounded-xl border border-[var(--border-color)] overflow-hidden bg-[var(--card-bg)]/40 hover:bg-[var(--surface-hover)]/50 hover:border-cyan-500/30 transition-all">
-                      {/* Image - Left */}
-                      <div className="flex-shrink-0 w-28 h-20 relative overflow-hidden">
-                        {isLoadingMarket ? (
-                          <div className="w-full h-full bg-[var(--surface-hover)] animate-pulse" />
-                        ) : eventImage ? (
-                          <img
-                            src={eventImage}
-                            alt={marketTitle}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-cyan-600/20 to-teal-600/20 flex items-center justify-center">
-                            <svg className="w-6 h-6 text-cyan-400/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                            </svg>
-                          </div>
+                  {/* Main post content */}
+                  <div className="flex gap-3">
+                    {/* Profile Picture */}
+                    <button
+                      onClick={() => router.push(`/user/${item.user.id}`)}
+                      className="flex-shrink-0 focus:outline-none hover:opacity-80 transition-opacity"
+                    >
+                      <img
+                        src={item.user.avatarUrl || '/default.png'}
+                        alt={displayName}
+                        className="w-10 h-10 rounded-full"
+                      />
+                    </button>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Username and Time */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <button
+                          onClick={() => router.push(`/user/${item.user.id}`)}
+                          className="focus:outline-none hover:text-cyan-400 transition-colors"
+                        >
+                          <span className="font-semibold text-[var(--text-primary)] text-sm">
+                            {displayName}
+                          </span>
+                        </button>
+                        <span className="text-[var(--text-tertiary)] text-xs ml-auto">
+                          {formatTimeAgo(item.createdAt)}
+                        </span>
+                      </div>
+
+                      {/* Amount - Big and Clear */}
+                      <div className="mb-2">
+                        <span className="text-2xl font-bold text-[var(--text-primary)] font-number">
+                          ${formatAmount(item.amount, item.isDummy)}
+                        </span>
+                        <span className={`ml-2 text-xl font-bold ${item.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'}`}>
+                          {item.side.toUpperCase()}
+                        </span>
+                        {marketAnswer && (
+                          <>
+                            <span className="text-[var(--text-secondary)] text-base ml-2">on</span>
+                            <span className="ml-2 text-lg font-semibold text-[var(--text-primary)]">{marketAnswer}</span>
+                          </>
                         )}
                       </div>
 
-                      {/* Content - Right */}
-                      <div className="flex-1 p-3 min-w-0 flex flex-col justify-center">
-                        <h3 className="text-[var(--text-primary)] text-sm font-medium line-clamp-2 leading-snug group-hover:text-cyan-400 transition-colors">
-                          {marketTitle}
-                        </h3>
-                        {probability !== null && (
-                          <span className={`mt-1 text-xs font-semibold ${probability >= 50 ? 'text-green-400' : 'text-red-400'}`}>
-                            {probability}% chance
-                          </span>
-                        )}
-                      </div>
+                      {/* Market Card with Image and Title */}
+                      <button
+                        onClick={() => eventTicker && router.push(`/event/${encodeURIComponent(eventTicker)}`)}
+                        className="w-full text-left focus:outline-none group"
+                        disabled={!eventTicker}
+                      >
+                        <div className="flex rounded-xl border border-[var(--border-color)] overflow-hidden bg-[var(--card-bg)]/40 hover:bg-[var(--surface-hover)]/50 hover:border-cyan-500/30 transition-all">
+                          {/* Image - Left */}
+                          <div className="flex-shrink-0 w-28 h-20 relative overflow-hidden">
+                            {isLoadingMarket ? (
+                              <div className="w-full h-full bg-[var(--surface-hover)] animate-pulse" />
+                            ) : eventImage ? (
+                              <img
+                                src={eventImage}
+                                alt={marketTitle}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-cyan-600/20 to-teal-600/20 flex items-center justify-center">
+                                <svg className="w-6 h-6 text-cyan-400/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Content - Right */}
+                          <div className="flex-1 p-3 min-w-0 flex flex-col justify-center">
+                            <h3 className="text-[var(--text-primary)] text-sm font-medium line-clamp-2 leading-snug group-hover:text-cyan-400 transition-colors">
+                              {marketTitle}
+                            </h3>
+                            {probability !== null && (
+                              <span className={`mt-1 text-xs font-semibold font-number ${probability >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                                {probability}% chance
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 </div>
               );
             })}
@@ -647,18 +685,20 @@ export default function SocialFeed() {
         )}
       </div>
 
-      {/* Mobile Floating Search Button - Bottom Right */}
-      <button
-        onClick={() => setIsMobileSearchOpen(true)}
-        className="md:hidden fixed bottom-24 right-4 w-14 h-14 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 rounded-full shadow-lg flex items-center justify-center z-50 transition-all hover:scale-110"
-      >
-        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      </button>
+      {/* Mobile Floating Search Button - Bottom Right - only for authenticated users */}
+      {authenticated && (
+        <button
+          onClick={() => setIsMobileSearchOpen(true)}
+          className="md:hidden fixed bottom-24 right-4 w-14 h-14 rounded-full border border-[var(--border-color)] bg-transparent backdrop-blur-sm flex items-center justify-center z-50 transition-all hover:bg-[var(--surface-hover)]/60 hover:scale-110"
+        >
+          <svg className="w-6 h-6 text-[var(--text-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
+      )}
 
-      {/* Mobile Search Modal */}
-      {isMobileSearchOpen && (
+      {/* Mobile Search Modal - only for authenticated users */}
+      {authenticated && isMobileSearchOpen && (
         <div className="md:hidden fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-16">
           <div className="w-full max-w-md mx-4 bg-[var(--card-bg)] rounded-2xl shadow-2xl border border-[var(--border-color)] max-h-[80vh] flex flex-col">
             {/* Modal Header */}

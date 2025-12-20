@@ -1,5 +1,13 @@
-const TRADE_API_BASE_URL = "https://quote-api.dflow.net";
-const AGGREGATOR_API_BASE_URL = "https://quote-api.dflow.net";
+// Base URLs for the DFlow Trade / Quote API
+// - In development we default to the dev quote API so you can make real trades with test capital.
+// - In production, override these with the prod URL via env vars.
+const TRADE_API_BASE_URL =
+  process.env.NEXT_PUBLIC_PM_TRADE_API_BASE_URL ??
+  "https://dev-quote-api.dflow.net";
+
+const AGGREGATOR_API_BASE_URL =
+  process.env.NEXT_PUBLIC_PM_AGGREGATOR_API_BASE_URL ??
+  "https://dev-quote-api.dflow.net";
 
 export interface OrderRequest {
   userPublicKey: string;

@@ -73,18 +73,18 @@ export default function CreditCard({
         }`}>
           {/* Decorative circles */}
           <div className={`absolute -top-20 -right-20 w-64 h-64 rounded-full blur-2xl ${
-            theme === 'light' ? 'bg-cyan-200/40' : 'bg-white/10'
+            theme === 'light' ? 'bg-violet-200/40' : 'bg-white/10'
           }`} />
           <div className={`absolute -bottom-20 -left-20 w-48 h-48 rounded-full blur-3xl ${
-            theme === 'light' ? 'bg-teal-200/30' : 'bg-cyan-400/20'
+            theme === 'light' ? 'bg-fuchsia-200/30' : 'bg-violet-400/20'
           }`} />
           <div className={`absolute top-1/2 right-1/4 w-32 h-32 rounded-full blur-2xl ${
-            theme === 'light' ? 'bg-pink-200/20' : 'bg-teal-300/10'
+            theme === 'light' ? 'bg-pink-200/20' : 'bg-fuchsia-300/10'
           }`} />
         </div>
         
             {/* Card Content */}
-            <div className="relative h-full px-4 pb-4 pt-3 sm:px-7 sm:pb-7 sm:pt-4 flex flex-col justify-between">
+            <div className="relative h-full px-4 pb-4 pt-3 sm:px-7 sm:pb-7 sm:pt-4 flex flex-col justify-between" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
               {/* Top Row */}
               <div className="flex items-start justify-end">
                 <span className={`text-[10px] sm:text-xs uppercase tracking-wider ${
@@ -194,7 +194,7 @@ export default function CreditCard({
             </div>
 
             {/* Back Content */}
-            <div className="relative h-full px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5 flex flex-col">
+            <div className="relative h-full px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5 flex flex-col" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
               {/* Top - Copy Button */}
               <div className="flex items-center justify-end">
                 <button

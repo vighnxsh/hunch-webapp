@@ -211,7 +211,7 @@ export default function UserTrades({ userId }: UserTradesProps) {
                     <p className="text-[var(--text-tertiary)] text-xs font-mono mb-2">{trade.marketTicker}</p>
                     <div className="flex items-center gap-4 text-sm">
                       <span className="text-[var(--text-secondary)]">
-                        Amount: <span className="text-[var(--text-primary)] font-semibold">{formatAmount(trade.amount)}</span>
+                        Amount: <span className="text-[var(--text-primary)] font-semibold font-number">{formatAmount(trade.amount)}</span>
                       </span>
                       <span className="text-[var(--text-secondary)]">
                         {formatDate(trade.createdAt)}

@@ -1,9 +1,29 @@
 @import "tailwindcss";
 
+/* BBH Sans Hegarty - Self-hosted */
+@font-face {
+  font-family: 'BBH Sans Hegarty';
+  src: url('/fonts/BBHSansHegarty.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Winky Sans - Variable Font */
+@font-face {
+  font-family: 'Winky Sans';
+  src: url('/fonts/WinkySans-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --font-inter: 'Inter', system-ui, sans-serif;
   --font-space-grotesk: 'Space Grotesk', system-ui, sans-serif;
   --font-jetbrains-mono: 'JetBrains Mono', monospace;
+  --font-bbh-hegarty: 'BBH Sans Hegarty', sans-serif;
+  --font-winky-sans: 'Winky Sans', sans-serif;
   
   /* Default: Dark theme */
   --background: #0D0D0D;
@@ -88,7 +108,7 @@
   --color-nav-bg: var(--nav-bg);
   --color-dropdown-bg: var(--dropdown-bg);
   --color-input-bg: var(--input-bg);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-winky-sans);
   --font-mono: var(--font-jetbrains-mono);
 }
 
@@ -106,7 +126,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-winky-sans), system-ui, -apple-system, sans-serif;
   letter-spacing: -0.011em;
   transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
@@ -357,4 +377,17 @@ textarea {
 
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
+}
+
+/* BBH Sans Hegarty font */
+.bbh-hegarty-regular {
+  font-family: "BBH Sans Hegarty", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* Numbers font - use Inter for numeric values */
+.font-number {
+  font-family: 'Inter', var(--font-inter), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
 }

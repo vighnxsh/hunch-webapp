@@ -2,13 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { usePrivy } from '@privy-io/react-auth';
+import { useWallets } from '@privy-io/react-auth/solana';
 import { fetchEventDetails, fetchMarketDetails, EventDetails, Market } from '../../lib/api';
 import TradeMarket from '../../components/TradeMarket';
 import ShareBlink from '../../components/ShareBlink';
+import { useAuth } from '../../components/AuthContext';
+import { generateDummySignature, isDummyTradesEnabled } from '../../lib/dummyTradeUtils';
 
 export default function EventPage() {
     const params = useParams();
     const router = useRouter();
+    const { ready, authenticated, user } = usePrivy();
+    const { wallets } = useWallets();
+    const { requireAuth } = useAuth();
     const eventId = params?.eventId as string;
     const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
     const [detailedMarkets, setDetailedMarkets] = useState<Map<string, Market>>(new Map());
@@ -18,6 +25,14 @@ export default function EventPage() {
     const [selectedMarketTicker, setSelectedMarketTicker] = useState<string | null>(null);
     const [showAllMarkets, setShowAllMarkets] = useState(false);
     const [selectedSide, setSelectedSide] = useState<'yes' | 'no'>('yes');
+    
+    // Mobile trade state
+    const [mobileAmount, setMobileAmount] = useState('');
+    const [mobileTradeLoading, setMobileTradeLoading] = useState(false);
+    const [mobileTradeStatus, setMobileTradeStatus] = useState('');
+    
+    const solanaWallet = wallets[0];
+    const walletAddress = solanaWallet?.address;
 
     useEffect(() => {
         if (!eventId) return;
@@ -107,6 +122,86 @@ export default function EventPage() {
         });
     };
 
+    // Mobile trade handler
+    const handleMobileTrade = async () => {
+        if (!authenticated) {
+            requireAuth('Sign in to place your trade');
+            return;
+        }
+
+        if (!ready || !walletAddress || !user) {
+            setMobileTradeStatus('Please connect your wallet first');
+            return;
+        }
+
+        if (!mobileAmount || parseFloat(mobileAmount) <= 0) {
+            setMobileTradeStatus('Please enter a valid amount');
+            return;
+        }
+
+        if (!selectedMarket || selectedMarket.status !== 'active') {
+            setMobileTradeStatus('Market is not active');
+            return;
+        }
+
+        if (!isDummyTradesEnabled()) {
+            setMobileTradeStatus('Trading is currently disabled');
+            return;
+        }
+
+        setMobileTradeLoading(true);
+        setMobileTradeStatus('Placing order...');
+
+        try {
+            const dummySignature = generateDummySignature();
+
+            // Sync user
+            const syncResponse = await fetch('/api/users/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    privyId: user.id,
+                    walletAddress: walletAddress,
+                    displayName: user.twitter?.username
+                        ? `@${user.twitter.username}`
+                        : user.google?.email?.split('@')[0] || null,
+                    avatarUrl: user.twitter?.profilePictureUrl || null,
+                }),
+            });
+
+            if (!syncResponse.ok) throw new Error('Failed to sync user');
+            const syncedUser = await syncResponse.json();
+
+            // Create trade
+            const tradeResponse = await fetch('/api/trades', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: syncedUser.id,
+                    marketTicker: selectedMarket.ticker,
+                    eventTicker: selectedMarket.eventTicker || null,
+                    side: selectedSide,
+                    amount: mobileAmount,
+                    transactionSig: dummySignature,
+                    isDummy: true,
+                }),
+            });
+
+            if (!tradeResponse.ok) {
+                const errorData = await tradeResponse.json();
+                throw new Error(errorData.error || 'Failed to create trade');
+            }
+
+            setMobileTradeStatus('✅ Order placed!');
+            setMobileAmount('');
+            setTimeout(() => setMobileTradeStatus(''), 3000);
+        } catch (error: any) {
+            setMobileTradeStatus(`❌ ${error.message}`);
+        } finally {
+            setMobileTradeLoading(false);
+        }
+    };
+
     // Loading state
     if (loading) {
         return (
@@ -153,7 +248,7 @@ export default function EventPage() {
 
     return (
         <div className="min-h-screen bg-[var(--background)]">
-            <main className="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-8">
+            <main className="max-w-7xl mx-auto px-4 py-6 pb-64 lg:pb-8">
                 {/* Back Button */}
                 <button
                     onClick={() => router.back()}
@@ -316,8 +411,8 @@ export default function EventPage() {
                         </div>
                     </div>
 
-                    {/* Right Column - Trade Card (Sticky, 35%) */}
-                    <div className="lg:w-[35%] flex-shrink-0">
+                    {/* Right Column - Trade Card (Sticky on Desktop, Hidden on Mobile) */}
+                    <div className="hidden lg:block lg:w-[35%] flex-shrink-0">
                         <div className="lg:sticky lg:top-6">
                             {selectedMarket ? (
                                 <div className="bg-[var(--surface)] rounded-2xl overflow-hidden">
@@ -352,6 +447,103 @@ export default function EventPage() {
                     </div>
                 </div>
             </main>
+
+            {/* Mobile Fixed Bottom Trade Card - positioned above bottom navbar */}
+            {selectedMarket && (
+                <div className="lg:hidden fixed bottom-24 left-3 right-3 z-40 bg-[var(--surface)]/95 backdrop-blur-xl border border-[var(--border-color)]/50 rounded-3xl shadow-2xl shadow-black/30">
+                    <div className="p-5">
+                        {/* Market Title */}
+                        <h3 className="font-semibold text-[var(--text-primary)] leading-tight text-sm mb-4 truncate">
+                            {selectedMarket.yesSubTitle || selectedMarket.noSubTitle || selectedMarket.subtitle || 'Market Option'}
+                        </h3>
+                        
+                        {/* Yes/No Buttons with Prices */}
+                        <div className="flex gap-3 mb-4">
+                            <button
+                                onClick={() => setSelectedSide('yes')}
+                                className={`flex-1 py-3 px-4 rounded-2xl font-bold text-sm transition-all duration-200 ${
+                                    selectedSide === 'yes'
+                                        ? 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-white shadow-lg shadow-cyan-500/30 scale-[1.02]'
+                                        : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20'
+                                }`}
+                            >
+                                Yes {selectedMarket.yesAsk ? `${Math.round(parseFloat(selectedMarket.yesAsk) * 100)}¢` : '—'}
+                            </button>
+                            <button
+                                onClick={() => setSelectedSide('no')}
+                                className={`flex-1 py-3 px-4 rounded-2xl font-bold text-sm transition-all duration-200 ${
+                                    selectedSide === 'no'
+                                        ? 'bg-gradient-to-r from-pink-500 to-pink-400 text-white shadow-lg shadow-pink-500/30 scale-[1.02]'
+                                        : 'bg-pink-500/10 text-pink-400 border border-pink-500/20 hover:bg-pink-500/20'
+                                }`}
+                            >
+                                No {selectedMarket.noAsk ? `${Math.round(parseFloat(selectedMarket.noAsk) * 100)}¢` : '—'}
+                            </button>
+                        </div>
+
+                        {/* Amount Input - Large on top */}
+                        <div className="relative bg-[var(--background)] rounded-2xl border border-[var(--border-color)]/50 mb-4 overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent pointer-events-none" />
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] text-4xl font-bold">$</span>
+                            <input
+                                type="number"
+                                value={mobileAmount}
+                                onChange={(e) => setMobileAmount(e.target.value)}
+                                placeholder="0"
+                                step="1"
+                                min="0"
+                                disabled={mobileTradeLoading}
+                                className="relative w-full pl-14 pr-4 py-5 bg-transparent text-[var(--text-primary)] text-5xl font-bold placeholder-[var(--text-tertiary)]/50 focus:outline-none disabled:opacity-50"
+                            />
+                        </div>
+                        
+                        {/* To Win Display */}
+                        <div className="flex items-center justify-between mb-4 px-2 py-3 bg-green-500/5 rounded-2xl border border-green-500/10">
+                            {(() => {
+                                const price = selectedSide === 'yes' 
+                                    ? (selectedMarket.yesAsk ? parseFloat(selectedMarket.yesAsk) : null)
+                                    : (selectedMarket.noAsk ? parseFloat(selectedMarket.noAsk) : null);
+                                const amount = mobileAmount ? parseFloat(mobileAmount) : 0;
+                                const toWin = price && price > 0 && amount > 0 ? (amount / price).toFixed(2) : '0.00';
+                                const percentage = price ? Math.round(price * 100) : 0;
+                                
+                                return (
+                                    <>
+                                        <div className="pl-2">
+                                            <p className="text-xs text-[var(--text-tertiary)] uppercase tracking-wider mb-0.5">To Win</p>
+                                            </div>
+                                        <div className="text-5xl font-black bg-gradient-to-br from-green-400 to-emerald-500 bg-clip-text text-transparent pr-2">
+                                            {amount > 0 && price ? Math.round(parseFloat(toWin)) : '0'}
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Place Order Button */}
+                        <button
+                            onClick={handleMobileTrade}
+                            disabled={mobileTradeLoading || !mobileAmount || parseFloat(mobileAmount) <= 0}
+                            className="w-full py-4 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white rounded-2xl disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed transition-all duration-200 font-bold text-base shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:scale-[1.01] active:scale-[0.99]"
+                        >
+                            {mobileTradeLoading ? 'Placing Order...' : authenticated ? 'Place Order' : 'Sign In to Trade'}
+                        </button>
+
+                        {/* Status Message */}
+                        {mobileTradeStatus && (
+                            <p className={`mt-3 text-xs px-3 py-2 rounded-xl text-center font-medium ${
+                                mobileTradeStatus.includes('✅')
+                                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                    : mobileTradeStatus.includes('❌')
+                                        ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                        : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                            }`}>
+                                {mobileTradeStatus}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

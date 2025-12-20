@@ -3,14 +3,12 @@
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useCreateWallet } from '@privy-io/react-auth/solana';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import EventsList from '../components/EventsList';
 
 export default function HomePage() {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const { createWallet } = useCreateWallet();
-  const router = useRouter();
   const [walletCreating, setWalletCreating] = useState(false);
   const [walletCreationAttempted, setWalletCreationAttempted] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
@@ -21,14 +19,7 @@ export default function HomePage() {
     return window.location.protocol === 'https:' || window.location.hostname === 'localhost';
   };
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (ready && !authenticated) {
-      router.push('/');
-    }
-  }, [ready, authenticated, router]);
-
-  // Monitor wallet creation after login with improved detection
+  // Monitor wallet creation after login with improved detection (only for authenticated users)
   useEffect(() => {
     if (!authenticated || !user || !ready) {
       setWalletCreating(false);
@@ -127,7 +118,7 @@ export default function HomePage() {
     return () => clearInterval(pollInterval);
   }, [authenticated, user, wallets, ready, createWallet, walletCreationAttempted]);
 
-  // Show loading while Privy initializes or redirecting
+  // Show loading while Privy initializes
   if (!ready) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
@@ -139,23 +130,11 @@ export default function HomePage() {
     );
   }
 
-  // Show loading while redirecting if not authenticated
-  if (!authenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-[var(--text-secondary)] text-sm">Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show main app after authentication
+  // Show main app - now accessible to both authenticated and unauthenticated users
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      {/* Wallet Creation Banner - Non-blocking */}
-      {(walletCreating || walletError) && (
+      {/* Wallet Creation Banner - Non-blocking, only for authenticated users */}
+      {authenticated && (walletCreating || walletError) && (
         <div className={`sticky top-0 z-40 border-b ${walletError
             ? 'bg-red-500/10 border-red-500/30'
             : 'bg-cyan-500/10 border-cyan-500/30'

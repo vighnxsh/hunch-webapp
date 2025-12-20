@@ -277,7 +277,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                     }}
                                     className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
                                 >
-                                    <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">{profile.followerCount}</span>
+                                    <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{profile.followerCount}</span>
                                     <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Followers</span>
                                 </button>
                                 <button
@@ -287,7 +287,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                     }}
                                     className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
                                 >
-                                    <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">{profile.followingCount}</span>
+                                    <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{profile.followingCount}</span>
                                     <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Following</span>
                                 </button>
                             </div>
@@ -321,7 +321,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                             </div>
 
                             {/* Card Content */}
-                            <div className="relative h-full px-4 pb-4 pt-3 sm:px-7 sm:pb-7 sm:pt-4 flex flex-col justify-between">
+                            <div className="relative h-full px-4 pb-4 pt-3 sm:px-7 sm:pb-7 sm:pt-4 flex flex-col justify-between font-number">
                                 {/* Top Row - Username */}
                                 <div className="flex items-start justify-end">
                                     <span className={`text-sm sm:text-lg font-bold tracking-wide ${theme === 'light' ? 'text-yellow-700' : 'text-white/90'
@@ -335,7 +335,7 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                     <p className={`text-sm sm:text-sm font-medium tracking-wider uppercase mb-1 ${theme === 'light' ? 'text-black/80' : 'text-white/60'
                                         }`}>Cash Balance</p>
                                     <div className="flex items-baseline gap-2">
-                                        <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${theme === 'light' ? 'text-slate-900' : 'text-white'
+                                        <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-number ${theme === 'light' ? 'text-slate-900' : 'text-white'
                                             }`}>
                                             $300
                                         </span>
@@ -347,14 +347,14 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                     <div>
                                         <p className={`text-[10px] sm:text-xs font-medium tracking-wider uppercase mb-0.5 ${theme === 'light' ? 'text-gray-700' : 'text-white/90'
                                             }`}>Total Bets</p>
-                                        <span className={`font-semibold text-base sm:text-xl ${theme === 'light' ? 'text-gray-700' : 'text-white'
+                                        <span className={`font-semibold text-base sm:text-xl font-number ${theme === 'light' ? 'text-gray-700' : 'text-white'
                                             }`}>17</span>
                                     </div>
 
                                     <div className="text-right">
                                         <p className={`text-[10px] sm:text-xs font-medium tracking-wider uppercase mb-0.5 ${theme === 'light' ? 'text-gray-700' : 'text-white/60'
                                             }`}>P&L</p>
-                                        <span className={`font-semibold text-base sm:text-lg ${theme === 'light' ? 'text-gray-700' : 'text-white'
+                                        <span className={`font-semibold text-base sm:text-lg font-number ${theme === 'light' ? 'text-gray-700' : 'text-white'
                                             }`}>
                                             -12.50%
                                         </span>

@@ -8,6 +8,7 @@ import { parseMarketTicker, formatMarketTitle } from '../lib/marketUtils';
 import { fetchMarketProbabilities, MarketProbabilities } from '../lib/probabilityUtils';
 import { generateDummySignature, isDummyTradesEnabled, logDummyTradeWarning } from '../lib/dummyTradeUtils';
 import TradeQuoteModal from './TradeQuoteModal';
+import { useAuth } from './AuthContext';
 
 // TODO: Remove when DFlow API is ready - Keep original imports commented
 // import { useSignAndSendTransaction } from '@privy-io/react-auth/solana';
@@ -22,6 +23,7 @@ interface TradeMarketProps {
 export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarketProps) {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
+  const { requireAuth } = useAuth();
   const [side, setSide] = useState<'yes' | 'no'>(initialSide);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -86,7 +88,13 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
 
   // TODO: Remove when DFlow API is ready - Dummy trade handler
   const handleDummyTrade = async () => {
-    if (!ready || !authenticated || !walletAddress || !user) {
+    // Show login modal if not authenticated
+    if (!authenticated) {
+      requireAuth('Sign in to place your trade');
+      return;
+    }
+
+    if (!ready || !walletAddress || !user) {
       setStatus('Please connect your wallet first');
       return;
     }
@@ -242,24 +250,20 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
         <div className="space-y-4">
           {/* Side Selection */}
           <div>
-            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-              Position
-            </label>
+            
             {/* Probability Display */}
             {market.status === 'active' && !probabilities.loading &&
               (probabilities.yesProbability !== null || probabilities.noProbability !== null) && (
                 <div className="flex gap-2 mb-2">
                   <div className="flex-1 text-center">
-                    <div className="text-xs text-[var(--text-tertiary)] mb-1">YES Probability</div>
-                    <div className="text-lg font-bold text-cyan-400">
+                    <div className="text-lg font-bold text-cyan-400 font-number">
                       {probabilities.yesProbability !== null
                         ? `${probabilities.yesProbability}%`
                         : '--'}
                     </div>
                   </div>
                   <div className="flex-1 text-center">
-                    <div className="text-xs text-[var(--text-tertiary)] mb-1">NO Probability</div>
-                    <div className="text-lg font-bold text-pink-400">
+                    <div className="text-lg font-bold text-pink-400 font-number">
                       {probabilities.noProbability !== null
                         ? `${probabilities.noProbability}%`
                         : '--'}
@@ -308,14 +312,14 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               step="0.01"
               min="0"
               disabled={loading}
-              className="w-full px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 transition-all"
+              className="w-full px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 transition-all font-number"
             />
             
             {/* To Win Display */}
             {toWinAmount && (
               <div className="mt-2 flex items-center justify-between animate-fadeIn">
                 <span className="text-sm text-[var(--text-secondary)]">To win</span>
-                <span className="text-lg font-bold text-green-400">
+                <span className="text-lg font-bold text-green-400 font-number">
                   ${toWinAmount}
                 </span>
               </div>
@@ -323,10 +327,10 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
           </div>
 
           {/* Action Buttons */}
-          {(!ready || !authenticated || !walletAddress) && (
+          {authenticated && (!ready || !walletAddress) && (
             <div className="mb-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
               <p className="text-yellow-400 text-xs">
-                {!ready ? 'Initializing...' : !authenticated ? 'Please log in' : !walletAddress ? 'Please connect your wallet' : ''}
+                {!ready ? 'Initializing...' : !walletAddress ? 'Please connect your wallet' : ''}
               </p>
             </div>
           )}
@@ -334,10 +338,10 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
           {/* TODO: Remove when DFlow API is ready - Dummy trade button */}
           <button
             onClick={handleDummyTrade}
-            disabled={!ready || !authenticated || !walletAddress || loading || !amount || parseFloat(amount) <= 0}
+            disabled={loading || !amount || parseFloat(amount) <= 0}
             className="w-full px-4 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all font-semibold"
           >
-            {loading ? 'Placing Order...' : !amount || parseFloat(amount) <= 0 ? 'Enter Amount' : 'Place Order'}
+            {loading ? 'Placing Order...' : !amount || parseFloat(amount) <= 0 ? 'Enter Amount' : authenticated ? 'Place Order' : 'Sign in to Trade'}
           </button>
 
           {/* Status */}

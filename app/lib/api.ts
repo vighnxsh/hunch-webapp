@@ -1,4 +1,9 @@
-const METADATA_API_BASE_URL = "https://prediction-markets-api.dflow.net";
+// Base URL for the DFlow Prediction Markets Metadata API
+// - In development we default to the dev endpoint so you can trade against Kalshi with test capital.
+// - In production, override this with the prod URL via NEXT_PUBLIC_PM_METADATA_API_BASE_URL.
+const METADATA_API_BASE_URL =
+  process.env.NEXT_PUBLIC_PM_METADATA_API_BASE_URL ??
+  "https://dev-prediction-markets-api.dflow.net";
 
 export interface Market {
   ticker: string;

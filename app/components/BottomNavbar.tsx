@@ -5,15 +5,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export default function BottomNavbar() {
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated, user } = usePrivy();
   const pathname = usePathname();
 
-  // Only show when authenticated
-  if (!ready || !authenticated) {
+  // Hide navbar on the login page
+  if (!ready || pathname === '/') {
     return null;
   }
 
   const isActive = (path: string) => pathname === path;
+
+  // Get user avatar - use direct user properties (same as Profile.tsx)
+  const getUserAvatar = () => {
+    if (!user) return null;
+    return user.twitter?.profilePictureUrl || user.google?.picture || null;
+  };
+
+  const avatar = getUserAvatar();
 
   return (
     <div className="fixed bottom-6 left-0  right-0 z-50 md:hidden flex justify-center safe-area-bottom">
@@ -69,25 +77,35 @@ export default function BottomNavbar() {
         {/* Profile Link */}
         <Link
           href="/profile"
-          className={`p-3 rounded-full transition-all duration-200 ${
-            isActive('/profile')
-              ? 'bg-[var(--text-primary)] text-[var(--background)]'
-              : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+          className={`p-2 rounded-full transition-all duration-200 ${
+            authenticated && avatar
+              ? ''
+              : isActive('/profile')
+                ? 'bg-[var(--text-primary)] text-[var(--background)] p-3'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-3'
           }`}
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+          {authenticated && avatar ? (
+            <img 
+              src={avatar} 
+              alt="Profile" 
+              className="w-8 h-8 rounded-full object-cover"
             />
-          </svg>
+          ) : (
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              />
+            </svg>
+          )}
         </Link>
       </nav>
     </div>

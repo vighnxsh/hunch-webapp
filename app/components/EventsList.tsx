@@ -143,13 +143,13 @@ function EventCard({
                   key={key}
                   className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-[var(--surface)]"
                 >
-                  <span className="text-sm text-[var(--text-primary)] truncate">
+                  <span className="text-xl text-[var(--text-primary)] truncate">
                     {label}
                   </span>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xl font-semibold text-[var(--text-primary)]">
-                      {yesPercent}
-                    </span>
+<span className="text-xl font-semibold text-[var(--text-primary)] font-number">
+                                      {yesPercent}
+                                    </span>
                     {yesPrice !== null && yesPrice < 1 && (
                       <svg
                         className="w-3 h-3 text-[var(--text-tertiary)]"
@@ -165,13 +165,13 @@ function EventCard({
                     )}
                     <button
                       onClick={(e) => handleMarketButtonClick(e, market, 'yes', key)}
-                      className=" font-semibold px-3 py-1 text-md rounded-xl bg-gradient-to-r from-cyan-500 to-teal-300 text-black hover:bg-cyan-300 transition-colors shadow-sm"
+                      className=" font-semibold px-3 py-1 text-md rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-300 text-black hover:bg-cyan-300 transition-colors shadow-sm"
                     >
                       Yes
                     </button>
                     <button
                       onClick={(e) => handleMarketButtonClick(e, market, 'no', key)}
-                      className="text-md font-semibold px-3 py-1 rounded-xl bg-gradient-to-r from-pink-500 to-fuchsia-400 text-white hover:bg-pink-400 transition-colors shadow-sm"
+                      className="text-md font-semibold px-3 py-1 rounded-xl bg-gradient-to-br from-pink-500 to-pink-400     text-white hover:bg-pink-400 transition-colors shadow-sm"
                     >
                       No
                     </button>
@@ -189,7 +189,7 @@ function EventCard({
         )}
 
         <div className="flex items-center justify-between gap-3 text-xs text-[var(--text-tertiary)] pt-1">
-          <span>
+          <span className="font-number">
             {formatVolume(
               event.volume ?? event.volume24h ?? event.openInterest
             )}
@@ -268,9 +268,9 @@ function EventCard({
                     </div>
                     <div className="flex flex-col items-end">
 
-                      <span className="text-lg font-semibold text-[var(--text-primary)]">
-                        {yesPercent}
-                      </span>
+<span className="text-lg font-semibold text-[var(--text-primary)] font-number">
+                                        {yesPercent}
+                                      </span>
                     </div>
                   </div>
 
@@ -286,12 +286,12 @@ function EventCard({
                         Yes
                       </button>
                       {yesReturn !== null ? (
-                        <p className="text-sm text-[var(--text-tertiary)]">
-                          $100 →{' '}
-                          <span className="text-emerald-400 font-semibold">
-                            ${Math.round(yesReturn)}
-                          </span>
-                        </p>
+<p className="text-sm text-[var(--text-tertiary)] font-number">
+                                          $100 →{' '}
+                                          <span className="text-emerald-400 font-semibold">
+                                            ${Math.round(yesReturn)}
+                                          </span>
+                                        </p>
                       ) : (
                         <p className="text-xs text-[var(--text-tertiary)]">—</p>
                       )}
@@ -307,12 +307,12 @@ function EventCard({
                         No
                       </button>
                       {noReturn !== null ? (
-                        <p className="text-sm text-[var(--text-tertiary)]">
-                          $100 →{' '}
-                          <span className="text-emerald-400 font-semibold">
-                            ${Math.round(noReturn)}
-                          </span>
-                        </p>
+<p className="text-sm text-[var(--text-tertiary)] font-number">
+                                          $100 →{' '}
+                                          <span className="text-emerald-400 font-semibold">
+                                            ${Math.round(noReturn)}
+                                          </span>
+                                        </p>
                       ) : (
                         <p className="text-xs text-[var(--text-tertiary)]">—</p>
                       )}
@@ -339,6 +339,7 @@ export default function EventsList() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [apiCategories, setApiCategories] = useState<TagsByCategories>({});
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(true);
@@ -459,24 +460,30 @@ export default function EventsList() {
   }, [hasMore, loadingMore, loadMoreEvents]);
 
   useEffect(() => {
-    if (selectedTopic === 'all') {
-      setFilteredEvents(events);
-      return;
+    let filtered = events;
+
+    // Apply search filter first
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(event => {
+        const searchText = `${event.title || ''} ${event.subtitle || ''} ${event.ticker || ''}`.toLowerCase();
+        return searchText.includes(query);
+      });
     }
 
-    const topic = TOPIC_FILTERS.find(t => t.id === selectedTopic);
-    if (!topic || topic.keywords.length === 0) {
-      setFilteredEvents(events);
-      return;
+    // Then apply topic filter
+    if (selectedTopic !== 'all') {
+      const topic = TOPIC_FILTERS.find(t => t.id === selectedTopic);
+      if (topic && topic.keywords.length > 0) {
+        filtered = filtered.filter(event => {
+          const searchText = `${event.title || ''} ${event.subtitle || ''} ${event.ticker || ''}`.toLowerCase();
+          return topic.keywords.some(keyword => searchText.includes(keyword.toLowerCase()));
+        });
+      }
     }
-
-    const filtered = events.filter(event => {
-      const searchText = `${event.title || ''} ${event.subtitle || ''} ${event.ticker || ''}`.toLowerCase();
-      return topic.keywords.some(keyword => searchText.includes(keyword.toLowerCase()));
-    });
 
     setFilteredEvents(filtered);
-  }, [selectedTopic, events]);
+  }, [selectedTopic, searchQuery, events]);
 
   const handleEventClick = (eventTicker: string) => {
     router.push(`/event/${encodeURIComponent(eventTicker)}`);
@@ -536,6 +543,32 @@ export default function EventsList() {
 
   return (
     <div className="space-y-4">
+      {/* Search Bar */}
+      <div className="relative">
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+          <svg className="w-5 h-5 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search markets..."
+          className="w-full pl-12 pr-10 py-3 rounded-2xl bg-[var(--surface)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       {/* Filters - Horizontal scroll on mobile */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
         {TOPIC_FILTERS.map((topic) => {
@@ -551,7 +584,7 @@ export default function EventsList() {
             >
               <span>{topic.label}</span>
               {isSelected && filteredEvents.length > 0 && (
-                <span className="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-full text-[10px] font-bold">
+                <span className="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-full text-[10px] font-bold font-number">
                   {filteredEvents.length}
                 </span>
               )}
@@ -564,14 +597,23 @@ export default function EventsList() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredEvents.length === 0 ? (
           <div className="col-span-full flex flex-col items-center justify-center py-16">
-
-            <p className="text-[var(--text-secondary)] text-sm mb-3">No events found</p>
-            {selectedTopic !== 'all' && (
+            <div className="w-16 h-16 mb-4 rounded-full bg-[var(--surface)] flex items-center justify-center">
+              <svg className="w-8 h-8 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <p className="text-[var(--text-secondary)] text-sm mb-3">
+              {searchQuery ? `No markets found for "${searchQuery}"` : 'No events found'}
+            </p>
+            {(selectedTopic !== 'all' || searchQuery) && (
               <button
-                onClick={() => setSelectedTopic('all')}
+                onClick={() => {
+                  setSelectedTopic('all');
+                  setSearchQuery('');
+                }}
                 className="text-cyan-400 text-sm font-medium"
               >
-                View all →
+                Clear filters →
               </button>
             )}
           </div>

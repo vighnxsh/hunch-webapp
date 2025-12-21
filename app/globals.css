@@ -108,7 +108,7 @@
   --color-nav-bg: var(--nav-bg);
   --color-dropdown-bg: var(--dropdown-bg);
   --color-input-bg: var(--input-bg);
-  --font-sans: var(--font-winky-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
 }
 
@@ -126,7 +126,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-winky-sans), system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   letter-spacing: -0.011em;
   transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;

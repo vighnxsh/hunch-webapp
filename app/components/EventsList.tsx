@@ -658,7 +658,7 @@ export default function EventsList() {
           <div
             className={
               isMobile
-                ? 'w-full max-w-md max-h-[80vh] bg-[var(--surface)] border-t border-[var(--border-color)] rounded-t-2xl shadow-2xl overflow-hidden animate-fadeIn flex flex-col'
+                ? 'w-full max-w-md max-h-[80vh] bg-[var(--surface)] border-t border-[var(--border-color)] rounded-t-2xl shadow-2xl overflow-hidden animate-fadeIn flex flex-col mb-6'
                 : 'w-full max-w-lg bg-[var(--surface)] border border-[var(--border-color)] rounded-2xl shadow-2xl overflow-hidden animate-fadeIn'
             }
             style={isMobile ? { animation: 'slideUp 240ms ease-out' } : undefined}
@@ -701,7 +701,7 @@ export default function EventsList() {
                 ✕
               </button>
             </div>
-            <div className="p-4 pb-24 overflow-y-auto">
+            <div className="p-4 pb-32 overflow-y-auto">
               <TradeMarket market={tradeModalMarket} initialSide={tradeModalSide} />
             </div>
           </div>

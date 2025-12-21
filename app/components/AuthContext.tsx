@@ -17,6 +17,8 @@ interface AuthContextType {
   showLoginModal: (message?: string) => void;
   /** Hide the login modal */
   hideLoginModal: () => void;
+  /** Check if login modal is open */
+  isLoginModalOpen: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -51,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: authenticated,
         showLoginModal,
         hideLoginModal,
+        isLoginModalOpen: isModalOpen,
       }}
     >
       {children}

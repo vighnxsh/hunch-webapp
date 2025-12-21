@@ -91,6 +91,19 @@ export default function UserTrades({ userId }: UserTradesProps) {
   const activeTrades = trades.filter(trade => isMarketActive(trade.marketTicker));
   const previousTrades = trades.filter(trade => !isMarketActive(trade.marketTicker));
 
+  // Log active trades for debugging
+  useEffect(() => {
+    if (trades.length > 0 && markets.size > 0) {
+      const active = trades.filter(trade => isMarketActive(trade.marketTicker));
+      const previous = trades.filter(trade => !isMarketActive(trade.marketTicker));
+      console.log('Active trades fetched:', {
+        total: trades.length,
+        active: active.length,
+        previous: previous.length,
+      });
+    }
+  }, [trades, markets]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -142,23 +155,41 @@ export default function UserTrades({ userId }: UserTradesProps) {
       <div className="flex gap-2 mb-6 border-b border-[var(--border-color)]">
         <button
           onClick={() => setActiveTab('active')}
-          className={`px-4 py-2 text-xl font-bold transition-colors border-b-2 ${
+          className={`px-4 py-2 text-xl font-bold transition-colors border-b-2 flex items-center gap-2 ${
             activeTab === 'active'
               ? 'border-[var(--text-primary)] text-[var(--text-primary)]'
               : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
           }`}
         >
-         ACTIVE 
+          ACTIVE
+          {activeTrades.length > 0 && (
+            <span className={`text-xs px-2 py-0.5 rounded-full ${
+              activeTab === 'active'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)]'
+            }`}>
+              {activeTrades.length}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveTab('previous')}
-          className={`px-4 py-2 font-bold text-xl transition-colors border-b-2 ${
+          className={`px-4 py-2 font-bold text-xl transition-colors border-b-2 flex items-center gap-2 ${
             activeTab === 'previous'
               ? 'border-red-400 text-red-400'
               : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
           }`}
         >
-          PREVIOUS 
+          PREVIOUS
+          {previousTrades.length > 0 && (
+            <span className={`text-xs px-2 py-0.5 rounded-full ${
+              activeTab === 'previous'
+                ? 'bg-red-500/20 text-red-400'
+                : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)]'
+            }`}>
+              {previousTrades.length}
+            </span>
+          )}
         </button>
       </div>
 

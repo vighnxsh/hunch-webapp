@@ -314,6 +314,8 @@ export async function fetchEventsBySeries(
  */
 export async function filterOutcomeMints(addresses: string[]): Promise<string[]> {
   try {
+    console.log('filterOutcomeMints - Request:', JSON.stringify({ addresses }, null, 2));
+    
     const response = await fetch(
       `${METADATA_API_BASE_URL}/api/v1/filter_outcome_mints`,
       {
@@ -326,10 +328,13 @@ export async function filterOutcomeMints(addresses: string[]): Promise<string[]>
     );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('filterOutcomeMints - Error response:', errorText);
       throw new Error(`Failed to filter outcome mints: ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log('filterOutcomeMints - Response:', JSON.stringify(data, null, 2));
     return data.outcomeMints || [];
   } catch (error) {
     console.error("Error filtering outcome mints:", error);
@@ -368,6 +373,8 @@ export async function fetchMarketByMint(mintAddress: string): Promise<Market> {
  */
 export async function fetchMarketsBatch(mints: string[]): Promise<Market[]> {
   try {
+    console.log('fetchMarketsBatch - Request:', JSON.stringify({ mints }, null, 2));
+    
     const response = await fetch(
       `${METADATA_API_BASE_URL}/api/v1/markets/batch`,
       {
@@ -380,10 +387,13 @@ export async function fetchMarketsBatch(mints: string[]): Promise<Market[]> {
     );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('fetchMarketsBatch - Error response:', errorText);
       throw new Error(`Failed to fetch markets batch: ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log('fetchMarketsBatch - Response:', JSON.stringify(data, null, 2));
     return data.markets || [];
   } catch (error) {
     console.error("Error fetching markets batch:", error);

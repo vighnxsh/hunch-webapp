@@ -2,18 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { useWallets } from '@privy-io/react-auth/solana';
+import { useWallets, useSignTransaction } from '@privy-io/react-auth/solana';
+import { Connection, VersionedTransaction } from '@solana/web3.js';
 import { Market } from '../lib/api';
 import { parseMarketTicker, formatMarketTitle } from '../lib/marketUtils';
 import { fetchMarketProbabilities, MarketProbabilities } from '../lib/probabilityUtils';
-import { generateDummySignature, isDummyTradesEnabled, logDummyTradeWarning } from '../lib/dummyTradeUtils';
+import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
 import TradeQuoteModal from './TradeQuoteModal';
 import { useAuth } from './AuthContext';
-
-// TODO: Remove when DFlow API is ready - Keep original imports commented
-// import { useSignAndSendTransaction } from '@privy-io/react-auth/solana';
-// import { Connection, Transaction } from '@solana/web3.js';
-// import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
 
 interface TradeMarketProps {
   market: Market;
@@ -23,6 +19,13 @@ interface TradeMarketProps {
 export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarketProps) {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
+  const { signTransaction } = useSignTransaction();
+  
+  // Create Solana connection for sending transactions
+  const connection = new Connection(
+    process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com',
+    'confirmed'
+  );
   const { requireAuth } = useAuth();
   const [side, setSide] = useState<'yes' | 'no'>(initialSide);
   const [amount, setAmount] = useState('');
@@ -35,7 +38,6 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
     error: null,
   });
 
-  // TODO: Remove when DFlow API is ready - Dummy trade specific state
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [currentTradeId, setCurrentTradeId] = useState<string | null>(null);
   const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
@@ -86,8 +88,31 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
     loadProbabilities();
   }, [market]);
 
-  // TODO: Remove when DFlow API is ready - Dummy trade handler
-  const handleDummyTrade = async () => {
+  // Get mint address for YES or NO token
+  const getMintAddress = (type: 'yes' | 'no'): string | undefined => {
+    if (market.accounts && typeof market.accounts === 'object') {
+      const usdcAccount = (market.accounts as any)[USDC_MINT];
+      if (usdcAccount) {
+        const mint = type === 'yes' ? usdcAccount.yesMint : usdcAccount.noMint;
+        if (mint) return mint;
+      }
+      
+      const accountKeys = Object.keys(market.accounts);
+      for (const key of accountKeys) {
+        const account = (market.accounts as any)[key];
+        if (account && typeof account === 'object') {
+          const mint = type === 'yes' ? account.yesMint : account.noMint;
+          if (mint) return mint;
+        }
+      }
+    }
+    
+    const mint = type === 'yes' ? market.yesMint : market.noMint;
+    return mint;
+  };
+
+  // Real trade handler using DFlow API
+  const handlePlaceOrder = async () => {
     // Show login modal if not authenticated
     if (!authenticated) {
       requireAuth('Sign in to place your trade');
@@ -109,19 +134,117 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       return;
     }
 
-    if (!isDummyTradesEnabled()) {
-      setStatus('❌ Dummy trades are disabled. Please configure DFlow API.');
+    // Get mint addresses
+    const outputMint = getMintAddress(side);
+    if (!outputMint) {
+      setStatus('❌ Unable to find market token mint address');
       return;
     }
 
     setLoading(true);
-    setStatus('Placing order...');
+    setStatus('Requesting order...');
 
     try {
-      // Generate dummy signature
-      const dummySignature = generateDummySignature();
+      // Convert amount to smallest unit (USDC has 6 decimals)
+      const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000).toString();
 
-      // First, sync user to ensure they exist in database
+      // Request order from DFlow API
+      const orderResponse: OrderResponse = await requestOrder({
+        userPublicKey: walletAddress,
+        inputMint: USDC_MINT,
+        outputMint: outputMint,
+        amount: amountInSmallestUnit,
+        slippageBps: 100, // 1% slippage
+      });
+
+      setStatus('Signing transaction...');
+
+      // Get transaction from DFlow API response - it's base64 encoded
+      const transactionBase64 = orderResponse.transaction || orderResponse.openTransaction;
+      if (!transactionBase64) {
+        throw new Error('No transaction found in order response');
+      }
+
+      console.log('Extracting transaction from DFlow response:', {
+        hasTransaction: !!orderResponse.transaction,
+        hasOpenTransaction: !!orderResponse.openTransaction,
+        executionMode: orderResponse.executionMode,
+      });
+
+      // Decode the transaction from base64 to Uint8Array
+      const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
+      
+      // Sign the transaction using Privy
+      const signResult = await signTransaction({
+        transaction: transactionBytes,
+        wallet: solanaWallet,
+      });
+
+      if (!signResult?.signedTransaction) {
+        throw new Error('No signed transaction received');
+      }
+
+      // Get the signed transaction as Uint8Array
+      const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
+        ? signResult.signedTransaction
+        : new Uint8Array(signResult.signedTransaction);
+
+      setStatus('Sending transaction...');
+
+      // Create VersionedTransaction from signed bytes and send it
+      const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
+      
+      // Send the signed transaction to the network
+      const signature = await connection.sendTransaction(signedTransaction, {
+        skipPreflight: true, // Skip simulation for DFlow transactions
+        maxRetries: 3,
+      });
+
+      // connection.sendTransaction returns a Promise<string> with base58 signature
+      const signatureString = signature;
+
+      setStatus('Transaction submitted! Confirming...');
+
+      // Wait for transaction confirmation before storing trade
+      let confirmationStatus;
+      if (orderResponse.executionMode === 'sync') {
+        // For sync trades, wait for confirmation
+        const maxAttempts = 30;
+        let attempts = 0;
+        
+        // Wait for transaction to be confirmed (at least confirmed status)
+        while (attempts < maxAttempts) {
+          const statusResult = await connection.getSignatureStatuses([signatureString]);
+          confirmationStatus = statusResult.value[0];
+          
+          // Check if transaction failed
+          if (confirmationStatus?.err) {
+            throw new Error(`Transaction failed: ${JSON.stringify(confirmationStatus.err)}`);
+          }
+          
+          // If confirmed or finalized, we're done
+          if (confirmationStatus && 
+              (confirmationStatus.confirmationStatus === 'confirmed' ||
+               confirmationStatus.confirmationStatus === 'finalized')) {
+            break;
+          }
+          
+          // Otherwise wait and retry
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          attempts++;
+        }
+        
+        if (attempts >= maxAttempts) {
+          throw new Error('Transaction confirmation timeout - transaction may still be processing');
+        }
+      } else {
+        // For async trades, just wait a bit for initial submission
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+
+      setStatus('Transaction confirmed! Storing trade...');
+
+      // Sync user first
       const syncResponse = await fetch('/api/users/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -141,7 +264,8 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
 
       const syncedUser = await syncResponse.json();
 
-      // Create the trade in database (store amount as-is for dummy trades)
+      // Store the trade in database - explicitly set isDummy to false for real trades
+      console.log('Storing trade with signature:', signatureString?.substring(0, 20) + '...', 'isDummy: false');
       const tradeResponse = await fetch('/api/trades', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,9 +274,9 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
           marketTicker: market.ticker,
           eventTicker: market.eventTicker || null,
           side: side,
-          amount: amount,
-          transactionSig: dummySignature,
-          isDummy: true,
+          amount: amountInSmallestUnit, // Store in smallest unit
+          transactionSig: signatureString,
+          isDummy: false, // Explicitly false for real trades
         }),
       });
 
@@ -164,24 +288,72 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       const trade = await tradeResponse.json();
       setCurrentTradeId(trade.id);
 
-      // Log warning for development
-      logDummyTradeWarning({
-        marketTicker: market.ticker,
-        side: side,
-        amount: amount,
-        signature: dummySignature,
-      });
-
-      setStatus('✅ Order placed successfully!');
-      
-      // Open quote modal
-      setShowQuoteModal(true);
+      // Monitor trade status if async
+      if (orderResponse.executionMode === 'async') {
+        setStatus('✅ Order placed! Monitoring execution...');
+        monitorAsyncTrade(signatureString);
+      } else {
+        setStatus('✅ Trade executed successfully!');
+        setShowQuoteModal(true);
+      }
     } catch (error: any) {
-      setStatus(`❌ Error: ${error.message}`);
-      console.error('Error placing dummy trade:', error);
+      // Enhanced error handling for transaction failures
+      let errorMessage = error.message || 'Unknown error occurred';
+      
+      // Check for specific Solana errors
+      if (error.message?.includes('Transaction simulation failed')) {
+        errorMessage = 'Transaction simulation failed. This may be due to insufficient balance, expired blockhash, or invalid transaction. Please try again.';
+      } else if (error.message?.includes('User rejected')) {
+        errorMessage = 'Transaction was cancelled';
+      } else if (error.message?.includes('insufficient funds')) {
+        errorMessage = 'Insufficient USDC balance. Please ensure you have enough USDC in your wallet.';
+      }
+      
+      setStatus(`❌ Error: ${errorMessage}`);
+      console.error('Error placing trade:', {
+        message: error.message,
+        error: error,
+        stack: error.stack,
+        orderResponse: orderResponse ? {
+          executionMode: orderResponse.executionMode,
+          hasTransaction: !!orderResponse.transaction,
+        } : null,
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  // Monitor async trade execution
+  const monitorAsyncTrade = async (signature: string) => {
+    const maxAttempts = 30;
+    let attempts = 0;
+
+    const checkStatus = async () => {
+      try {
+        const statusResponse = await getOrderStatus(signature);
+        
+        if (statusResponse.status === 'closed') {
+          setStatus('✅ Trade executed successfully!');
+          setShowQuoteModal(true);
+        } else if (statusResponse.status === 'failed') {
+          setStatus('❌ Trade execution failed');
+        } else if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(checkStatus, 2000); // Check every 2 seconds
+        } else {
+          setStatus('⏳ Trade is still processing. Check your wallet for updates.');
+        }
+      } catch (error: any) {
+        console.error('Error checking trade status:', error);
+        if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(checkStatus, 2000);
+        }
+      }
+    };
+
+    setTimeout(checkStatus, 2000); // Start checking after 2 seconds
   };
 
   // TODO: Remove when DFlow API is ready - Quote submission handler
@@ -335,9 +507,8 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
             </div>
           )}
           
-          {/* TODO: Remove when DFlow API is ready - Dummy trade button */}
           <button
-            onClick={handleDummyTrade}
+            onClick={handlePlaceOrder}
             disabled={loading || !amount || parseFloat(amount) <= 0}
             className="w-full px-4 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all font-semibold"
           >
@@ -358,7 +529,6 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
         </div>
       </div>
 
-      {/* TODO: Remove when DFlow API is ready - Quote Modal */}
       <TradeQuoteModal
         isOpen={showQuoteModal}
         onClose={() => {
@@ -378,29 +548,3 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
   );
 }
 
-/* TODO: Restore when DFlow API is ready - Original implementation below
-
-// Keep original handleRequestOrder, handleSignAndSubmit, storeTrade, 
-// monitorSyncTrade, monitorAsyncTrade functions here for future restoration
-
-const handleRequestOrder = async () => {
-  // Original DFlow API implementation
-};
-
-const handleSignAndSubmit = async () => {
-  // Original transaction signing implementation
-};
-
-const storeTrade = async (signature: string) => {
-  // Original trade storage implementation
-};
-
-const monitorSyncTrade = async (signature: string) => {
-  // Original sync trade monitoring
-};
-
-const monitorAsyncTrade = async (signature: string) => {
-  // Original async trade monitoring
-};
-
-*/

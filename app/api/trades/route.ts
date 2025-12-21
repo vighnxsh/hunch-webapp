@@ -20,6 +20,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Force isDummy to false for real trades - explicitly set to override schema default
+    // If isDummy is undefined, default to false (real trade)
+    const finalIsDummy = isDummy !== undefined ? isDummy : false;
+    
+    console.log('Creating trade with isDummy:', finalIsDummy, 'transactionSig:', transactionSig?.substring(0, 20) + '...');
+    
     const trade = await createTrade({
       userId,
       marketTicker,
@@ -28,7 +34,7 @@ export async function POST(request: NextRequest) {
       amount,
       transactionSig,
       quote: quote || undefined,
-      isDummy: isDummy !== undefined ? isDummy : true,
+      isDummy: finalIsDummy, // Explicitly set - false for real trades
     });
 
     return NextResponse.json(trade, { status: 201 });

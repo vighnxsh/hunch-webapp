@@ -3,18 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
-import { useWallets } from '@privy-io/react-auth/solana';
+import { useWallets, useSignTransaction } from '@privy-io/react-auth/solana';
+import { Connection, VersionedTransaction } from '@solana/web3.js';
 import { fetchEventDetails, fetchMarketDetails, EventDetails, Market } from '../../lib/api';
 import TradeMarket from '../../components/TradeMarket';
 import ShareBlink from '../../components/ShareBlink';
 import { useAuth } from '../../components/AuthContext';
-import { generateDummySignature, isDummyTradesEnabled } from '../../lib/dummyTradeUtils';
+import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../../lib/tradeApi';
 
 export default function EventPage() {
     const params = useParams();
     const router = useRouter();
     const { ready, authenticated, user } = usePrivy();
     const { wallets } = useWallets();
+    const { signTransaction } = useSignTransaction();
     const { requireAuth } = useAuth();
     const eventId = params?.eventId as string;
     const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
@@ -122,14 +124,37 @@ export default function EventPage() {
         });
     };
 
-    // Mobile trade handler
+    // Get mint address for YES or NO token
+    const getMintAddress = (market: Market, type: 'yes' | 'no'): string | undefined => {
+        if (market.accounts && typeof market.accounts === 'object') {
+            const usdcAccount = (market.accounts as any)[USDC_MINT];
+            if (usdcAccount) {
+                const mint = type === 'yes' ? usdcAccount.yesMint : usdcAccount.noMint;
+                if (mint) return mint;
+            }
+            
+            const accountKeys = Object.keys(market.accounts);
+            for (const key of accountKeys) {
+                const account = (market.accounts as any)[key];
+                if (account && typeof account === 'object') {
+                    const mint = type === 'yes' ? account.yesMint : account.noMint;
+                    if (mint) return mint;
+                }
+            }
+        }
+        
+        const mint = type === 'yes' ? market.yesMint : market.noMint;
+        return mint;
+    };
+
+    // Mobile trade handler - Real trades
     const handleMobileTrade = async () => {
         if (!authenticated) {
             requireAuth('Sign in to place your trade');
             return;
         }
 
-        if (!ready || !walletAddress || !user) {
+        if (!ready || !walletAddress || !user || !solanaWallet) {
             setMobileTradeStatus('Please connect your wallet first');
             return;
         }
@@ -144,16 +169,121 @@ export default function EventPage() {
             return;
         }
 
-        if (!isDummyTradesEnabled()) {
-            setMobileTradeStatus('Trading is currently disabled');
+        // Get mint address
+        const outputMint = getMintAddress(selectedMarket, selectedSide);
+        if (!outputMint) {
+            setMobileTradeStatus('❌ Unable to find market token');
             return;
         }
 
         setMobileTradeLoading(true);
-        setMobileTradeStatus('Placing order...');
+        setMobileTradeStatus('Requesting order...');
 
         try {
-            const dummySignature = generateDummySignature();
+            // Convert amount to smallest unit (USDC has 6 decimals)
+            const amountInSmallestUnit = Math.floor(parseFloat(mobileAmount) * 1_000_000).toString();
+
+            // Request order from DFlow API
+            const orderResponse: OrderResponse = await requestOrder({
+                userPublicKey: walletAddress,
+                inputMint: USDC_MINT,
+                outputMint: outputMint,
+                amount: amountInSmallestUnit,
+                slippageBps: 100, // 1% slippage
+            });
+
+            setMobileTradeStatus('Signing transaction...');
+
+            // Get transaction from DFlow API response - it's base64 encoded
+            const transactionBase64 = orderResponse.transaction || orderResponse.openTransaction;
+            if (!transactionBase64) {
+                throw new Error('No transaction found in order response');
+            }
+
+            console.log('Extracting transaction from DFlow response:', {
+                hasTransaction: !!orderResponse.transaction,
+                hasOpenTransaction: !!orderResponse.openTransaction,
+                executionMode: orderResponse.executionMode,
+            });
+
+            // Decode the transaction from base64 to Uint8Array
+            const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
+            
+            // Sign the transaction using Privy
+            const signResult = await signTransaction({
+                transaction: transactionBytes,
+                wallet: solanaWallet,
+            });
+
+            if (!signResult?.signedTransaction) {
+                throw new Error('No signed transaction received');
+            }
+
+            // Get the signed transaction as Uint8Array
+            const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
+                ? signResult.signedTransaction
+                : new Uint8Array(signResult.signedTransaction);
+
+            setMobileTradeStatus('Sending transaction...');
+
+            // Create Solana connection for sending transactions
+            const connection = new Connection(
+                process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com',
+                'confirmed'
+            );
+
+            // Create VersionedTransaction from signed bytes and send it
+            const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
+            
+            // Send the signed transaction to the network
+            const signature = await connection.sendTransaction(signedTransaction, {
+                skipPreflight: true, // Skip simulation for DFlow transactions
+                maxRetries: 3,
+            });
+
+            // connection.sendTransaction returns a Promise<string> with base58 signature
+            const signatureString = signature;
+
+            setMobileTradeStatus('Transaction submitted! Confirming...');
+
+            // Wait for transaction confirmation before storing trade
+            let confirmationStatus;
+            if (orderResponse.executionMode === 'sync') {
+                // For sync trades, wait for confirmation
+                const maxAttempts = 30;
+                let attempts = 0;
+                
+                // Wait for transaction to be confirmed (at least confirmed status)
+                while (attempts < maxAttempts) {
+                    const statusResult = await connection.getSignatureStatuses([signatureString]);
+                    confirmationStatus = statusResult.value[0];
+                    
+                    // Check if transaction failed
+                    if (confirmationStatus?.err) {
+                        throw new Error(`Transaction failed: ${JSON.stringify(confirmationStatus.err)}`);
+                    }
+                    
+                    // If confirmed or finalized, we're done
+                    if (confirmationStatus && 
+                        (confirmationStatus.confirmationStatus === 'confirmed' ||
+                         confirmationStatus.confirmationStatus === 'finalized')) {
+                        break;
+                    }
+                    
+                    // Otherwise wait and retry
+                    await new Promise((resolve) => setTimeout(resolve, 1000));
+                    attempts++;
+                }
+                
+                if (attempts >= maxAttempts) {
+                    throw new Error('Transaction confirmation timeout - transaction may still be processing');
+                }
+            } else {
+                // For async trades, just wait a bit for initial submission
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+            }
+
+            setMobileTradeStatus('Transaction confirmed! Storing trade...');
 
             // Sync user
             const syncResponse = await fetch('/api/users/sync', {
@@ -172,7 +302,8 @@ export default function EventPage() {
             if (!syncResponse.ok) throw new Error('Failed to sync user');
             const syncedUser = await syncResponse.json();
 
-            // Create trade
+            // Create trade - explicitly set isDummy to false for real trades
+            console.log('Storing mobile trade with signature:', signatureString?.substring(0, 20) + '...', 'isDummy: false');
             const tradeResponse = await fetch('/api/trades', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -181,9 +312,9 @@ export default function EventPage() {
                     marketTicker: selectedMarket.ticker,
                     eventTicker: selectedMarket.eventTicker || null,
                     side: selectedSide,
-                    amount: mobileAmount,
-                    transactionSig: dummySignature,
-                    isDummy: true,
+                    amount: amountInSmallestUnit, // Store in smallest unit
+                    transactionSig: signatureString,
+                    isDummy: false, // Explicitly false for real trades
                 }),
             });
 
@@ -196,7 +327,28 @@ export default function EventPage() {
             setMobileAmount('');
             setTimeout(() => setMobileTradeStatus(''), 3000);
         } catch (error: any) {
-            setMobileTradeStatus(`❌ ${error.message}`);
+            // Enhanced error handling for transaction failures
+            let errorMessage = error.message || 'Unknown error occurred';
+            
+            // Check for specific Solana errors
+            if (error.message?.includes('Transaction simulation failed')) {
+                errorMessage = 'Transaction simulation failed. This may be due to insufficient balance, expired blockhash, or invalid transaction. Please try again.';
+            } else if (error.message?.includes('User rejected')) {
+                errorMessage = 'Transaction was cancelled';
+            } else if (error.message?.includes('insufficient funds')) {
+                errorMessage = 'Insufficient USDC balance. Please ensure you have enough USDC in your wallet.';
+            }
+            
+            setMobileTradeStatus(`❌ ${errorMessage}`);
+            console.error('Error placing mobile trade:', {
+                message: error.message,
+                error: error,
+                stack: error.stack,
+                orderResponse: orderResponse ? {
+                    executionMode: orderResponse.executionMode,
+                    hasTransaction: !!orderResponse.transaction,
+                } : null,
+            });
         } finally {
             setMobileTradeLoading(false);
         }

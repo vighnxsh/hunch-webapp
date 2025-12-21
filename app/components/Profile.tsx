@@ -522,6 +522,13 @@ export default function Profile() {
 
 
 
+      {/* User Positions Section */}
+      {walletAddress && (
+        <div className="mb-6">
+          <UserPositions />
+        </div>
+      )}
+
       {/* User Trades Section */}
       {currentUserId && (
         <div className="mb-6">

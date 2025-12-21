@@ -33,9 +33,14 @@ export interface TradeWithUser {
 
 /**
  * Create a new trade
- * TODO: Remove isDummy default when DFlow API is ready
  */
 export async function createTrade(data: CreateTradeData) {
+  // Explicitly set isDummy to false if not provided (real trades by default now)
+  // This overrides the Prisma schema default of true
+  const isDummyValue = data.isDummy !== undefined ? data.isDummy : false;
+  
+  console.log('tradeService.createTrade - isDummy:', isDummyValue, 'transactionSig:', data.transactionSig?.substring(0, 20) + '...');
+  
   const trade = await prisma.trade.create({
     data: {
       userId: data.userId,
@@ -45,7 +50,7 @@ export async function createTrade(data: CreateTradeData) {
       amount: data.amount,
       transactionSig: data.transactionSig,
       quote: data.quote || null,
-      isDummy: data.isDummy !== undefined ? data.isDummy : true,
+      isDummy: isDummyValue, // Explicitly set to override schema default
     },
   });
 

@@ -18,12 +18,16 @@ export interface OrderRequest {
 }
 
 export interface OrderResponse {
-  openTransaction: string; // Base64 encoded transaction
+  transaction?: string; // Base64 encoded transaction (new API format)
+  openTransaction?: string; // Base64 encoded transaction (legacy format)
   executionMode: "sync" | "async";
   inAmount: string;
   outAmount: string;
   inputMint: string;
   outputMint: string;
+  lastValidBlockHeight?: number;
+  prioritizationFeeLamports?: number;
+  computeUnitLimit?: number;
   [key: string]: any;
 }
 
@@ -118,7 +122,15 @@ export async function requestOrder(params: OrderRequest): Promise<OrderResponse>
   }
 
   const data = await response.json();
-  console.log('Order response:', data);
+  console.log('Order response:', {
+    hasTransaction: !!data.transaction,
+    hasOpenTransaction: !!data.openTransaction,
+    executionMode: data.executionMode,
+    inAmount: data.inAmount,
+    outAmount: data.outAmount,
+    inputMint: data.inputMint,
+    outputMint: data.outputMint,
+  });
   return data;
 }
 

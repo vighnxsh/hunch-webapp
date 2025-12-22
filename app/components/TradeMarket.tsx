@@ -310,15 +310,6 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       }
       
       setStatus(`❌ Error: ${errorMessage}`);
-      console.error('Error placing trade:', {
-        message: error.message,
-        error: error,
-        stack: error.stack,
-        orderResponse: orderResponse ? {
-          executionMode: orderResponse.executionMode,
-          hasTransaction: !!orderResponse.transaction,
-        } : null,
-      });
     } finally {
       setLoading(false);
     }

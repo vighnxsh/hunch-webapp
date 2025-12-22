@@ -156,7 +156,7 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
       // Map tokens to positions
       const userPositions: Position[] = userTokens
         .filter((token) => outcomeMints.includes(token.mint))
-        .map((token) => {
+        .map<Position>((token) => {
           const marketData = marketsByMint.get(token.mint);
           if (!marketData) {
             return {
@@ -180,11 +180,14 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
               )
             : marketData.noMint === token.mint;
 
+          const position: Position['position'] =
+            isYesToken ? 'YES' : isNoToken ? 'NO' : 'UNKNOWN';
+
           return {
             mint: token.mint,
             balance: token.balance,
             decimals: token.decimals,
-            position: isYesToken ? 'YES' : isNoToken ? 'NO' : 'UNKNOWN',
+            position,
             market: marketData,
           };
         })

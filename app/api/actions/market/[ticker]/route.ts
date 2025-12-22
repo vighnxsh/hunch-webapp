@@ -447,7 +447,7 @@ export async function POST(
     // Return transaction in Solana Actions format
     const response: ActionPostResponse = {
       type: 'transaction',
-      transaction: order.openTransaction,
+      transaction: order.openTransaction as any,
       message: `Order to buy ${side.toUpperCase()} tokens for ${amount} USDC on "${market.title || market.ticker}"`,
     };
     return Response.json(response, { status: 200, headers });

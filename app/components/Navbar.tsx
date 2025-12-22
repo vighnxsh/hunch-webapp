@@ -51,7 +51,7 @@ export default function Navbar() {
       : user.google?.name || email.split('@')[0] || 'User';
     
     // Get avatar from twitter or google directly on user object
-    const avatar = user.twitter?.profilePictureUrl || user.google?.picture || null;
+    const avatar = user.twitter?.profilePictureUrl || null;
 
     return { name, email, avatar };
   };

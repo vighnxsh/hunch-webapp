@@ -365,15 +365,6 @@ export default function EventPage() {
             }
             
             setMobileTradeStatus(`❌ ${errorMessage}`);
-            console.error('Error placing mobile trade:', {
-                message: error.message,
-                error: error,
-                stack: error.stack,
-                orderResponse: orderResponse ? {
-                    executionMode: orderResponse.executionMode,
-                    hasTransaction: !!orderResponse.transaction,
-                } : null,
-            });
         } finally {
             setMobileTradeLoading(false);
         }

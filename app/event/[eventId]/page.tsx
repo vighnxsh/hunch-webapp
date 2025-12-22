@@ -27,6 +27,8 @@ export default function EventPage() {
     const [selectedMarketTicker, setSelectedMarketTicker] = useState<string | null>(null);
     const [showAllMarkets, setShowAllMarkets] = useState(false);
     const [selectedSide, setSelectedSide] = useState<'yes' | 'no'>('yes');
+    const [isMobileView, setIsMobileView] = useState(false);
+    const [mobileTradeOpen, setMobileTradeOpen] = useState(false);
     
     // Mobile trade state
     const [mobileAmount, setMobileAmount] = useState('');
@@ -45,6 +47,7 @@ export default function EventPage() {
                 setError(null);
                 const details = await fetchEventDetails(eventId);
                 setEventDetails(details);
+                console.debug('Event imageUrl:', details?.imageUrl);
 
                 // Fetch detailed info for each market
                 if (details.markets && details.markets.length > 0) {
@@ -63,6 +66,9 @@ export default function EventPage() {
                             setLoadingMarkets(prev => new Set(prev).add(market.ticker));
                             try {
                                 const detailedMarket = await fetchMarketDetails(market.ticker);
+                                if ((detailedMarket as any)?.imageUrl) {
+                                    console.debug('Market imageUrl', market.ticker, (detailedMarket as any).imageUrl);
+                                }
                                 setDetailedMarkets(prev => {
                                     const newMap = new Map(prev);
                                     newMap.set(market.ticker, detailedMarket);
@@ -97,6 +103,25 @@ export default function EventPage() {
 
         loadEventDetails();
     }, [eventId]);
+
+    // Detect mobile view for trade modal behavior
+    useEffect(() => {
+        const handleResize = () => {
+            if (typeof window !== 'undefined') {
+                setIsMobileView(window.innerWidth < 1024); // lg breakpoint
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Close mobile trade modal when leaving mobile view
+    useEffect(() => {
+        if (!isMobileView) {
+            setMobileTradeOpen(false);
+        }
+    }, [isMobileView]);
 
     // Get active markets and sort by chance (yesBid) descending
     const activeMarkets = (eventDetails?.markets?.filter(
@@ -400,7 +425,7 @@ export default function EventPage() {
 
     return (
         <div className="min-h-screen bg-[var(--background)]">
-            <main className="max-w-7xl mx-auto px-4 py-6 pb-64 lg:pb-8">
+            <main className="max-w-7xl mx-auto px-4 py-6 pb-8">
                 {/* Back Button */}
                 <button
                     onClick={() => router.back()}
@@ -494,6 +519,7 @@ export default function EventPage() {
                                                             e.stopPropagation();
                                                             setSelectedMarketTicker(market.ticker);
                                                             setSelectedSide('yes');
+                                                            if (isMobileView) setMobileTradeOpen(true);
                                                         }}
                                                     >
                                                         {isLoading ? (
@@ -518,6 +544,7 @@ export default function EventPage() {
                                                             e.stopPropagation();
                                                             setSelectedMarketTicker(market.ticker);
                                                             setSelectedSide('no');
+                                                            if (isMobileView) setMobileTradeOpen(true);
                                                         }}
                                                     >
                                                         {isLoading ? (
@@ -600,16 +627,25 @@ export default function EventPage() {
                 </div>
             </main>
 
-            {/* Mobile Fixed Bottom Trade Card - positioned above bottom navbar */}
-            {selectedMarket && (
-                <div className="lg:hidden fixed bottom-24 left-3 right-3 z-40 bg-[var(--surface)]/95 backdrop-blur-xl border border-[var(--border-color)]/50 rounded-2xl shadow-xl shadow-black/30">
-                    <div className="p-4">
-                        {/* Market Title */}
-                        <h3 className="font-medium text-[var(--text-primary)] leading-tight text-xs mb-3 truncate">
-                            {selectedMarket.yesSubTitle || selectedMarket.noSubTitle || selectedMarket.subtitle || 'Market Option'}
-                        </h3>
-                        
-                        {/* Yes/No Buttons with Prices */}
+            {/* Mobile Trade Modal - opens on option tap */}
+            {isMobileView && mobileTradeOpen && selectedMarket && (
+                <div className="fixed inset-0 z-50 bg-black/70 flex items-end">
+                    <div
+                        className="w-full rounded-t-2xl bg-[var(--surface)] border border-[var(--border-color)]/60 shadow-2xl p-4"
+                        style={{ animation: 'drawerUp 220ms ease-out' }}
+                    >
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-semibold text-[var(--text-primary)] text-sm truncate">
+                                {selectedMarket.yesSubTitle || selectedMarket.noSubTitle || selectedMarket.subtitle || 'Market Option'}
+                            </h3>
+                            <button
+                                onClick={() => setMobileTradeOpen(false)}
+                                className="w-8 h-8 rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] flex items-center justify-center"
+                                aria-label="Close"
+                            >
+                                ✕
+                            </button>
+                        </div>
                         <div className="flex gap-2 mb-3">
                             <button
                                 onClick={() => setSelectedSide('yes')}
@@ -633,7 +669,6 @@ export default function EventPage() {
                             </button>
                         </div>
 
-                        {/* Amount Input */}
                         <div className="bg-[var(--background)] rounded-lg border border-[var(--border-color)]/60 mb-2 px-3 py-2 flex items-center gap-2">
                             <span className="text-sm text-[var(--text-secondary)]">$</span>
                             <input
@@ -648,16 +683,13 @@ export default function EventPage() {
                             />
                         </div>
                         
-                        {/* To Win Display */}
-                        <div className="flex items-center justify-between mb-2 px-2 py-1.5 bg-green-500/5 rounded-xl border border-green-500/10">
+                        <div className="flex items-center justify-between mb-3 px-2 py-1.5 bg-green-500/5 rounded-xl border border-green-500/10">
                             {(() => {
                                 const price = selectedSide === 'yes' 
                                     ? (selectedMarket.yesAsk ? parseFloat(selectedMarket.yesAsk) : null)
                                     : (selectedMarket.noAsk ? parseFloat(selectedMarket.noAsk) : null);
                                 const amount = mobileAmount ? parseFloat(mobileAmount) : 0;
                                 const toWin = price && price > 0 && amount > 0 ? (amount / price).toFixed(2) : '0.00';
-                                const percentage = price ? Math.round(price * 100) : 0;
-                                
                                 return (
                                     <>
                                         <div className="pl-2">
@@ -671,7 +703,6 @@ export default function EventPage() {
                             })()}
                         </div>
 
-                        {/* Place Order Button */}
                         <button
                             onClick={handleMobileTrade}
                             disabled={mobileTradeLoading || !mobileAmount || parseFloat(mobileAmount) <= 0}
@@ -680,7 +711,6 @@ export default function EventPage() {
                             {mobileTradeLoading ? 'Placing Order...' : authenticated ? 'Place Order' : 'Sign In to Trade'}
                         </button>
 
-                        {/* Status Message */}
                         {mobileTradeStatus && (
                             <p className={`mt-3 text-xs px-3 py-2 rounded-xl text-center font-medium ${
                                 mobileTradeStatus.includes('✅')
@@ -693,6 +723,18 @@ export default function EventPage() {
                             </p>
                         )}
                     </div>
+                    <style jsx>{`
+                        @keyframes drawerUp {
+                            from {
+                                transform: translateY(100%);
+                                opacity: 0;
+                            }
+                            to {
+                                transform: translateY(0);
+                                opacity: 1;
+                            }
+                        }
+                    `}</style>
                 </div>
             )}
         </div>

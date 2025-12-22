@@ -327,8 +327,7 @@ export default function EventPage() {
             if (!syncResponse.ok) throw new Error('Failed to sync user');
             const syncedUser = await syncResponse.json();
 
-            // Create trade - explicitly set isDummy to false for real trades
-            console.log('Storing mobile trade with signature:', signatureString?.substring(0, 20) + '...', 'isDummy: false');
+            // Create trade
             const tradeResponse = await fetch('/api/trades', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -339,7 +338,6 @@ export default function EventPage() {
                     side: selectedSide,
                     amount: amountInSmallestUnit, // Store in smallest unit
                     transactionSig: signatureString,
-                    isDummy: false, // Explicitly false for real trades
                 }),
             });
 

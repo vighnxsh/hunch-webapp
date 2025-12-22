@@ -12,7 +12,6 @@ export interface FeedItem {
   amount: string;
   transactionSig: string;
   quote: string | null;
-  isDummy: boolean;
   createdAt: Date;
   user: {
     id: string;

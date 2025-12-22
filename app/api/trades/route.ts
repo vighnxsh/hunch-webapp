@@ -4,7 +4,7 @@ import { createTrade, getUserTrades, updateTradeQuote } from '@/app/lib/tradeSer
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, marketTicker, eventTicker, side, amount, transactionSig, quote, isDummy } = body;
+    const { userId, marketTicker, eventTicker, side, amount, transactionSig, quote } = body;
 
     if (!userId || !marketTicker || !side || !amount || !transactionSig) {
       return NextResponse.json(
@@ -19,12 +19,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Force isDummy to false for real trades - explicitly set to override schema default
-    // If isDummy is undefined, default to false (real trade)
-    const finalIsDummy = isDummy !== undefined ? isDummy : false;
-    
-    console.log('Creating trade with isDummy:', finalIsDummy, 'transactionSig:', transactionSig?.substring(0, 20) + '...');
     
     const trade = await createTrade({
       userId,
@@ -34,7 +28,6 @@ export async function POST(request: NextRequest) {
       amount,
       transactionSig,
       quote: quote || undefined,
-      isDummy: finalIsDummy, // Explicitly set - false for real trades
     });
 
     return NextResponse.json(trade, { status: 201 });

@@ -264,8 +264,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
 
       const syncedUser = await syncResponse.json();
 
-      // Store the trade in database - explicitly set isDummy to false for real trades
-      console.log('Storing trade with signature:', signatureString?.substring(0, 20) + '...', 'isDummy: false');
+      // Store the trade in database
       const tradeResponse = await fetch('/api/trades', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -276,7 +275,6 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
           side: side,
           amount: amountInSmallestUnit, // Store in smallest unit
           transactionSig: signatureString,
-          isDummy: false, // Explicitly false for real trades
         }),
       });
 

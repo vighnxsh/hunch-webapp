@@ -25,7 +25,6 @@ interface FeedItem {
   amount: string;
   transactionSig: string;
   quote: string | null;
-  isDummy: boolean;
   createdAt: string;
   user: {
     id: string;
@@ -169,10 +168,13 @@ export default function SocialFeed() {
 
   // Initialize from cache immediately
   useEffect(() => {
-    const cachedUserId = getCachedUserId();
-    if (cachedUserId) {
-      setCurrentUserId(cachedUserId);
-    }
+    const loadCachedUserId = async () => {
+      const cachedUserId = await getCachedUserId();
+      if (cachedUserId) {
+        setCurrentUserId(cachedUserId);
+      }
+    };
+    loadCachedUserId();
   }, []);
 
   // Sync user ONLY if needed (on first login or user change)
@@ -185,10 +187,13 @@ export default function SocialFeed() {
     // Check if sync is needed
     if (!needsSync(user.id)) {
       // Already synced, just use cached data
-      const cachedUserId = getCachedUserId();
-      if (cachedUserId) {
-        setCurrentUserId(cachedUserId);
-      }
+      const loadCachedUserId = async () => {
+        const cachedUserId = await getCachedUserId();
+        if (cachedUserId) {
+          setCurrentUserId(cachedUserId);
+        }
+      };
+      loadCachedUserId();
       return;
     }
 
@@ -401,13 +406,9 @@ export default function SocialFeed() {
     }
   };
 
-  const formatAmount = (amount: string, isDummy: boolean) => {
-    // For dummy trades, display amount as-is; for real trades, convert from smallest unit
-    if (isDummy) {
-      const num = parseFloat(amount);
-      return num.toFixed(2);
-    }
-    const num = parseFloat(amount) / 1_000_000; // Convert from smallest unit for real trades
+  const formatAmount = (amount: string) => {
+    // Convert from smallest unit (real trades only)
+    const num = parseFloat(amount) / 1_000_000;
     return num.toFixed(2);
   };
 
@@ -625,7 +626,7 @@ export default function SocialFeed() {
                       {/* Amount - Big and Clear */}
                       <div className="mb-2">
                         <span className="text-2xl font-bold text-[var(--text-primary)] font-number">
-                          ${formatAmount(item.amount, item.isDummy)}
+                          ${formatAmount(item.amount)}
                         </span>
                         <span className={`ml-2 text-xl font-bold ${item.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'}`}>
                           {item.side.toUpperCase()}

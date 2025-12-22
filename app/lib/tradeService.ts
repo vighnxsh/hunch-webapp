@@ -9,7 +9,6 @@ export interface CreateTradeData {
   amount: string;
   transactionSig: string;
   quote?: string;
-  isDummy?: boolean;
 }
 
 export interface TradeWithUser {
@@ -21,7 +20,6 @@ export interface TradeWithUser {
   amount: string;
   transactionSig: string;
   quote: string | null;
-  isDummy: boolean;
   createdAt: Date;
   user: {
     id: string;
@@ -32,15 +30,9 @@ export interface TradeWithUser {
 }
 
 /**
- * Create a new trade
+ * Create a new trade (real trades only)
  */
 export async function createTrade(data: CreateTradeData) {
-  // Explicitly set isDummy to false if not provided (real trades by default now)
-  // This overrides the Prisma schema default of true
-  const isDummyValue = data.isDummy !== undefined ? data.isDummy : false;
-  
-  console.log('tradeService.createTrade - isDummy:', isDummyValue, 'transactionSig:', data.transactionSig?.substring(0, 20) + '...');
-  
   const trade = await prisma.trade.create({
     data: {
       userId: data.userId,
@@ -50,7 +42,7 @@ export async function createTrade(data: CreateTradeData) {
       amount: data.amount,
       transactionSig: data.transactionSig,
       quote: data.quote || null,
-      isDummy: isDummyValue, // Explicitly set to override schema default
+      isDummy: false, // Only real trades are allowed
     },
   });
 
@@ -61,7 +53,7 @@ export async function createTrade(data: CreateTradeData) {
 }
 
 /**
- * Get trades for a specific user
+ * Get trades for a specific user (real trades only)
  */
 export async function getUserTrades(
   userId: string,
@@ -69,7 +61,10 @@ export async function getUserTrades(
   offset: number = 0
 ): Promise<TradeWithUser[]> {
   const trades = await prisma.trade.findMany({
-    where: { userId },
+    where: { 
+      userId,
+      isDummy: false, // Only return real trades
+    },
     include: {
       user: {
         select: {
@@ -89,7 +84,7 @@ export async function getUserTrades(
 }
 
 /**
- * Get trades by transaction signatures (for verification)
+ * Get trades by transaction signatures (for verification, real trades only)
  */
 export async function getTradesBySignatures(signatures: string[]): Promise<TradeWithUser[]> {
   const trades = await prisma.trade.findMany({
@@ -97,6 +92,7 @@ export async function getTradesBySignatures(signatures: string[]): Promise<Trade
       transactionSig: {
         in: signatures,
       },
+      isDummy: false, // Only return real trades
     },
     include: {
       user: {
@@ -143,7 +139,7 @@ export async function updateTradeQuote(tradeId: string, quote: string, userId: s
 }
 
 /**
- * Get all recent trades (global feed)
+ * Get all recent trades (global feed, real trades only)
  * Used for unauthenticated users or discovery feed
  */
 export async function getAllRecentTrades(
@@ -151,6 +147,9 @@ export async function getAllRecentTrades(
   offset: number = 0
 ): Promise<TradeWithUser[]> {
   const trades = await prisma.trade.findMany({
+    where: {
+      isDummy: false, // Only return real trades
+    },
     include: {
       user: {
         select: {

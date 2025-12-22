@@ -34,7 +34,8 @@
     "pg": "^8.16.3",
     "prisma": "^7.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "framer-motion": "^11.2.10"
   },
   "devDependencies": {
     "@prisma/engines-version": "7.2.0-4.0c8ef2ce45c83248ab3df073180d5eda9e8be7a3",

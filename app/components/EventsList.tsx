@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { fetchEvents, fetchTagsByCategories, Event, TagsByCategories, Market } from '../lib/api';
 import TradeMarket from './TradeMarket';
@@ -109,8 +110,8 @@ function EventCard({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-[var(--text-primary)] leading-snug text-[16px] group-hover:text-cyan-500 transition-colors line-clamp-2">
-            {event.title || 'Untitled Event'}
+          <h3 className="font-semibold text-[var(--text-primary)] leading-snug text-xl sm:text-xl group-hover:text-cyan-500 transition-colors line-clamp-2">
+            {event.title || 'Untitled Event'} 
           </h3>
         </div>
       </div>
@@ -141,15 +142,29 @@ function EventCard({
               return (
                 <div
                   key={key}
-                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-[var(--surface)]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenTrade(market as Market, 'yes', event);
+                  }}
+                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-[var(--surface)] cursor-pointer"
                 >
                   <span className="text-xl text-[var(--text-primary)] truncate">
                     {label}
                   </span>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-<span className="text-xl font-semibold text-[var(--text-primary)] font-number">
-                                      {yesPercent}
-                                    </span>
+                  <div
+                    className={`flex items-center gap-2 flex-shrink-0 ${isMobile ? 'cursor-pointer' : ''}`}
+                    onClick={
+                      isMobile
+                        ? (e) => {
+                            e.stopPropagation();
+                            onOpenTrade(market as Market, 'yes', event);
+                          }
+                        : undefined
+                    }
+                  >
+                    <span className="text-xl font-semibold text-[var(--text-primary)] font-number">
+                      {yesPercent}
+                    </span>
                     {yesPrice !== null && yesPrice < 1 && (
                       <svg
                         className="w-3 h-3 text-[var(--text-tertiary)]"
@@ -163,18 +178,22 @@ function EventCard({
                         />
                       </svg>
                     )}
-                    <button
-                      onClick={(e) => handleMarketButtonClick(e, market, 'yes', key)}
-                      className=" font-semibold px-3 py-1 text-md rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-300 text-black hover:bg-cyan-300 transition-colors shadow-sm"
-                    >
-                      Yes
-                    </button>
-                    <button
-                      onClick={(e) => handleMarketButtonClick(e, market, 'no', key)}
-                      className="text-md font-semibold px-3 py-1 rounded-xl bg-gradient-to-br from-pink-500 to-pink-400     text-white hover:bg-pink-400 transition-colors shadow-sm"
-                    >
-                      No
-                    </button>
+                    {!isMobile && (
+                      <>
+                        <button
+                          onClick={(e) => handleMarketButtonClick(e, market, 'yes', key)}
+                          className="font-semibold px-3 py-1 text-md rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-300 text-black hover:bg-cyan-300 transition-colors shadow-sm"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          onClick={(e) => handleMarketButtonClick(e, market, 'no', key)}
+                          className="text-md font-semibold px-3 py-1 rounded-xl bg-gradient-to-br from-pink-500 to-pink-400 text-white hover:bg-pink-400 transition-colors shadow-sm"
+                        >
+                          No
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -340,6 +359,8 @@ export default function EventsList() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [apiCategories, setApiCategories] = useState<TagsByCategories>({});
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(true);
@@ -361,6 +382,13 @@ export default function EventsList() {
     window.addEventListener('resize', updateIsMobile);
     return () => window.removeEventListener('resize', updateIsMobile);
   }, []);
+
+  // Focus mobile search input when opening
+  useEffect(() => {
+    if (isMobileSearchOpen && mobileSearchInputRef.current) {
+      mobileSearchInputRef.current.focus();
+    }
+  }, [isMobileSearchOpen]);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -543,30 +571,32 @@ export default function EventsList() {
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
-      <div className="relative">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-          <svg className="w-5 h-5 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search markets..."
-          className="w-full pl-12 pr-10 py-3 rounded-2xl bg-[var(--surface)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      {/* Desktop Search Bar (keeps desktop search accessible) */}
+      <div className="hidden md:block">
+        <div className="relative max-w-2xl">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+            <svg className="w-5 h-5 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-          </button>
-        )}
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search markets..."
+            className="w-full pl-12 pr-10 py-3 rounded-2xl bg-[var(--surface)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters - Horizontal scroll on mobile */}
@@ -646,22 +676,93 @@ export default function EventsList() {
         </p>
       )}
 
+      {/* Mobile Floating Search - single component expanding left */}
+      <motion.div
+        className="md:hidden fixed bottom-28 right-4 z-50 pointer-events-auto"
+        animate={{
+          width: isMobileSearchOpen ? '80vw' : '56px',
+          maxWidth: isMobileSearchOpen ? 320 : 56,
+          paddingLeft: isMobileSearchOpen ? 16 : 0,
+          paddingRight: isMobileSearchOpen ? 16 : 0,
+        }}
+        transition={{ type: 'tween', duration: 0.22, ease: 'easeInOut' }}
+      >
+        <div className="flex items-center gap-2 w-full h-14 px-2 border border-[var(--border-color)] rounded-full shadow-2xl bg-[var(--surface)]/90 backdrop-blur-sm origin-right">
+          <button
+            onClick={() => setIsMobileSearchOpen((prev) => !prev)}
+            aria-label="Toggle search"
+            className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--text-primary)] hover:text-cyan-400 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+
+          <motion.input
+            ref={mobileSearchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search markets..."
+            className="flex-1 min-w-0 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm outline-none"
+            animate={{
+              opacity: isMobileSearchOpen ? 1 : 0,
+              x: isMobileSearchOpen ? 0 : 6,
+              width: isMobileSearchOpen ? '100%' : '0%',
+            }}
+            transition={{ type: 'tween', duration: 0.18, ease: 'easeOut' }}
+            style={{ pointerEvents: isMobileSearchOpen ? 'auto' : 'none' }}
+          />
+
+          <AnimatePresence mode="popLayout">
+            {isMobileSearchOpen && searchQuery && (
+              <motion.button
+                key="clear"
+                onClick={() => setSearchQuery('')}
+                className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                aria-label="Clear search"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.14, ease: 'easeOut' }}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          {isMobileSearchOpen && (
+            <button
+              onClick={() => setIsMobileSearchOpen(false)}
+              className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+              aria-label="Close search"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </motion.div>
+
       {tradeModalMarket && (
         <div
           className={
             isMobile
-              ? 'fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm px-0'
-              : 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4'
+              ? 'fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm px-0'
+              : 'fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4'
           }
           onClick={handleCloseTradeModal}
         >
           <div
             className={
               isMobile
-                ? 'w-full max-w-md max-h-[80vh] bg-[var(--surface)] border-t border-[var(--border-color)] rounded-t-2xl shadow-2xl overflow-hidden animate-fadeIn flex flex-col mb-6'
-                : 'w-full max-w-lg bg-[var(--surface)] border border-[var(--border-color)] rounded-2xl shadow-2xl overflow-hidden animate-fadeIn'
+                ? 'w-full max-w-md max-h-[80vh] bg-black rounded-t-2xl shadow-2xl overflow-hidden animate-fadeIn flex flex-col mb-2'
+                : 'w-full max-w-lg bg-black border border-[var(--border-color)]/40 rounded-2xl shadow-2xl overflow-hidden animate-fadeIn'
             }
-            style={isMobile ? { animation: 'slideUp 240ms ease-out' } : undefined}
+            style={isMobile ? { animation: 'slideUp 160ms ease-out' } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3 p-4 border-b border-[var(--border-color)]/50">
@@ -701,7 +802,7 @@ export default function EventsList() {
                 ✕
               </button>
             </div>
-            <div className="p-4 pb-32 overflow-y-auto">
+            <div className="p-4 pb-20 overflow-y-auto">
               <TradeMarket market={tradeModalMarket} initialSide={tradeModalSide} />
             </div>
           </div>

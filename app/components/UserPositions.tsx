@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
-import { filterOutcomeMints, fetchMarketsBatch, Market } from '../lib/api';
+import { Market } from '../lib/api';
 import { requestOrder, getOrderStatus, USDC_MINT } from '../lib/tradeApi';
 
 interface TokenAccount {
@@ -184,101 +184,21 @@ export default function UserPositions() {
         .filter((token) => token.balance > 0);
 
       console.log(`Found ${userTokens.length} tokens with non-zero balance`);
-      console.log('User tokens:', JSON.stringify(userTokens, null, 2));
 
-      // Filter for prediction market tokens using DFlow API
-      const allMintAddresses = userTokens.map((token) => token.mint);
-      console.log(`Checking ${allMintAddresses.length} token mints for prediction markets...`);
-      console.log('All mint addresses:', JSON.stringify(allMintAddresses, null, 2));
-      
-      const outcomeMints = await filterOutcomeMints(allMintAddresses);
-      console.log(`Found ${outcomeMints.length} prediction market outcome mints`);
-      console.log('Outcome mints response:', JSON.stringify(outcomeMints, null, 2));
-
-      if (outcomeMints.length === 0) {
-        console.log('No outcome mints found, showing empty positions');
-        setPositions([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch market details for outcome tokens in batch
-      const markets = await fetchMarketsBatch(outcomeMints);
-      console.log(`Fetched ${markets.length} market details`);
-      console.log('Markets batch response:', JSON.stringify(markets, null, 2));
-
-      // Create a map by mint address (yesMint, noMint, and marketLedger)
-      // This follows the DFlow guide pattern
-      const marketsByMint = new Map<string, Market>();
-      markets.forEach((market) => {
-        if (market.accounts) {
-          Object.values(market.accounts).forEach((account: any) => {
-            if (account.yesMint) marketsByMint.set(account.yesMint, market);
-            if (account.noMint) marketsByMint.set(account.noMint, market);
-            if (account.marketLedger) marketsByMint.set(account.marketLedger, market);
-          });
-        }
-        // Fallback to direct market properties
-        if (market.yesMint) marketsByMint.set(market.yesMint, market);
-        if (market.noMint) marketsByMint.set(market.noMint, market);
+      // Map tokens to positions - work purely from blockchain data
+      // Without API calls, we can't determine market details or filter outcome mints
+      // So we'll show all tokens with non-zero balance as positions
+      const userPositions: UserPosition[] = userTokens.map((token) => {
+        return {
+          mint: token.mint,
+          balance: token.balance,
+          decimals: token.decimals,
+          position: 'UNKNOWN',
+          market: null,
+        };
       });
 
-      // Map tokens to positions
-      const userPositions: UserPosition[] = userTokens
-        .filter((token) => outcomeMints.includes(token.mint))
-        .map((token) => {
-          const marketData = marketsByMint.get(token.mint);
-
-          if (!marketData) {
-            console.log(`No market data found for mint: ${token.mint}`);
-            return {
-              mint: token.mint,
-              balance: token.balance,
-              decimals: token.decimals,
-              position: 'UNKNOWN',
-              market: null,
-            };
-          }
-
-          // Determine if YES or NO token (following DFlow guide pattern)
-          const isYesToken = marketData.accounts
-            ? Object.values(marketData.accounts).some(
-                (account: any) => account.yesMint === token.mint
-              )
-            : marketData.yesMint === token.mint;
-
-          const isNoToken = marketData.accounts
-            ? Object.values(marketData.accounts).some(
-                (account: any) => account.noMint === token.mint
-              )
-            : marketData.noMint === token.mint;
-
-          const position = {
-            mint: token.mint,
-            balance: token.balance,
-            decimals: token.decimals,
-            position: isYesToken ? 'YES' : isNoToken ? 'NO' : 'UNKNOWN',
-            market: marketData,
-          };
-
-          console.log(`Position mapped:`, JSON.stringify({
-            mint: position.mint,
-            balance: position.balance,
-            position: position.position,
-            marketTitle: position.market?.title,
-            marketStatus: position.market?.status,
-          }, null, 2));
-
-          return position;
-        });
-
-      console.log('Final user positions:', JSON.stringify(userPositions.map(p => ({
-        mint: p.mint,
-        balance: p.balance,
-        position: p.position,
-        marketTitle: p.market?.title,
-        marketStatus: p.market?.status,
-      })), null, 2));
+      console.log(`Mapped ${userPositions.length} positions from blockchain data`);
 
       setPositions(userPositions);
     } catch (err: any) {
@@ -310,6 +230,7 @@ export default function UserPositions() {
 
       // Sign and submit using Privy wallet
       const transactionBytes = Uint8Array.from(
+        //@ts-ignore
         atob(order.openTransaction),
         (c) => c.charCodeAt(0)
       );
@@ -372,7 +293,7 @@ export default function UserPositions() {
 
   return (
     <div className="bg-[var(--surface)]/50 backdrop-blur-sm border border-[var(--border-color)] rounded-2xl p-6">
-      <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Your Positions</h2>
+      <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Active</h2>
 
       {ready && authenticated && walletAddress && (
         <>

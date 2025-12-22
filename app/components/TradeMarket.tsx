@@ -510,7 +510,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
           <button
             onClick={handlePlaceOrder}
             disabled={loading || !amount || parseFloat(amount) <= 0}
-            className="w-full px-4 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all font-semibold"
+            className="w-full px-4 py-3 bg-white text-black rounded-xl hover:bg-white/90 disabled:bg-gray-600 disabled:text-white disabled:cursor-not-allowed transition-all font-semibold"
           >
             {loading ? 'Placing Order...' : !amount || parseFloat(amount) <= 0 ? 'Enter Amount' : authenticated ? 'Place Order' : 'Sign in to Trade'}
           </button>

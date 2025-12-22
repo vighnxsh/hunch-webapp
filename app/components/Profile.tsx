@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useCreateWallet } from '@privy-io/react-auth/solana';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import UserPositions from './UserPositions';
 import UserTrades from './UserTrades';
 import CreditCard from './CreditCard';
 import { useTheme } from './ThemeProvider';
@@ -522,17 +521,10 @@ export default function Profile() {
 
 
 
-      {/* User Positions Section */}
-      {walletAddress && (
-        <div className="mb-6">
-          <UserPositions />
-        </div>
-      )}
-
       {/* User Trades Section */}
       {currentUserId && (
         <div className="mb-6">
-          <UserTrades userId={currentUserId} />
+          <UserTrades userId={currentUserId} walletAddress={walletAddress} />
         </div>
       )}
 

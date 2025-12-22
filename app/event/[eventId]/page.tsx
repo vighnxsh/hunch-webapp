@@ -602,18 +602,18 @@ export default function EventPage() {
 
             {/* Mobile Fixed Bottom Trade Card - positioned above bottom navbar */}
             {selectedMarket && (
-                <div className="lg:hidden fixed bottom-24 left-3 right-3 z-40 bg-[var(--surface)]/95 backdrop-blur-xl border border-[var(--border-color)]/50 rounded-3xl shadow-2xl shadow-black/30">
-                    <div className="p-5">
+                <div className="lg:hidden fixed bottom-24 left-3 right-3 z-40 bg-[var(--surface)]/95 backdrop-blur-xl border border-[var(--border-color)]/50 rounded-2xl shadow-xl shadow-black/30">
+                    <div className="p-4">
                         {/* Market Title */}
-                        <h3 className="font-semibold text-[var(--text-primary)] leading-tight text-sm mb-4 truncate">
+                        <h3 className="font-medium text-[var(--text-primary)] leading-tight text-xs mb-3 truncate">
                             {selectedMarket.yesSubTitle || selectedMarket.noSubTitle || selectedMarket.subtitle || 'Market Option'}
                         </h3>
                         
                         {/* Yes/No Buttons with Prices */}
-                        <div className="flex gap-3 mb-4">
+                        <div className="flex gap-2 mb-3">
                             <button
                                 onClick={() => setSelectedSide('yes')}
-                                className={`flex-1 py-3 px-4 rounded-2xl font-bold text-sm transition-all duration-200 ${
+                                className={`flex-1 py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200 ${
                                     selectedSide === 'yes'
                                         ? 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-white shadow-lg shadow-cyan-500/30 scale-[1.02]'
                                         : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20'
@@ -623,7 +623,7 @@ export default function EventPage() {
                             </button>
                             <button
                                 onClick={() => setSelectedSide('no')}
-                                className={`flex-1 py-3 px-4 rounded-2xl font-bold text-sm transition-all duration-200 ${
+                                className={`flex-1 py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200 ${
                                     selectedSide === 'no'
                                         ? 'bg-gradient-to-r from-pink-500 to-pink-400 text-white shadow-lg shadow-pink-500/30 scale-[1.02]'
                                         : 'bg-pink-500/10 text-pink-400 border border-pink-500/20 hover:bg-pink-500/20'
@@ -633,10 +633,9 @@ export default function EventPage() {
                             </button>
                         </div>
 
-                        {/* Amount Input - Large on top */}
-                        <div className="relative bg-[var(--background)] rounded-2xl border border-[var(--border-color)]/50 mb-4 overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent pointer-events-none" />
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] text-4xl font-bold">$</span>
+                        {/* Amount Input */}
+                        <div className="bg-[var(--background)] rounded-lg border border-[var(--border-color)]/60 mb-2 px-3 py-2 flex items-center gap-2">
+                            <span className="text-sm text-[var(--text-secondary)]">$</span>
                             <input
                                 type="number"
                                 value={mobileAmount}
@@ -645,12 +644,12 @@ export default function EventPage() {
                                 step="1"
                                 min="0"
                                 disabled={mobileTradeLoading}
-                                className="relative w-full pl-14 pr-4 py-5 bg-transparent text-[var(--text-primary)] text-5xl font-bold placeholder-[var(--text-tertiary)]/50 focus:outline-none disabled:opacity-50"
+                                className="flex-1 bg-transparent text-[var(--text-primary)] text-base placeholder-[var(--text-tertiary)]/60 focus:outline-none disabled:opacity-50"
                             />
                         </div>
                         
                         {/* To Win Display */}
-                        <div className="flex items-center justify-between mb-4 px-2 py-3 bg-green-500/5 rounded-2xl border border-green-500/10">
+                        <div className="flex items-center justify-between mb-2 px-2 py-1.5 bg-green-500/5 rounded-xl border border-green-500/10">
                             {(() => {
                                 const price = selectedSide === 'yes' 
                                     ? (selectedMarket.yesAsk ? parseFloat(selectedMarket.yesAsk) : null)
@@ -662,9 +661,9 @@ export default function EventPage() {
                                 return (
                                     <>
                                         <div className="pl-2">
-                                            <p className="text-xs text-[var(--text-tertiary)] uppercase tracking-wider mb-0.5">To Win</p>
-                                            </div>
-                                        <div className="text-5xl font-black bg-gradient-to-br from-green-400 to-emerald-500 bg-clip-text text-transparent pr-2">
+                                            <p className="text-[11px] text-[var(--text-tertiary)] mb-0.5">To win</p>
+                                        </div>
+                                        <div className="text-xl font-semibold bg-gradient-to-br from-green-400 to-emerald-500 bg-clip-text text-transparent pr-2">
                                             {amount > 0 && price ? Math.round(parseFloat(toWin)) : '0'}
                                         </div>
                                     </>
@@ -676,7 +675,7 @@ export default function EventPage() {
                         <button
                             onClick={handleMobileTrade}
                             disabled={mobileTradeLoading || !mobileAmount || parseFloat(mobileAmount) <= 0}
-                            className="w-full py-4 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white rounded-2xl disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed transition-all duration-200 font-bold text-base shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:scale-[1.01] active:scale-[0.99]"
+                            className="w-full py-3 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed transition-all duration-200 font-medium text-base shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:scale-[1.01] active:scale-[0.99]"
                         >
                             {mobileTradeLoading ? 'Placing Order...' : authenticated ? 'Place Order' : 'Sign In to Trade'}
                         </button>

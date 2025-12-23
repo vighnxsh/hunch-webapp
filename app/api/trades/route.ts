@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import { createTrade, getUserTrades, updateTradeQuote } from '@/app/lib/tradeService';
 
 export async function POST(request: NextRequest) {
@@ -54,9 +55,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const trades = await getUserTrades(userId, limit, offset);
+    // Check if we should skip cache
+    const skipCache = request.headers.get('cache-control') === 'no-cache';
+    
+    const getCachedTrades = unstable_cache(
+      async (uid: string, lim: number, off: number) => getUserTrades(uid, lim, off),
+      [`trades-${userId}-${limit}-${offset}`],
+      { 
+        revalidate: 3, // 3 second revalidation
+        tags: [`trades-${userId}`]
+      }
+    );
 
-    return NextResponse.json(trades, { status: 200 });
+    const trades = skipCache 
+      ? await getUserTrades(userId, limit, offset)
+      : await getCachedTrades(userId, limit, offset);
+
+    const response = NextResponse.json(trades, { status: 200 });
+    
+    if (!skipCache) {
+      response.headers.set('Cache-Control', 'public, s-maxage=3, stale-while-revalidate=10');
+    }
+
+    return response;
   } catch (error: any) {
     console.error('Error fetching trades:', error);
     return NextResponse.json(

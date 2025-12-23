@@ -49,17 +49,28 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
   const connection = new Connection(rpcUrl, 'confirmed');
 
+  // Load trades and positions in parallel
   useEffect(() => {
-    loadTrades();
-  }, [userId]);
-
-  useEffect(() => {
-    if (ready && authenticated && walletAddress) {
-      loadPositions();
-    } else {
-      setPositions([]);
-    }
-  }, [ready, authenticated, walletAddress]);
+    const loadData = async () => {
+      setLoading(true);
+      
+      try {
+        // Start both operations in parallel
+        const tradesPromise = loadTrades();
+        const positionsPromise = (ready && authenticated && walletAddress) 
+          ? loadPositions() 
+          : Promise.resolve();
+        
+        await Promise.all([tradesPromise, positionsPromise]);
+      } catch (err) {
+        console.error('Error loading data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [userId, ready, authenticated, walletAddress]);
 
   useEffect(() => {
     if (trades.length > 0 || positions.length > 0) {
@@ -69,7 +80,6 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
 
   const loadTrades = async () => {
     try {
-      setLoading(true);
       setError(null);
       const response = await fetch(`/api/trades?userId=${userId}&limit=100`);
       if (response.ok) {
@@ -81,8 +91,6 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
     } catch (err: any) {
       setError(err.message || 'Failed to load trades');
       console.error('Error loading trades:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -208,26 +216,35 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
       const positionTickers = Array.from(new Set(
         positions.map(p => p.market?.ticker).filter(Boolean) as string[]
       ));
-      const allTickers = [...tradeTickers, ...positionTickers];
+      const allTickers = Array.from(new Set([...tradeTickers, ...positionTickers]));
       
-      // Fetch all markets to get their status
-      const allMarkets = await fetchMarkets(200);
-      const marketMap = new Map<string, Market>();
+      if (allTickers.length === 0) return;
       
-      allMarkets.forEach(market => {
-        if (allTickers.includes(market.ticker)) {
-          marketMap.set(market.ticker, market);
-        }
+      // Use batch endpoint to fetch only needed markets
+      const response = await fetch('/api/markets/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tickers: allTickers }),
       });
       
-      // Also add markets from positions
-      positions.forEach(pos => {
-        if (pos.market) {
-          marketMap.set(pos.market.ticker, pos.market);
-        }
-      });
-      
-      setMarkets(marketMap);
+      if (response.ok) {
+        const data = await response.json();
+        const marketMap = new Map<string, Market>();
+        
+        // Convert object to Map
+        Object.entries(data.markets).forEach(([ticker, market]) => {
+          marketMap.set(ticker, market as Market);
+        });
+        
+        // Also add markets from positions
+        positions.forEach(pos => {
+          if (pos.market && !marketMap.has(pos.market.ticker)) {
+            marketMap.set(pos.market.ticker, pos.market);
+          }
+        });
+        
+        setMarkets(marketMap);
+      }
     } catch (err) {
       console.error('Error loading markets:', err);
     }

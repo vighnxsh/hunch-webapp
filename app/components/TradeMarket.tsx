@@ -10,6 +10,7 @@ import { fetchMarketProbabilities, MarketProbabilities } from '../lib/probabilit
 import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
 import TradeQuoteModal from './TradeQuoteModal';
 import { useAuth } from './AuthContext';
+import { useAppData } from '../contexts/AppDataContext';
 
 interface TradeMarketProps {
   market: Market;
@@ -20,6 +21,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const { signTransaction } = useSignTransaction();
+  const { currentUserId } = useAppData(); // Get userId from context
   
   // Create Solana connection for sending transactions
   const connection = new Connection(
@@ -244,32 +246,17 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
 
       setStatus('Transaction confirmed! Storing trade...');
 
-      // Sync user first
-      const syncResponse = await fetch('/api/users/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          privyId: user.id,
-          walletAddress: walletAddress,
-          displayName: user.twitter?.username
-            ? `@${user.twitter.username}`
-            : user.google?.email?.split('@')[0] || null,
-          avatarUrl: user.twitter?.profilePictureUrl || null,
-        }),
-      });
-
-      if (!syncResponse.ok) {
-        throw new Error('Failed to sync user');
+      // Check if user is synced
+      if (!currentUserId) {
+        throw new Error('User not synced. Please refresh and try again.');
       }
-
-      const syncedUser = await syncResponse.json();
 
       // Store the trade in database
       const tradeResponse = await fetch('/api/trades', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: syncedUser.id,
+          userId: currentUserId,
           marketTicker: market.ticker,
           eventTicker: market.eventTicker || null,
           side: side,

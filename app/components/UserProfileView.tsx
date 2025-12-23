@@ -6,6 +6,7 @@ import Link from 'next/link';
 import UserTrades from './UserTrades';
 import { useTheme } from './ThemeProvider';
 import FollowersFollowingModal from './FollowersFollowingModal';
+import { useAppData } from '../contexts/AppDataContext';
 
 interface UserProfile {
     id: string;
@@ -23,63 +24,17 @@ interface UserProfileViewProps {
 }
 
 export default function UserProfileView({ userId }: UserProfileViewProps) {
-    const { ready, authenticated, user: privyUser } = usePrivy();
+    const { ready, authenticated } = usePrivy();
     const { theme } = useTheme();
+    const { currentUserId } = useAppData(); // Use context for current user
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [checkingFollow, setCheckingFollow] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [modalType, setModalType] = useState<'followers' | 'following'>('followers');
-
-    // Sync current user to get their ID
-    useEffect(() => {
-        if (!ready || !authenticated || !privyUser) {
-            setCurrentUserId(null);
-            return;
-        }
-
-        const syncCurrentUser = async () => {
-            try {
-                const walletAccount = privyUser.linkedAccounts?.find(
-                    (account) => account.type === 'wallet' &&
-                        'address' in account &&
-                        account.address &&
-                        typeof account.address === 'string' &&
-                        !account.address.startsWith('0x') &&
-                        account.address.length >= 32
-                ) as any;
-
-                const walletAddress = walletAccount?.address as string | undefined;
-                if (!walletAddress) return;
-
-                const syncResponse = await fetch('/api/users/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        privyId: privyUser.id,
-                        walletAddress: walletAddress,
-                        displayName: privyUser.twitter?.username
-                            ? `@${privyUser.twitter.username}`
-                            : privyUser.google?.email?.split('@')[0] || null,
-                        avatarUrl: privyUser.twitter?.profilePictureUrl || null,
-                    }),
-                });
-
-                if (syncResponse.ok) {
-                    const syncedUser = await syncResponse.json();
-                    setCurrentUserId(syncedUser.id);
-                }
-            } catch (error) {
-                console.error('Error syncing current user:', error);
-            }
-        };
-
-        syncCurrentUser();
-    }, [ready, authenticated, privyUser]);
 
     // Fetch the profile being viewed
     useEffect(() => {

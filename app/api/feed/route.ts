@@ -37,7 +37,9 @@ export async function GET(request: NextRequest) {
       if (offset === 0) {
         const cached = await redis.get<FeedItem[]>(globalCacheKey);
         if (cached) {
-          return NextResponse.json(cached.slice(0, limit), { status: 200 });
+          const response = NextResponse.json(cached.slice(0, limit), { status: 200 });
+          response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=20');
+          return response;
         }
       }
 
@@ -49,7 +51,9 @@ export async function GET(request: NextRequest) {
         await redis.setex(globalCacheKey, CacheTTL.FEED, JSON.stringify(trades));
       }
 
-      return NextResponse.json(trades, { status: 200 });
+      const response = NextResponse.json(trades, { status: 200 });
+      response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=20');
+      return response;
     }
 
     // Personalized feed - return trades from followed users

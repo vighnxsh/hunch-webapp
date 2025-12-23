@@ -8,29 +8,22 @@ import UserTrades from './UserTrades';
 import CreditCard from './CreditCard';
 import { useTheme } from './ThemeProvider';
 import FollowersFollowingModal from './FollowersFollowingModal';
-import {
-  getCachedUserId,
-  getCachedUserCounts,
-  syncUserOnLogin,
-  fetchUserCounts,
-  needsSync,
-  updateCachedCounts,
-} from '../lib/authSync';
+import { useAppData } from '../contexts/AppDataContext';
+import { fetchUserCounts } from '../lib/authSync';
 
 export default function Profile() {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const { createWallet } = useCreateWallet();
   const { theme } = useTheme();
+  const { currentUserId, userCounts, updateUserCounts, isUserLoading } = useAppData();
+  
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [solPrice, setSolPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [creatingWallet, setCreatingWallet] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [followersCount, setFollowersCount] = useState<number>(0);
-  const [followingCount, setFollowingCount] = useState<number>(0);
   const [tradesCount, setTradesCount] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -38,6 +31,10 @@ export default function Profile() {
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'followers' | 'following'>('followers');
+
+  // Get counts from context
+  const followersCount = userCounts?.followerCount ?? 0;
+  const followingCount = userCounts?.followingCount ?? 0;
 
   // Check if HTTPS is available (required for embedded wallets)
   const isHttpsAvailable = () => {
@@ -126,73 +123,6 @@ export default function Profile() {
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
   const connection = new Connection(rpcUrl, 'confirmed');
 
-  // Track if user has been synced in this session to avoid redundant syncs
-  const hasSyncedRef = useRef(false);
-
-  // Initialize from cache immediately for instant display
-  useEffect(() => {
-    const cachedUserId = getCachedUserId();
-    const cachedCounts = getCachedUserCounts();
-
-    if (cachedUserId) {
-      setCurrentUserId(cachedUserId);
-    }
-
-    if (cachedCounts) {
-      setFollowersCount(cachedCounts.followerCount);
-      setFollowingCount(cachedCounts.followingCount);
-    }
-  }, []);
-
-  // Sync user ONLY if needed (on first login or user change)
-  useEffect(() => {
-    if (!ready || !authenticated || !user || !walletAddress) {
-      setCurrentUserId(null);
-      hasSyncedRef.current = false;
-      return;
-    }
-
-    // Check if sync is needed
-    if (!needsSync(user.id)) {
-      // Already synced, just use cached data
-      const cachedUserId = getCachedUserId();
-      if (cachedUserId) {
-        setCurrentUserId(cachedUserId);
-        hasSyncedRef.current = true;
-      }
-      return;
-    }
-
-    // Skip if already synced in this session
-    if (hasSyncedRef.current) {
-      return;
-    }
-
-    const performSync = async () => {
-      try {
-        const result = await syncUserOnLogin(
-          user.id,
-          walletAddress,
-          user.twitter?.username
-            ? `@${user.twitter.username}`
-            : user.google?.email?.split('@')[0] || null,
-          user.twitter?.profilePictureUrl || null
-        );
-
-        if (result) {
-          setCurrentUserId(result.userId);
-          setFollowersCount(result.counts.followerCount);
-          setFollowingCount(result.counts.followingCount);
-          hasSyncedRef.current = true;
-        }
-      } catch (error) {
-        console.error('Error syncing user:', error);
-      }
-    };
-
-    performSync();
-  }, [ready, authenticated, user, walletAddress]);
-
   // Fetch follower/following counts and trades count in background (non-blocking)
   useEffect(() => {
     if (currentUserId) {
@@ -231,32 +161,14 @@ export default function Profile() {
     if (!currentUserId) return;
 
     try {
-      // Fetch user profile with denormalized counts (instant display)
-      const fetchOptions: RequestInit = {};
-      if (skipCache) {
-        fetchOptions.cache = 'no-store';
-        fetchOptions.headers = { 'cache-control': 'no-cache' };
-      }
-
-      const [userRes, tradesRes] = await Promise.all([
-        fetch(`/api/users/${currentUserId}`, fetchOptions),
+      const [userCounts, tradesRes] = await Promise.all([
+        fetchUserCounts(currentUserId),
         fetch(`/api/trades?userId=${currentUserId}&limit=1`, skipCache ? { cache: 'no-store' } : {}),
       ]);
 
-      if (userRes.ok) {
-        const userProfile = await userRes.json();
-        // Use denormalized counts from User model (instant, no counting needed)
-        console.log('Fetched profile stats:', {
-          followerCount: userProfile.followerCount,
-          followingCount: userProfile.followingCount,
-        });
-        const followerCount = userProfile.followerCount || 0;
-        const followingCount = userProfile.followingCount || 0;
-        setFollowersCount(followerCount);
-        setFollowingCount(followingCount);
-
-        // Update cache with fresh data
-        updateCachedCounts({ followerCount, followingCount });
+      if (userCounts) {
+        // Update context with fresh counts
+        updateUserCounts(userCounts);
       }
 
       if (tradesRes.ok) {
@@ -272,22 +184,16 @@ export default function Profile() {
   const handleFollowChange = (isFollowing: boolean) => {
     if (!currentUserId) return;
 
-    // Optimistically update following count immediately
-    if (isFollowing) {
-      setFollowingCount((prev) => prev + 1);
-      updateCachedCounts({ followingCount: followingCount + 1 });
-    } else {
-      setFollowingCount((prev) => Math.max(0, prev - 1));
-      updateCachedCounts({ followingCount: Math.max(0, followingCount - 1) });
-    }
+    // Optimistically update following count immediately via context
+    const newCount = isFollowing ? followingCount + 1 : Math.max(0, followingCount - 1);
+    updateUserCounts({ followingCount: newCount });
 
-    // Refresh from server to sync after a delay to ensure DB update and cache invalidation complete
-    // Skip cache to get fresh data after follow/unfollow
+    // Refresh from server to sync after a delay
     setTimeout(() => {
-      fetchProfileStats(true); // Skip cache to get fresh counts
+      fetchProfileStats(true);
     }, 800);
 
-    // Do a second refresh to ensure consistency (in case of race conditions)
+    // Second refresh for consistency
     setTimeout(() => {
       fetchProfileStats(true);
     }, 2000);

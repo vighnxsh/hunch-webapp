@@ -4,6 +4,7 @@ import "./globals.css";
 import { PrivyAuthProvider } from "./components/PrivyProvider";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./components/AuthContext";
+import { AppDataProvider } from "./contexts/AppDataContext";
 import Navbar from "./components/Navbar";
 import BottomNavbar from "./components/BottomNavbar";
 import LayoutContent from "./components/LayoutContent";
@@ -106,10 +107,12 @@ export default function RootLayout({
         <ThemeProvider>
           <PrivyAuthProvider>
             <AuthProvider>
-              <ServiceWorkerRegistration />
-              <Navbar />
-              <LayoutContent>{children}</LayoutContent>
-              <BottomNavbar />
+              <AppDataProvider>
+                <ServiceWorkerRegistration />
+                <Navbar />
+                <LayoutContent>{children}</LayoutContent>
+                <BottomNavbar />
+              </AppDataProvider>
             </AuthProvider>
           </PrivyAuthProvider>
         </ThemeProvider>

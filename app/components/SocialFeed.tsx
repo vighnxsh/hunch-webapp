@@ -150,11 +150,11 @@ function UserSearchResultItem({
 
 export default function SocialFeed() {
   const router = useRouter();
-  const { ready, authenticated, user } = usePrivy();
+  const { ready, authenticated } = usePrivy();
+  const { currentUserId } = useAppData(); // Use context for current user
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -165,76 +165,6 @@ export default function SocialFeed() {
   // Market data cache for displaying event cards
   const [marketDataCache, setMarketDataCache] = useState<Map<string, MarketData>>(new Map());
   const loadedTickersRef = useRef<Set<string>>(new Set());
-
-  // Initialize from cache immediately
-  useEffect(() => {
-    const loadCachedUserId = async () => {
-      const cachedUserId = await getCachedUserId();
-      if (cachedUserId) {
-        setCurrentUserId(cachedUserId);
-      }
-    };
-    loadCachedUserId();
-  }, []);
-
-  // Sync user ONLY if needed (on first login or user change)
-  useEffect(() => {
-    if (!ready || !authenticated || !user) {
-      setCurrentUserId(null);
-      return;
-    }
-
-    // Check if sync is needed
-    if (!needsSync(user.id)) {
-      // Already synced, just use cached data
-      const loadCachedUserId = async () => {
-        const cachedUserId = await getCachedUserId();
-        if (cachedUserId) {
-          setCurrentUserId(cachedUserId);
-        }
-      };
-      loadCachedUserId();
-      return;
-    }
-
-    const performSync = async () => {
-      try {
-        // Get wallet address
-        const walletAccount = user.linkedAccounts?.find(
-          (account) => account.type === 'wallet' &&
-            'address' in account &&
-            account.address &&
-            typeof account.address === 'string' &&
-            !account.address.startsWith('0x') &&
-            account.address.length >= 32
-        ) as any;
-
-        const walletAddress = walletAccount?.address as string | undefined;
-
-        if (!walletAddress) {
-          return;
-        }
-
-        // Sync user
-        const result = await syncUserOnLogin(
-          user.id,
-          walletAddress,
-          user.twitter?.username
-            ? `@${user.twitter.username}`
-            : user.google?.email?.split('@')[0] || null,
-          user.twitter?.profilePictureUrl || null
-        );
-
-        if (result) {
-          setCurrentUserId(result.userId);
-        }
-      } catch (error) {
-        console.error('Error syncing user:', error);
-      }
-    };
-
-    performSync();
-  }, [ready, authenticated, user]);
 
   // Load feed - for authenticated users show personalized feed, for others show global
   useEffect(() => {

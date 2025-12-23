@@ -1,3 +1,5 @@
+import { withCache, cacheKeys, CACHE_TTL } from './cache';
+
 // Base URL for the DFlow Prediction Markets Metadata API
 // - In development we default to the dev endpoint so you can trade against Kalshi with test capital.
 // - In production, override this with the prod URL via NEXT_PUBLIC_PM_METADATA_API_BASE_URL.
@@ -83,30 +85,31 @@ export interface EventDetails {
 }
 
 export async function fetchMarkets(limit: number = 200): Promise<Market[]> {
-  try {
-    const response = await fetch(
-      `${METADATA_API_BASE_URL}/api/v1/markets?limit=${limit}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: 'no-store', // Prevent caching in Next.js
+  return withCache(
+    cacheKeys.markets(limit),
+    async () => {
+      const response = await fetch(
+        `${METADATA_API_BASE_URL}/api/v1/markets?limit=${limit}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: 'no-store',
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error (${response.status}):`, errorText);
+        throw new Error(`Failed to fetch markets: ${response.status} ${response.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API Error (${response.status}):`, errorText);
-      throw new Error(`Failed to fetch markets: ${response.status} ${response.statusText}`);
-    }
-
-    const data: MarketsResponse = await response.json();
-    return data.markets || [];
-  } catch (error) {
-    console.error("Error fetching markets:", error);
-    throw error;
-  }
+      const data: MarketsResponse = await response.json();
+      return data.markets || [];
+    },
+    { ttl: CACHE_TTL.MARKETS }
+  );
 }
 
 export async function fetchEvents(
@@ -117,43 +120,57 @@ export async function fetchEvents(
     cursor?: string;
   }
 ): Promise<EventsResponse> {
-  try {
-    const queryParams = new URLSearchParams();
-    queryParams.append("limit", limit.toString());
-
-    if (options?.status) {
-      queryParams.append("status", options.status);
-    }
-    if (options?.withNestedMarkets) {
-      queryParams.append("withNestedMarkets", "true");
-    }
-    if (options?.cursor) {
-      queryParams.append("cursor", options.cursor);
-    }
-
-    const response = await fetch(
-      `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: 'no-store', // Prevent caching in Next.js
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API Error (${response.status}):`, errorText);
-      throw new Error(`Failed to fetch events: ${response.status} ${response.statusText}`);
-    }
-
-    const data: EventsResponse = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching events:", error);
-    throw error;
+  // Don't cache paginated requests (with cursor)
+  if (options?.cursor) {
+    return fetchEventsUncached(limit, options);
   }
+
+  return withCache(
+    cacheKeys.events(limit, options?.status),
+    () => fetchEventsUncached(limit, options),
+    { ttl: CACHE_TTL.EVENTS }
+  );
+}
+
+async function fetchEventsUncached(
+  limit: number,
+  options?: {
+    status?: string;
+    withNestedMarkets?: boolean;
+    cursor?: string;
+  }
+): Promise<EventsResponse> {
+  const queryParams = new URLSearchParams();
+  queryParams.append("limit", limit.toString());
+
+  if (options?.status) {
+    queryParams.append("status", options.status);
+  }
+  if (options?.withNestedMarkets) {
+    queryParams.append("withNestedMarkets", "true");
+  }
+  if (options?.cursor) {
+    queryParams.append("cursor", options.cursor);
+  }
+
+  const response = await fetch(
+    `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: 'no-store',
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`API Error (${response.status}):`, errorText);
+    throw new Error(`Failed to fetch events: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json();
 }
 
 export async function fetchEventDetails(eventTicker: string): Promise<EventDetails> {
@@ -405,29 +422,29 @@ export async function fetchMarketsBatch(mints: string[]): Promise<Market[]> {
  * Fetch detailed market information by ticker
  */
 export async function fetchMarketDetails(ticker: string): Promise<Market> {
-  try {
-    const response = await fetch(
-      `${METADATA_API_BASE_URL}/api/v1/market/${encodeURIComponent(ticker)}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: 'no-store',
+  return withCache(
+    cacheKeys.marketDetails(ticker),
+    async () => {
+      const response = await fetch(
+        `${METADATA_API_BASE_URL}/api/v1/market/${encodeURIComponent(ticker)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: 'no-store',
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error (${response.status}):`, errorText);
+        throw new Error(`Failed to fetch market details: ${response.status} ${response.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API Error (${response.status}):`, errorText);
-      throw new Error(`Failed to fetch market details: ${response.status} ${response.statusText}`);
-    }
-
-    const market: Market = await response.json();
-    return market;
-  } catch (error) {
-    console.error("Error fetching market details:", error);
-    throw error;
-  }
+      return await response.json();
+    },
+    { ttl: CACHE_TTL.MARKET_DETAILS }
+  );
 }
 

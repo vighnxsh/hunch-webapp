@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import { fetchMarkets, Market } from '@/app/lib/api';
-import TradeMarket from '@/app/components/TradeMarket';
-import ShareBlink from '@/app/components/ShareBlink';
 import { parseMarketTicker, formatMarketTitle } from '@/app/lib/marketUtils';
+
+// Lazy load heavy components
+const TradeMarket = lazy(() => import('@/app/components/TradeMarket'));
+const ShareBlink = lazy(() => import('@/app/components/ShareBlink'));
 
 export default function MarketPage() {
   const params = useParams();
@@ -125,8 +127,14 @@ export default function MarketPage() {
 
           {market.status === 'active' && (
             <div className="mt-6 pt-6 border-t border-gray-800 space-y-4">
-              <TradeMarket market={market} />
-              <ShareBlink market={market} />
+              <Suspense fallback={
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              }>
+                <TradeMarket market={market} />
+                <ShareBlink market={market} />
+              </Suspense>
             </div>
           )}
         </div>

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const uncachedIds = userIds.filter(id => !cachedUsers.has(cacheKeys.marketDetails(id)));
     
     // Fetch uncached users from database
-    let freshUsers = [];
+    let freshUsers: any[] = [];
     if (uncachedIds.length > 0) {
       freshUsers = await prisma.user.findMany({
         where: {

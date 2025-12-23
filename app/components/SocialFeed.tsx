@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { formatMarketTitle } from '../lib/marketUtils';
 import { getCachedUserId, syncUserOnLogin, needsSync } from '../lib/authSync';
 import { fetchMarketDetails, fetchEventDetails, Market, EventDetails } from '../lib/api';
+import { useAppData } from '../contexts/AppDataContext';
 
 // Market data cache for feed items
 interface MarketData {

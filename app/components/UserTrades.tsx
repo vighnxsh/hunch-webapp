@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
-import { fetchMarkets, Market, filterOutcomeMints, fetchMarketsBatch } from '../lib/api';
+import type { Market } from '../lib/api';
 import { formatMarketTitle } from '../lib/marketUtils';
 
 interface Trade {
@@ -136,7 +136,19 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
 
       // Filter for prediction market tokens
       const allMintAddresses = userTokens.map((token) => token.mint);
-      const outcomeMints = await filterOutcomeMints(allMintAddresses);
+      
+      // Call API to filter outcome mints
+      const filterResponse = await fetch('/api/markets/filter-outcome-mints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mints: allMintAddresses }),
+      });
+      
+      if (!filterResponse.ok) {
+        throw new Error('Failed to filter outcome mints');
+      }
+      
+      const { outcomeMints } = await filterResponse.json();
 
       if (outcomeMints.length === 0) {
         setPositions([]);
@@ -144,8 +156,18 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
         return;
       }
 
-      // Fetch market details
-      const marketsData = await fetchMarketsBatch(outcomeMints);
+      // Fetch market details via API
+      const batchResponse = await fetch('/api/markets/batch-by-mint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mints: outcomeMints }),
+      });
+
+      if (!batchResponse.ok) {
+        throw new Error('Failed to fetch markets batch');
+      }
+
+      const { markets: marketsData } = await batchResponse.json() as { markets: Market[] };
 
       // Create market map
       const marketsByMint = new Map<string, Market>();

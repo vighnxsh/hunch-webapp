@@ -1,10 +1,12 @@
 import { Redis } from '@upstash/redis';
 
-// Initialize Redis client
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
-});
+// Initialize Redis client only on server side and if credentials exist
+const redis = (typeof window === 'undefined' && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+  : null;
 
 // Cache TTL constants (in seconds)
 export const CACHE_TTL = {
@@ -31,8 +33,8 @@ export async function withCache<T>(
 ): Promise<T> {
   const { ttl = 60, forceRefresh = false } = options;
 
-  // Skip cache if Redis is not configured
-  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+  // Skip cache if Redis is not configured or we are on client side
+  if (!redis) {
     return fetcher();
   }
 
@@ -66,7 +68,7 @@ export async function withCache<T>(
  * Invalidate cache by key or pattern
  */
 export async function invalidateCache(keyOrPattern: string): Promise<void> {
-  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+  if (!redis) {
     return;
   }
 
@@ -117,7 +119,7 @@ function hashAddresses(addresses: string[]): string {
  * Batch cache operations
  */
 export async function getCachedBatch<T>(keys: string[]): Promise<Map<string, T>> {
-  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+  if (!redis) {
     return new Map();
   }
 
@@ -142,7 +144,7 @@ export async function setCachedBatch<T>(
   entries: Map<string, T>,
   ttl: number
 ): Promise<void> {
-  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+  if (!redis) {
     return;
   }
 

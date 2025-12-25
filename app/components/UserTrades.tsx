@@ -303,32 +303,99 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
     }
   }, [trades, markets]);
 
+  // Compact date like 27/12/25
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    return `${day}/${month}/${year}`;
   };
 
   const formatAmount = (amount: string) => {
     // Amount is stored in smallest units (USDC has 6 decimals)
-    const num = parseFloat(amount) / 1_000_000; // Convert from smallest units to USDC
+    const raw = parseFloat(amount);
+    if (Number.isNaN(raw)) return '$0';
+    const num = raw > 10_000 ? raw / 1_000_000 : raw; // Heuristic: if huge, assume micro-units
+    if (Number.isNaN(num)) return '$0';
     if (num >= 1000000) {
       return `$${(num / 1000000).toFixed(2)}M`;
     }
     if (num >= 1000) {
       return `$${(num / 1000).toFixed(2)}K`;
     }
-    return `$${num.toFixed(2)}`;
+    return `$${num.toFixed(0)}`;
   };
+
+  const formatCurrency = (value: number) => {
+    if (!Number.isFinite(value)) return '$0';
+    const abs = Math.abs(value);
+    const decimals = abs < 1000 ? 2 : 0;
+    return `${value < 0 ? '-' : ''}$${Math.abs(value).toLocaleString('en-US', {
+      maximumFractionDigits: decimals,
+      minimumFractionDigits: decimals,
+    })}`;
+  };
+
+  const getWagerForPosition = (position: Position) => {
+    const ticker = position.market?.ticker;
+    if (!ticker) return 0;
+    const side = position.position.toLowerCase();
+    return trades
+      .filter(
+        (trade) =>
+          trade.marketTicker === ticker &&
+          trade.side.toLowerCase() === side
+      )
+      .reduce((sum, trade) => {
+        const raw = parseFloat(trade.amount);
+        if (Number.isNaN(raw)) return sum;
+        const normalized = raw > 10_000 ? raw / 1_000_000 : raw; // If very large, treat as micro-units
+        return sum + normalized;
+      }, 0);
+  };
+
+  const getCurrentPriceForPosition = (position: Position) => {
+    const market = position.market;
+    if (!market) return null;
+    const sideLower = position.position.toLowerCase();
+    const priceStr =
+      sideLower === 'yes'
+        ? market.yesBid ?? market.yesAsk
+        : market.noBid ?? market.noAsk;
+    if (!priceStr) return null;
+    const price = parseFloat(priceStr);
+    return Number.isNaN(price) ? null : price;
+  };
+
+  const getCurrentValue = (position: Position) => {
+    const price = getCurrentPriceForPosition(position);
+    if (!price) return null;
+    return position.balance * price;
+  };
+
+  const getCardGradient = () =>
+    'linear-gradient(145deg, rgba(19,52,35,0.95), rgba(6,22,17,0.96) 40%, rgba(3,10,8,0.98))';
+
+  const getSideStyles = (side: string) => {
+    const isYes = side.toLowerCase() === 'yes';
+    return {
+      text: isYes ? 'YES' : side.toUpperCase(),
+      className: isYes
+        ? 'text-[#42ff8e]'
+        : 'text-[#ff6fa3]',
+    };
+  };
+
+  const renderBadge = (label: string) => (
+    <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full bg-white/8 text-white/80 backdrop-blur-sm">
+      {label}
+    </span>
+  );
 
   if (loading || positionsLoading) {
     return (
-      <div className="bg-[var(--surface)]/50 backdrop-blur-sm border border-[var(--border-color)] rounded-2xl p-6">
+      <div className="bg-(--surface)/50 backdrop-blur-sm border border-border rounded-2xl p-6">
         <div className="flex items-center justify-center py-8">
           <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
         </div>
@@ -349,13 +416,13 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
       
       {/* Tabs */}
      
-      <div className="flex gap-2 mb-6 border-b border-[var(--border-color)]">
+      <div className="flex gap-2 mb-6 border-b border-border">
         <button
           onClick={() => setActiveTab('active')}
           className={`px-4 py-2 text-xl font-bold transition-colors border-b-2 flex items-center gap-2 ${
             activeTab === 'active'
-              ? 'border-[var(--text-primary)] text-[var(--text-primary)]'
-              : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+              ? 'border-text-primary text-text-primary'
+              : 'border-transparent text-text-tertiary hover:text-text-secondary'
           }`}
         >
           ACTIVE
@@ -363,7 +430,7 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
             <span className={`text-xs px-2 py-0.5 rounded-full ${
               activeTab === 'active'
                 ? 'bg-cyan-500/20 text-cyan-400'
-                : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)]'
+                : 'bg-surface-hover text-text-tertiary'
             }`}>
               {activeTrades.length + positions.length}
             </span>
@@ -374,7 +441,7 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
           className={`px-4 py-2 font-bold text-xl transition-colors border-b-2 flex items-center gap-2 ${
             activeTab === 'previous'
               ? 'border-red-400 text-red-400'
-              : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+              : 'border-transparent text-text-tertiary hover:text-text-secondary'
           }`}
         >
           PREVIOUS
@@ -382,7 +449,7 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
             <span className={`text-xs px-2 py-0.5 rounded-full ${
               activeTab === 'previous'
                 ? 'bg-red-500/20 text-red-400'
-                : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)]'
+                : 'bg-surface-hover text-text-tertiary'
             }`}>
               {previousTrades.length}
             </span>
@@ -393,70 +460,80 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
       {/* Trades and Positions List */}
       {activeItems.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-[var(--text-tertiary)]">
+          <p className="text-text-tertiary">
             No {activeTab === 'active' ? 'active' : 'previous'} trades found
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {activeItems.map((item, index) => {
+          {activeItems.map((item) => {
             if (item.type === 'trade') {
               const trade = item.data;
               const market = markets.get(trade.marketTicker);
-              const marketTitle = market?.title 
+              const marketTitle = market?.title
                 ? formatMarketTitle(market.title, trade.marketTicker)
                 : trade.marketTicker;
+              const side = getSideStyles(trade.side);
+              const stake = formatAmount(trade.amount);
 
               return (
                 <div
                   key={trade.id}
-                  className="bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl p-4 hover:border-cyan-500/30 transition-all"
+                  className="relative overflow-hidden rounded-[28px] border border-[#0f3d2a] shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
+                  style={{ background: getCardGradient() }}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-lg ${
-                            trade.side === 'yes'
-                              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                              : 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
-                          }`}
-                        >
-                          {trade.side.toUpperCase()}
-                        </span>
-                        {market && (
-                          <span
-                            className={`px-2 py-1 text-xs font-semibold rounded-lg ${
-                              market.status === 'active'
-                                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                                : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)] border border-[var(--border-color)]'
-                            }`}
-                          >
-                            {market.status}
-                          </span>
+                  <div className="absolute inset-0 opacity-40 blur-2xl" />
+                  <div className="relative grid grid-cols-[1fr_auto] gap-4 p-5 sm:p-6">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start justify-between">
+                        <div className="text-4xl sm:text-5xl font-bold text-[#7cffb1] font-number tracking-tight">
+                          {stake}
+                        </div>
+                        <div className="text-4xl sm:text-5xl font-black leading-none text-right">
+                          <span className={`${side.className} drop-shadow`}>{side.text}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <h4 className="text-white text-2xl sm:text-3xl font-semibold leading-tight">
+                            {marketTitle}
+                          </h4>
+                          <p className="text-[#c2c9c6] italic mt-1 text-lg">
+                            {market?.subtitle
+                              ? market.subtitle
+                              : `on ${marketTitle}`}
+                          </p>
+                        </div>
+                        {market?.imageUrl && (
+                          <img
+                            src={market.imageUrl}
+                            alt={marketTitle}
+                            className="w-14 h-14 rounded-xl border border-white/10 object-cover shadow-md"
+                          />
                         )}
                       </div>
-                      <h4 className="text-[var(--text-primary)] font-semibold mb-1">{marketTitle}</h4>
-                      <p className="text-[var(--text-tertiary)] text-xs font-mono mb-2">{trade.marketTicker}</p>
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="text-[var(--text-secondary)]">
-                          Amount: <span className="text-[var(--text-primary)] font-semibold font-number">{formatAmount(trade.amount)}</span>
-                        </span>
-                        <span className="text-[var(--text-secondary)]">
-                          {formatDate(trade.createdAt)}
-                        </span>
+                    </div>
+
+                    <div className="flex flex-col justify-between items-end text-right min-w-[110px]">
+                      <div className="flex gap-2">{renderBadge(market?.status ?? 'pending')}</div>
+                      <div className="text-4xl sm:text-5xl font-black text-[#7cffb1] leading-none">
+                        +{Math.max(1, Math.round(parseFloat(trade.amount) / 1_000_000)) || 1}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between px-5 sm:px-6 pb-5 sm:pb-6">
+                    <span className="text-sm sm:text-base font-semibold text-[#b7bcb8]">
+                      {formatDate(trade.createdAt)}
+                    </span>
                     <a
                       href={`https://solscan.io/tx/${trade.transactionSig}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="ml-4 p-2 text-[var(--text-tertiary)] hover:text-cyan-400 transition-colors"
-                      title="View on Solscan"
+                      className="text-sm sm:text-base font-semibold text-[#7cffb1] hover:text-white transition-colors underline underline-offset-4"
                     >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
+                      View Tx
                     </a>
                   </div>
                 </div>
@@ -464,45 +541,91 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
             } else {
               const position = item.data;
               const market = position.market;
-              const marketTitle = market?.title 
+              const marketTitle = market?.title
                 ? formatMarketTitle(market.title, market.ticker)
                 : market?.ticker || 'Unknown Market';
+              const side = getSideStyles(position.position);
+              const wagered = getWagerForPosition(position);
+              const currentValue = getCurrentValue(position);
+              const pnl = currentValue !== null ? currentValue - wagered : null;
 
               return (
                 <div
                   key={position.mint}
-                  className="bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl p-4 hover:border-cyan-500/30 transition-all"
+                  className="relative overflow-hidden rounded-[28px] border border-[#0f3d2a] shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
+                  style={{ background: getCardGradient() }}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-lg ${
-                            position.position === 'YES'
-                              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                              : position.position === 'NO'
-                              ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
-                              : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)] border border-[var(--border-color)]'
-                          }`}
-                        >
-                          {position.position}
-                        </span>
-                        {market && (
-                          <span className="px-2 py-1 text-xs font-medium rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                            {market.status}
-                          </span>
+                  <div className="absolute inset-0 opacity-40 blur-2xl" />
+                  <div className="relative grid grid-cols-[1fr_auto] gap-4 p-5 sm:p-6">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start justify-between">
+                        <div className="text-4xl sm:text-5xl font-bold text-[#7cffb1] font-number tracking-tight">
+                          {position.balance.toLocaleString()}
+                        </div>
+                        <div className="text-4xl sm:text-5xl font-black leading-none text-right">
+                          <span className={`${side.className} drop-shadow`}>{side.text}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <h4 className="text-white text-2xl sm:text-3xl font-semibold leading-tight">
+                            {marketTitle}
+                          </h4>
+                          <p className="text-[#c2c9c6] italic mt-1 text-lg">
+                            {market?.subtitle
+                              ? market.subtitle
+                              : market?.ticker
+                                ? `on ${market.ticker}`
+                                : 'Active position'}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-3 text-sm text-[#c2c9c6] mt-2">
+                            <span>
+                              Wagered{' '}
+                              <span className="text-white font-semibold">
+                                {formatCurrency(wagered)}
+                              </span>
+                            </span>
+                            {pnl !== null && (
+                              <>
+                                <span className="text-white/30">•</span>
+                                <span className={`font-semibold ${pnl >= 0 ? 'text-[#7cffb1]' : 'text-[#ff6fa3]'}`}>
+                                  {pnl >= 0 ? '+' : ''}
+                                  {formatCurrency(pnl)}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {market?.imageUrl && (
+                          <img
+                            src={market.imageUrl}
+                            alt={marketTitle}
+                            className="w-14 h-14 rounded-xl border border-white/10 object-cover shadow-md"
+                          />
                         )}
                       </div>
-                      <h4 className="text-[var(--text-primary)] font-semibold mb-1">{marketTitle}</h4>
-                      {market?.ticker && (
-                        <p className="text-[var(--text-tertiary)] text-xs font-mono mb-2">{market.ticker}</p>
-                      )}
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="text-[var(--text-secondary)]">
-                          Balance: <span className="text-[var(--text-primary)] font-semibold font-number">{position.balance.toLocaleString()}</span> tokens
-                        </span>
+                    </div>
+
+                    <div className="flex flex-col justify-between items-end text-right min-w-[110px]">
+                      <div className="flex gap-2">
+                        {renderBadge(market?.status ?? 'active')}
+                      </div>
+                      <div className="text-4xl sm:text-5xl font-black text-[#7cffb1] leading-none">
+                        +{Math.max(1, Math.round(position.balance)) || 1}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between px-5 sm:px-6 pb-5 sm:pb-6">
+                    <span className="text-sm sm:text-base font-semibold text-[#b7bcb8]">
+                      {market?.closeTime ? formatDate(new Date(market.closeTime * 1000).toISOString()) : '—'}
+                    </span>
+                    {market?.ticker && (
+                      <span className="text-sm sm:text-base font-semibold text-[#7cffb1]">
+                        {market.ticker}
+                      </span>
+                    )}
                   </div>
                 </div>
               );

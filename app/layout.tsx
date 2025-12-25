@@ -8,7 +8,6 @@ import { AppDataProvider } from "./contexts/AppDataContext";
 import Navbar from "./components/Navbar";
 import BottomNavbar from "./components/BottomNavbar";
 import LayoutContent from "./components/LayoutContent";
-import ServiceWorkerRegistration from "./components/ServiceWorkerRegistration";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -31,27 +30,6 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Hunch - Prediction Markets",
   description: "Trade on real-world outcomes. Predict the future on Solana.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Hunch",
-  },
-  icons: {
-    icon: [
-      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [
-      { url: "/icon-152x152.png", sizes: "152x152", type: "image/png" },
-      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
-    ],
-  },
-  other: {
-    "mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "black-translucent",
-  },
 };
 
 export const viewport: Viewport = {
@@ -70,15 +48,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-{/* PWA Meta Tags */}
-        <meta name="application-name" content="Hunch" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Hunch" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#06b6d4" />
-        <meta name="msapplication-config" content="/browserconfig.xml" />
-        
         {/* Prevent flash of wrong theme - default to dark */}
         <script
           dangerouslySetInnerHTML={{
@@ -102,17 +71,16 @@ export default function RootLayout({
       </head>
       <body
         className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
-        style={{ fontFamily: 'var(--font-winky-sans), system-ui, sans-serif' }}
+        style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}
       >
         <ThemeProvider>
           <PrivyAuthProvider>
             <AuthProvider>
-              <AppDataProvider>
-                <ServiceWorkerRegistration />
-                <Navbar />
-                <LayoutContent>{children}</LayoutContent>
-                <BottomNavbar />
-              </AppDataProvider>
+                <AppDataProvider>
+                  <Navbar />
+                  <LayoutContent>{children}</LayoutContent>
+                  <BottomNavbar />
+                </AppDataProvider>
             </AuthProvider>
           </PrivyAuthProvider>
         </ThemeProvider>

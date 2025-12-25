@@ -22,8 +22,8 @@
   --font-inter: 'Inter', system-ui, sans-serif;
   --font-space-grotesk: 'Space Grotesk', system-ui, sans-serif;
   --font-jetbrains-mono: 'JetBrains Mono', monospace;
-  --font-bbh-hegarty: 'BBH Sans Hegarty', sans-serif;
-  --font-winky-sans: 'Winky Sans', sans-serif;
+  --font-bbh-hegarty: 'Inter', system-ui, sans-serif;
+  --font-winky-sans: 'Inter', system-ui, sans-serif;
   
   /* Default: Dark theme */
   --background: #0D0D0D;
@@ -381,7 +381,7 @@ textarea {
 
 /* BBH Sans Hegarty font */
 .bbh-hegarty-regular {
-  font-family: "BBH Sans Hegarty", sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-weight: 400;
   font-style: normal;
 }

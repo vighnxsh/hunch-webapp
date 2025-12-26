@@ -35,8 +35,6 @@ model Trade {
   quote          String?
   isDummy        Boolean  @default(true)
   entryPrice     Decimal? @db.Decimal(20, 10)
-  tokenAmount    Decimal? @db.Decimal(20, 10)
-  usdcAmount     Decimal? @db.Decimal(20, 10)
   createdAt      DateTime @default(now())
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

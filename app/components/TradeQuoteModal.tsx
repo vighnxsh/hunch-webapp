@@ -11,7 +11,10 @@ interface TradeQuoteModalProps {
   tradeData: {
     market: Market;
     side: 'yes' | 'no';
-    amount: string;
+    budgetUsdc: string; // user-entered budget in USDC (UI)
+    estimatedSpendUsdc?: string; // from quote inAmount (may be < budget)
+    estimatedTokens?: string; // from quote outAmount
+    entryPrice?: string; // implied quote price (spent/tokens)
   };
   isSubmitting?: boolean;
 }
@@ -127,11 +130,35 @@ export default function TradeQuoteModal({
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-400">Amount</span>
+              <span className="text-sm text-gray-400">Budget</span>
               <span className="text-sm font-medium text-white">
-                ${tradeData.amount} USDC
+                ${tradeData.budgetUsdc} USDC
               </span>
             </div>
+            {tradeData.estimatedSpendUsdc && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">Estimated spend</span>
+                <span className="text-sm font-medium text-white">
+                  ${tradeData.estimatedSpendUsdc} USDC
+                </span>
+              </div>
+            )}
+            {tradeData.estimatedTokens && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">Estimated tokens</span>
+                <span className="text-sm font-medium text-white">
+                  {tradeData.estimatedTokens}
+                </span>
+              </div>
+            )}
+            {tradeData.entryPrice && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">Entry price (quote)</span>
+                <span className="text-sm font-medium text-white">
+                  {tradeData.entryPrice}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Quote Input */}

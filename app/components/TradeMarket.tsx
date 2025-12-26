@@ -43,6 +43,12 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [currentTradeId, setCurrentTradeId] = useState<string | null>(null);
   const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
+  const [pendingTradePayload, setPendingTradePayload] = useState<any | null>(null);
+  const [lastQuoteSummary, setLastQuoteSummary] = useState<{
+    estimatedSpendUsdc?: string;
+    estimatedTokens?: string;
+    entryPrice?: string;
+  } | null>(null);
 
   // Calculate "to win" amount based on market price
   const calculateToWin = (): string | null => {
@@ -270,124 +276,77 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
         throw new Error('User not synced. Please refresh and try again.');
       }
 
-      // Calculate execution details from order response
-      const usdcAmount = parseFloat(amount); // User input amount in USDC
-      
-      // Extract token amount from order response
-      // OrderResponse has outAmount and inAmount directly
-      let tokenAmount: number | undefined;
-      let entryPrice: number | undefined;
-      
-      // Get token amount from order response (outAmount is in smallest units)
-      if (orderResponse.outAmount) {
-        try {
-          // Outcome tokens typically have 6 decimals
-          tokenAmount = parseFloat(orderResponse.outAmount) / 1_000_000;
-          
-          // Calculate entry price: price per token
-          if (tokenAmount > 0) {
-            entryPrice = usdcAmount / tokenAmount;
+      // If Trade API says async, the chain tx can confirm but the order may still be settling.
+      // Only treat as success once /order-status reports "closed".
+      if (orderResponse.executionMode === 'async') {
+        setStatus('⏳ Order is processing (async). Waiting for completion...');
+
+        const maxAttempts = 45;
+        let attempts = 0;
+        while (attempts < maxAttempts) {
+          const st = await getOrderStatus(signatureString);
+          if (st.status === 'closed') break;
+          if (st.status === 'failed') {
+            throw new Error('Trade execution failed (async order-status)');
           }
-        } catch (e) {
-          console.error('Failed to parse order response amounts:', e);
+          attempts++;
+          await new Promise((r) => setTimeout(r, 2000));
         }
-      }
-      
-      // Fallback: estimate from market price if parsing failed
-      if (!tokenAmount || !entryPrice) {
-        console.warn('Using fallback price calculation from market data');
-        const currentPrice = side === 'yes' 
-          ? (market.yesAsk ? parseFloat(market.yesAsk) : 0.5)
-          : (market.noAsk ? parseFloat(market.noAsk) : 0.5);
-        
-        if (currentPrice > 0) {
-          tokenAmount = usdcAmount / currentPrice;
-          entryPrice = currentPrice;
+        if (attempts >= maxAttempts) {
+          throw new Error('Async trade still processing. Please check again in a moment.');
         }
       }
 
-      // Log execution details for debugging
-      console.log('Trade execution details:', {
-        usdcAmount,
-        tokenAmount,
-        entryPrice,
-        side,
-        marketTicker: market.ticker,
-        orderResponse: {
-          inAmount: orderResponse.inAmount,
-          outAmount: orderResponse.outAmount,
-        },
+      // Compute entryPrice from quote-implied amounts (uses inAmount, not user budget)
+      // entryPrice = (inAmount USDC) / (outAmount outcomeTokens)
+      // Fallback to request amount if response doesn't include inAmount
+      const spentUsdc =
+        orderResponse.inAmount 
+          ? Number(orderResponse.inAmount) / 1_000_000 
+          : Number(amountInSmallestUnit) / 1_000_000;
+          
+      const receivedTokens =
+        orderResponse.outAmount ? Number(orderResponse.outAmount) / 1_000_000 : null;
+
+      let entryPrice: number | null = null;
+      if (
+        spentUsdc !== null &&
+        receivedTokens !== null &&
+        Number.isFinite(spentUsdc) &&
+        Number.isFinite(receivedTokens) &&
+        receivedTokens > 0
+      ) {
+        entryPrice = spentUsdc / receivedTokens;
+      }
+
+      setLastQuoteSummary({
+        estimatedSpendUsdc: spentUsdc !== null && Number.isFinite(spentUsdc) ? spentUsdc.toFixed(6) : undefined,
+        estimatedTokens: receivedTokens !== null && Number.isFinite(receivedTokens) ? receivedTokens.toFixed(6) : undefined,
+        entryPrice: entryPrice !== null && Number.isFinite(entryPrice) ? entryPrice.toFixed(10) : undefined,
       });
 
-      // Store the trade in database - ONLY after transaction is confirmed
-      let trade;
-      try {
-        const tradePayload = {
-          userId: currentUserId,
-          marketTicker: market.ticker,
-          eventTicker: market.eventTicker || null,
-          side: side,
-          amount: amountInSmallestUnit, // Store in smallest unit
-          transactionSig: signatureString,
-          entryPrice: entryPrice !== undefined ? entryPrice.toString() : null,
-          tokenAmount: tokenAmount !== undefined ? tokenAmount.toString() : null,
-          usdcAmount: usdcAmount !== undefined ? usdcAmount.toString() : null,
-        };
-
-        console.log('Storing trade with payload:', tradePayload);
-
-        const tradeResponse = await fetch('/api/trades', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(tradePayload),
-        });
-
-        if (!tradeResponse.ok) {
-          const errorData = await tradeResponse.json();
-          throw new Error(errorData.error || 'Failed to create trade record');
-        }
-
-        trade = await tradeResponse.json();
-        setCurrentTradeId(trade.id);
-        
-        console.log('✅ Trade stored successfully:', trade.id);
-      } catch (dbError: any) {
-        // Transaction succeeded but DB storage failed
-        console.error('❌ Failed to store trade in database:', dbError);
-        console.error('Trade payload was:', {
-          userId: currentUserId,
-          marketTicker: market.ticker,
-          side,
-          amount: amountInSmallestUnit,
-          entryPrice,
-          tokenAmount,
-          usdcAmount,
-        });
-        
-        setStatus(`⚠️ Trade executed on blockchain but failed to save record. Transaction: ${signatureString}`);
-        
-        // Still show the modal even if DB failed, since transaction succeeded
-        setShowQuoteModal(false); // Don't show modal if we couldn't save the trade
-        setLoading(false);
-        return; // Exit early
-      }
-
       // ============================================================
-      // SUCCESS: Trade confirmed on blockchain AND stored in database
-      // Now safe to show UI elements and allow user comments
+      // SUCCESS: Trade confirmed on blockchain
+      // Now show the quote modal FIRST, then store trade depending on user action.
       // ============================================================
-      
-      setStatus('✅ Trade executed successfully!');
-      
-      // Monitor async trade status if needed, but trade is already stored
-      if (orderResponse.executionMode === 'async') {
-        // Trade is confirmed and stored, now monitor for final execution
-        monitorAsyncTrade(signatureString);
-      }
-      
-      // Show quote modal for users to add comments (optional)
-      // This is a separate PATCH operation that happens after trade storage
+
+      const tradePayload = {
+        userId: currentUserId,
+        marketTicker: market.ticker,
+        eventTicker: market.eventTicker || null,
+        side: side,
+        amount: amountInSmallestUnit, // Store in smallest unit
+        transactionSig: signatureString,
+        // Store only entryPrice as requested (quote-implied), omit executed sizes.
+        entryPrice: entryPrice !== null ? entryPrice.toString() : null,
+      };
+
+      console.log('📝 Pending trade payload (will store after quote modal):', tradePayload);
+      setPendingTradePayload(tradePayload);
+      setStatus('✅ Trade executed successfully! Add a comment or skip.');
+      setLoading(false);
       setShowQuoteModal(true);
+      return;
     } catch (error: any) {
       // Enhanced error handling for transaction failures
       let errorMessage = error.message || 'Unknown error occurred';
@@ -447,48 +406,36 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
    * This is safe to fail without affecting the trade execution.
    */
   const handleQuoteSubmit = async (quote: string) => {
-    if (!currentTradeId || !user) return;
-
+    if (!pendingTradePayload) return;
     setIsSubmittingQuote(true);
 
     try {
-      if (quote.trim()) {
-        // Update trade with quote
-        const syncResponse = await fetch('/api/users/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            privyId: user.id,
-            walletAddress: walletAddress,
-          }),
-        });
+      const finalQuote = quote.trim();
+      const payloadToStore = {
+        ...pendingTradePayload,
+        ...(finalQuote ? { quote: finalQuote } : {}),
+      };
 
-        if (!syncResponse.ok) {
-          throw new Error('Failed to sync user');
-        }
+      console.log('💾 Storing trade AFTER quote modal:', payloadToStore);
+      const response = await fetch('/api/trades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadToStore),
+      });
 
-        const syncedUser = await syncResponse.json();
-
-        const response = await fetch('/api/trades', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tradeId: currentTradeId,
-            quote: quote,
-            userId: syncedUser.id,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to update trade quote');
-        }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to store trade');
       }
+
+      const createdTrade = await response.json();
+      setCurrentTradeId(createdTrade.id);
 
       // Close modal and reset form
       setShowQuoteModal(false);
-      setCurrentTradeId(null);
+      setPendingTradePayload(null);
       setAmount('');
-      setStatus('✅ Trade shared successfully!');
+      setStatus(finalQuote ? '✅ Trade shared successfully!' : '✅ Trade saved successfully!');
 
       // Clear status after 3 seconds
       setTimeout(() => {
@@ -621,15 +568,23 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       <TradeQuoteModal
         isOpen={showQuoteModal}
         onClose={() => {
+          // Treat closing the modal as "Skip" so trade still gets stored.
+          // This matches the desired flow: after tx success -> quote modal -> store trade (with/without quote).
+          if (!isSubmittingQuote && pendingTradePayload) {
+            handleQuoteSubmit('');
+            return;
+          }
           setShowQuoteModal(false);
-          setCurrentTradeId(null);
-          setAmount('');
+          setPendingTradePayload(null);
         }}
         onSubmit={handleQuoteSubmit}
         tradeData={{
           market,
           side,
-          amount,
+          budgetUsdc: amount,
+          estimatedSpendUsdc: lastQuoteSummary?.estimatedSpendUsdc,
+          estimatedTokens: lastQuoteSummary?.estimatedTokens,
+          entryPrice: lastQuoteSummary?.entryPrice,
         }}
         isSubmitting={isSubmittingQuote}
       />

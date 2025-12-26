@@ -457,7 +457,7 @@ export default function Profile() {
         {/* User Positions Section */}
         {currentUserId && (
           <div className="mb-6">
-            <UserPositionsEnhanced userId={currentUserId} />
+            <UserPositionsEnhanced userId={currentUserId} allowActions />
           </div>
         )}
 

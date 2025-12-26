@@ -13,9 +13,7 @@ export async function POST(request: NextRequest) {
       amount, 
       transactionSig, 
       quote,
-      entryPrice,
-      tokenAmount,
-      usdcAmount 
+      entryPrice
     } = body;
 
     if (!userId || !marketTicker || !side || !amount || !transactionSig) {
@@ -41,8 +39,7 @@ export async function POST(request: NextRequest) {
       transactionSig,
       quote: quote || undefined,
       entryPrice: entryPrice && entryPrice !== 'null' ? parseFloat(entryPrice) : undefined,
-      tokenAmount: tokenAmount && tokenAmount !== 'null' ? parseFloat(tokenAmount) : undefined,
-      usdcAmount: usdcAmount && usdcAmount !== 'null' ? parseFloat(usdcAmount) : undefined,
+      // Intentionally do NOT store executed token/usdc amounts.
     });
 
     return NextResponse.json(trade, { status: 201 });

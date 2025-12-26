@@ -328,7 +328,9 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                 <div className="flex flex-col lg:flex-row gap-6">
                     {/* User Positions Section with Active/Previous Tabs - LEFT SIDE */}
                     <div className="flex-1 lg:pr-16">
-                        <UserPositionsEnhanced userId={userId} />
+                        {/* Use the canonical DB id from the loaded profile when available.
+                            This avoids empty positions if the route param ever differs (e.g. walletAddress). */}
+                        <UserPositionsEnhanced userId={profile?.id || userId} />
                     </div>
 
                     {/* Credit Card Style Stats - RIGHT SIDE */}

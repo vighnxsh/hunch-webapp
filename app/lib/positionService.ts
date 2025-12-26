@@ -1,5 +1,7 @@
 import { prisma } from './db';
 import { fetchMarketDetails, fetchEventDetails, type Market, type EventDetails } from './api';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 
 export interface TradeWithDetails {
   id: string;
@@ -12,8 +14,6 @@ export interface TradeWithDetails {
   quote: string | null;
   isDummy: boolean;
   entryPrice: any;
-  tokenAmount: any;
-  usdcAmount: any;
   createdAt: Date;
 }
 
@@ -43,125 +43,202 @@ export interface PositionsByStatus {
  * Get all user positions with P&L calculations
  */
 export async function getUserPositions(userId: string): Promise<PositionsByStatus> {
-  // Fetch all user trades with execution details
-  const trades = await prisma.trade.findMany({
-    where: {
-      userId,
-      isDummy: false,
-    },
-    orderBy: { createdAt: 'desc' },
+  // Positions are derived from onchain token holdings (source of truth),
+  // then mapped to markets via the Metadata API (per retrive_token.md).
+  // Accept either a DB userId or (fallback) a wallet address string.
+  let walletAddress: string | null = null;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { walletAddress: true },
   });
+  if (user?.walletAddress) {
+    walletAddress = user.walletAddress;
+  } else {
+    // Fallback: if caller passed a wallet address instead of a DB id.
+    walletAddress = userId;
+  }
 
-  if (trades.length === 0) {
+  if (!walletAddress) return { active: [], previous: [] };
+
+  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+  const connection = new Connection(rpcUrl, 'confirmed');
+  const owner = new PublicKey(walletAddress);
+
+  const [tokenAccounts2022, tokenAccountsLegacy] = await Promise.all([
+    connection
+      .getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID })
+      .catch(() => ({ value: [] as any[] })),
+    connection
+      .getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID })
+      .catch(() => ({ value: [] as any[] })),
+  ]);
+
+  const allAccounts = [...tokenAccounts2022.value, ...tokenAccountsLegacy.value];
+
+  const userTokens = allAccounts
+    .map(({ account }) => {
+      const info = (account.data as any).parsed.info;
+      return {
+        mint: info.mint as string,
+        rawBalance: info.tokenAmount.amount as string,
+        balance: Number(info.tokenAmount.uiAmount || 0),
+        decimals: Number(info.tokenAmount.decimals || 0),
+      };
+    })
+    .filter((t) => t.balance > 0);
+
+  if (userTokens.length === 0) {
     return { active: [], previous: [] };
   }
 
-  // Aggregate trades by market and side
-  const positionsMap = new Map<string, AggregatedPosition>();
+  // Filter to prediction-market outcome mints
+  // NOTE: We import dynamically to avoid circular deps if any bundler edge occurs.
+  const { filterOutcomeMints, fetchMarketsBatch } = await import('./api');
+  const outcomeMints = await filterOutcomeMints(userTokens.map((t) => t.mint));
 
-  for (const trade of trades) {
-    const key = `${trade.marketTicker}-${trade.side}`;
-    
+  if (!outcomeMints || outcomeMints.length === 0) {
+    return { active: [], previous: [] };
+  }
+
+  const outcomeTokenBalances = userTokens.filter((t) => outcomeMints.includes(t.mint));
+  if (outcomeTokenBalances.length === 0) {
+    return { active: [], previous: [] };
+  }
+
+  const markets = await fetchMarketsBatch(outcomeMints);
+
+  // Build mint -> market mapping (yesMint/noMint/marketLedger)
+  const marketByMint = new Map<string, Market>();
+  for (const market of markets) {
+    if (!market?.accounts) continue;
+
+    const accountsAny = market.accounts as any;
+    // Some responses have accounts keyed by settlement mint; others are flat.
+    if (typeof accountsAny === 'object') {
+      for (const v of Object.values(accountsAny)) {
+        const acct = v as any;
+        if (acct?.yesMint) marketByMint.set(acct.yesMint, market);
+        if (acct?.noMint) marketByMint.set(acct.noMint, market);
+        if (acct?.marketLedger) marketByMint.set(acct.marketLedger, market);
+      }
+    }
+  }
+
+  // Aggregate by market ticker + side using onchain balances as the quantity.
+  const positionsMap = new Map<string, AggregatedPosition>();
+  for (const tok of outcomeTokenBalances) {
+    const market = marketByMint.get(tok.mint) || null;
+    if (!market) continue;
+
+    const side = inferSideFromMint(market, tok.mint);
+    if (side === 'unknown') continue;
+
+    const key = `${market.ticker}-${side}`;
     if (!positionsMap.has(key)) {
       positionsMap.set(key, {
-        marketTicker: trade.marketTicker,
-        eventTicker: trade.eventTicker,
-        side: trade.side as 'yes' | 'no',
+        marketTicker: market.ticker,
+        eventTicker: market.eventTicker || null,
+        side,
         totalTokenAmount: 0,
-        totalUsdcAmount: 0,
+        totalUsdcAmount: 0, // cost basis unknown (entry-only DB)
         averageEntryPrice: 0,
         currentPrice: null,
         currentValue: null,
         profitLoss: null,
         profitLossPercentage: null,
         tradeCount: 0,
-        market: null,
+        market,
         eventImageUrl: null,
         trades: [],
       });
     }
 
-    const position = positionsMap.get(key)!;
-    position.trades.push(trade as any);
-    position.tradeCount++;
-
-    // Aggregate amounts if available
-    if (trade.tokenAmount && trade.usdcAmount) {
-      position.totalTokenAmount += Number(trade.tokenAmount);
-      position.totalUsdcAmount += Number(trade.usdcAmount);
-    }
+    const pos = positionsMap.get(key)!;
+    pos.totalTokenAmount += tok.balance;
   }
 
-  // Calculate average entry prices
-  for (const position of positionsMap.values()) {
-    if (position.totalTokenAmount > 0 && position.totalUsdcAmount > 0) {
-      position.averageEntryPrice = position.totalUsdcAmount / position.totalTokenAmount;
-    }
+  // Fetch DB trades to find sold positions (zero balance)
+  let dbId = user ? userId : null;
+  if (!dbId && walletAddress) {
+    const u = await prisma.user.findUnique({ where: { walletAddress } });
+    if (u) dbId = u.id;
   }
 
-  // Fetch market data for all positions
-  const marketTickers = Array.from(new Set(trades.map(t => t.marketTicker)));
-  const marketsMap = new Map<string, Market>();
-  
-  // Fetch markets individually (can be optimized with batch endpoint if available)
-  await Promise.all(
-    marketTickers.map(async (ticker) => {
-      try {
-        const market = await fetchMarketDetails(ticker);
-        marketsMap.set(ticker, market);
-      } catch (error) {
-        console.error(`Failed to fetch market ${ticker}:`, error);
+  if (dbId) {
+    const dbTrades = await prisma.trade.findMany({
+      where: { userId: dbId },
+      select: { marketTicker: true, side: true },
+      distinct: ['marketTicker', 'side'],
+    });
+
+    for (const trade of dbTrades) {
+      const key = `${trade.marketTicker}-${trade.side}`;
+      if (!positionsMap.has(key)) {
+        try {
+          // Check if we already have the market in our batch
+          let market = markets.find(m => m.ticker === trade.marketTicker);
+          
+          // If not, fetch it individually
+          if (!market) {
+            market = await fetchMarketDetails(trade.marketTicker);
+          }
+
+          if (market) {
+            positionsMap.set(key, {
+              marketTicker: market.ticker,
+              eventTicker: market.eventTicker || null,
+              side: trade.side as 'yes' | 'no',
+              totalTokenAmount: 0,
+              totalUsdcAmount: 0,
+              averageEntryPrice: 0,
+              currentPrice: null,
+              currentValue: null,
+              profitLoss: null,
+              profitLossPercentage: null,
+              tradeCount: 0,
+              market,
+              eventImageUrl: null,
+              trades: [],
+            });
+          }
+        } catch (e) {
+          console.error(`Failed to fetch market details for sold position ${trade.marketTicker}:`, e);
+        }
       }
-    })
-  );
+    }
+  }
 
-  // Fetch event images for positions with eventTicker (only imageUrl, minimal data)
-  const eventTickers = Array.from(new Set(
-    trades.map(t => t.eventTicker).filter((ticker): ticker is string => ticker !== null)
-  ));
+  const positions = Array.from(positionsMap.values());
+
+  // Fetch event images for positions with eventTicker
+  const eventTickers = Array.from(
+    new Set(positions.map((p) => p.eventTicker).filter((x): x is string => !!x))
+  );
   const eventImagesMap = new Map<string, string>();
-  
   await Promise.all(
     eventTickers.map(async (eventTicker) => {
       try {
-        const eventDetails = await fetchEventDetails(eventTicker);
-        if (eventDetails.imageUrl) {
-          eventImagesMap.set(eventTicker, eventDetails.imageUrl);
-        }
-      } catch (error) {
-        console.error(`Failed to fetch event image for ${eventTicker}:`, error);
+        const ev = await fetchEventDetails(eventTicker);
+        if (ev.imageUrl) eventImagesMap.set(eventTicker, ev.imageUrl);
+      } catch (e) {
+        console.error(`Failed to fetch event image for ${eventTicker}:`, e);
       }
     })
   );
 
-  // Attach market data, event image, and calculate P&L
-  for (const position of positionsMap.values()) {
-    const market = marketsMap.get(position.marketTicker);
-    position.market = market || null;
+  // Compute current value from current market price
+  for (const pos of positions) {
+    if (pos.eventTicker) pos.eventImageUrl = eventImagesMap.get(pos.eventTicker) || null;
 
-    // Attach event image if eventTicker exists
-    if (position.eventTicker) {
-      position.eventImageUrl = eventImagesMap.get(position.eventTicker) || null;
-    }
-
-    if (market) {
-      // Get current price based on side
-      const currentPrice = getCurrentMarketPrice(market, position.side);
-      position.currentPrice = currentPrice;
-
-      if (currentPrice !== null && position.totalTokenAmount > 0) {
-        position.currentValue = position.totalTokenAmount * currentPrice;
-        position.profitLoss = position.currentValue - position.totalUsdcAmount;
-        
-        if (position.totalUsdcAmount > 0) {
-          position.profitLossPercentage = (position.profitLoss / position.totalUsdcAmount) * 100;
-        }
+    if (pos.market) {
+      const currentPrice = getCurrentMarketPrice(pos.market, pos.side);
+      pos.currentPrice = currentPrice;
+      if (currentPrice !== null && pos.totalTokenAmount > 0) {
+        pos.currentValue = pos.totalTokenAmount * currentPrice;
       }
     }
   }
 
-  // Separate positions by market status
-  const positions = Array.from(positionsMap.values());
   return separateByMarketStatus(positions);
 }
 
@@ -190,6 +267,25 @@ function getCurrentMarketPrice(market: Market, side: 'yes' | 'no'): number | nul
   return null;
 }
 
+function inferSideFromMint(market: Market, outcomeMint: string): 'yes' | 'no' | 'unknown' {
+  const accountsAny = market.accounts as any;
+  if (!accountsAny) return 'unknown';
+
+  // accounts may be keyed by settlement mint -> account object
+  if (typeof accountsAny === 'object') {
+    for (const v of Object.values(accountsAny)) {
+      const acct = v as any;
+      if (acct?.yesMint === outcomeMint) return 'yes';
+      if (acct?.noMint === outcomeMint) return 'no';
+    }
+  }
+
+  // fallback to top-level fields if present
+  if ((market as any).yesMint === outcomeMint) return 'yes';
+  if ((market as any).noMint === outcomeMint) return 'no';
+  return 'unknown';
+}
+
 /**
  * Separate positions into active and previous based on market status
  */
@@ -198,6 +294,12 @@ function separateByMarketStatus(positions: AggregatedPosition[]): PositionsBySta
   const previous: AggregatedPosition[] = [];
 
   for (const position of positions) {
+    // If sold (zero balance), it goes to previous
+    if (position.totalTokenAmount === 0) {
+      previous.push(position);
+      continue;
+    }
+
     if (!position.market) {
       // If market not found, consider it previous
       previous.push(position);
@@ -265,33 +367,15 @@ export async function getUserPositionStats(userId: string): Promise<{
   const { active, previous } = await getUserPositions(userId);
   const allPositions = [...active, ...previous];
 
-  let totalProfitLoss = 0;
-  let winningPositions = 0;
-  let losingPositions = 0;
-
-  for (const position of allPositions) {
-    if (position.profitLoss !== null) {
-      totalProfitLoss += position.profitLoss;
-      if (position.profitLoss > 0) {
-        winningPositions++;
-      } else if (position.profitLoss < 0) {
-        losingPositions++;
-      }
-    }
-  }
-
-  const totalPositionsWithPL = winningPositions + losingPositions;
-  const winRate = totalPositionsWithPL > 0 
-    ? (winningPositions / totalPositionsWithPL) * 100 
-    : 0;
-
+  // With entry-only DB, we don't have cost basis on server, so P&L stats are not meaningful.
+  // Return counts only; profit/loss-related fields default to 0.
   return {
-    totalProfitLoss,
+    totalProfitLoss: 0,
     totalPositions: allPositions.length,
     activePositions: active.length,
-    winningPositions,
-    losingPositions,
-    winRate,
+    winningPositions: 0,
+    losingPositions: 0,
+    winRate: 0,
   };
 }
 

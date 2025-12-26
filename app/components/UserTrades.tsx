@@ -14,6 +14,8 @@ interface Trade {
   side: string;
   amount: string;
   transactionSig: string;
+  quote: string | null;
+  entryPrice: number | null;
   createdAt: string;
   user: {
     id: string;
@@ -475,6 +477,13 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
                 : trade.marketTicker;
               const side = getSideStyles(trade.side);
               const stake = formatAmount(trade.amount);
+              
+              // Entry Price Logic (with fallback to current market price)
+              const entryPrice = trade.entryPrice 
+                ? parseFloat(trade.entryPrice.toString())
+                : (trade.side.toLowerCase() === 'yes' 
+                    ? (market?.yesBid ? parseFloat(market.yesBid) : null)
+                    : (market?.noBid ? parseFloat(market.noBid) : null));
 
               return (
                 <div
@@ -493,6 +502,12 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
                           <span className={`${side.className} drop-shadow`}>{side.text}</span>
                         </div>
                       </div>
+
+                      {entryPrice !== null && (
+                        <div className="text-lg text-[#c2c9c6] font-medium -mt-1 mb-2">
+                          @ {entryPrice.toFixed(2)}
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-3">
                         <div className="flex-1">

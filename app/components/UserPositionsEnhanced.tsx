@@ -6,6 +6,7 @@ import type { AggregatedPosition } from '../lib/positionService';
 
 interface UserPositionsEnhancedProps {
   userId: string;
+  allowActions?: boolean;
 }
 
 interface PositionsData {
@@ -22,7 +23,7 @@ interface PositionStats {
   winRate: number;
 }
 
-export default function UserPositionsEnhanced({ userId }: UserPositionsEnhancedProps) {
+export default function UserPositionsEnhanced({ userId, allowActions = false }: UserPositionsEnhancedProps) {
   const [activeTab, setActiveTab] = useState<'active' | 'previous'>('active');
   const [positions, setPositions] = useState<PositionsData>({ active: [], previous: [] });
   const [stats, setStats] = useState<PositionStats | null>(null);
@@ -154,7 +155,12 @@ export default function UserPositionsEnhanced({ userId }: UserPositionsEnhancedP
       ) : (
         <div className="grid gap-3">
           {displayedPositions.map((position, index) => (
-            <PositionCard key={`${position.marketTicker}-${position.side}-${index}`} position={position} />
+            <PositionCard
+              key={`${position.marketTicker}-${position.side}-${index}`}
+              position={position}
+              allowActions={allowActions}
+              onActionComplete={() => loadPositions()}
+            />
           ))}
         </div>
       )}

@@ -10,8 +10,6 @@ export interface CreateTradeData {
   transactionSig: string;
   quote?: string;
   entryPrice?: number;
-  tokenAmount?: number;
-  usdcAmount?: number;
 }
 
 export interface TradeWithUser {
@@ -47,8 +45,6 @@ export async function createTrade(data: CreateTradeData) {
       quote: data.quote || null,
       isDummy: false, // Only real trades are allowed
       entryPrice: data.entryPrice ?? null,
-      tokenAmount: data.tokenAmount ?? null,
-      usdcAmount: data.usdcAmount ?? null,
     },
   });
 
@@ -56,6 +52,21 @@ export async function createTrade(data: CreateTradeData) {
   await invalidateUserFeedCaches(data.userId);
 
   return trade;
+}
+
+/**
+ * Create a trade if it doesn't exist (idempotent)
+ */
+export async function createTradeIfNotExists(data: CreateTradeData) {
+  const existing = await prisma.trade.findFirst({
+    where: { transactionSig: data.transactionSig },
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  return createTrade(data);
 }
 
 /**

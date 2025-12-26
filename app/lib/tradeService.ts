@@ -9,6 +9,9 @@ export interface CreateTradeData {
   amount: string;
   transactionSig: string;
   quote?: string;
+  entryPrice?: number;
+  tokenAmount?: number;
+  usdcAmount?: number;
 }
 
 export interface TradeWithUser {
@@ -43,6 +46,9 @@ export async function createTrade(data: CreateTradeData) {
       transactionSig: data.transactionSig,
       quote: data.quote || null,
       isDummy: false, // Only real trades are allowed
+      entryPrice: data.entryPrice ?? null,
+      tokenAmount: data.tokenAmount ?? null,
+      usdcAmount: data.usdcAmount ?? null,
     },
   });
 

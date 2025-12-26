@@ -111,7 +111,7 @@ function EventCard({
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-[var(--text-primary)] leading-snug text-xl sm:text-xl group-hover:text-cyan-500 transition-colors line-clamp-2">
-            {event.title || 'Untitled Event'} 
+            {event.title || 'Untitled Event'}
           </h3>
         </div>
       </div>
@@ -156,9 +156,9 @@ function EventCard({
                     onClick={
                       isMobile
                         ? (e) => {
-                            e.stopPropagation();
-                            onOpenTrade(market as Market, 'yes', event);
-                          }
+                          e.stopPropagation();
+                          onOpenTrade(market as Market, 'yes', event);
+                        }
                         : undefined
                     }
                   >
@@ -287,9 +287,9 @@ function EventCard({
                     </div>
                     <div className="flex flex-col items-end">
 
-<span className="text-lg font-semibold text-[var(--text-primary)] font-number">
-                                        {yesPercent}
-                                      </span>
+                      <span className="text-lg font-semibold text-[var(--text-primary)] font-number">
+                        {yesPercent}
+                      </span>
                     </div>
                   </div>
 
@@ -305,12 +305,12 @@ function EventCard({
                         Yes
                       </button>
                       {yesReturn !== null ? (
-<p className="text-sm text-[var(--text-tertiary)] font-number">
-                                          $100 →{' '}
-                                          <span className="text-emerald-400 font-semibold">
-                                            ${Math.round(yesReturn)}
-                                          </span>
-                                        </p>
+                        <p className="text-sm text-[var(--text-tertiary)] font-number">
+                          $100 →{' '}
+                          <span className="text-emerald-400 font-semibold">
+                            ${Math.round(yesReturn)}
+                          </span>
+                        </p>
                       ) : (
                         <p className="text-xs text-[var(--text-tertiary)]">—</p>
                       )}
@@ -326,12 +326,12 @@ function EventCard({
                         No
                       </button>
                       {noReturn !== null ? (
-<p className="text-sm text-[var(--text-tertiary)] font-number">
-                                          $100 →{' '}
-                                          <span className="text-emerald-400 font-semibold">
-                                            ${Math.round(noReturn)}
-                                          </span>
-                                        </p>
+                        <p className="text-sm text-[var(--text-tertiary)] font-number">
+                          $100 →{' '}
+                          <span className="text-emerald-400 font-semibold">
+                            ${Math.round(noReturn)}
+                          </span>
+                        </p>
                       ) : (
                         <p className="text-xs text-[var(--text-tertiary)]">—</p>
                       )}

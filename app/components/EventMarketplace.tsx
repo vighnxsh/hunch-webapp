@@ -74,7 +74,7 @@ function EventCard({ event, onClick }: EventCardProps) {
             </div>
 
             {/* Content */}
-          
+
             <div className="p-4 space-y-3">
                 {/* Title */}
                 <h3 className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight line-clamp-2 group-hover:text-cyan-400 transition-colors">

@@ -174,27 +174,30 @@ async function fetchEventsUncached(
 }
 
 export async function fetchEventDetails(eventTicker: string): Promise<EventDetails> {
-  try {
-    const response = await fetch(
-      `${METADATA_API_BASE_URL}/api/v1/event/${eventTicker}?withNestedMarkets=true`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+  return withCache(
+    cacheKeys.eventDetails(eventTicker),
+    async () => {
+      const response = await fetch(
+        `${METADATA_API_BASE_URL}/api/v1/event/${encodeURIComponent(eventTicker)}?withNestedMarkets=true`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: 'no-store',
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error (${response.status}):`, errorText);
+        throw new Error(`Failed to fetch event details: ${response.status} ${response.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch event details: ${response.statusText}`);
-    }
-
-    const eventDetails: EventDetails = await response.json();
-    return eventDetails;
-  } catch (error) {
-    console.error("Error fetching event details:", error);
-    throw error;
-  }
+      return await response.json();
+    },
+    { ttl: CACHE_TTL.EVENT_DETAILS }
+  );
 }
 
 export interface TagsByCategories {

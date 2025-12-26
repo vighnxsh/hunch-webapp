@@ -166,6 +166,7 @@ textarea {
 }
 
 @media screen and (max-width: 768px) {
+
   input,
   select,
   textarea {
@@ -190,18 +191,17 @@ textarea {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 .animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--shimmer-1) 25%,
-    var(--shimmer-2) 50%,
-    var(--shimmer-1) 75%
-  );
+  background: linear-gradient(90deg,
+      var(--shimmer-1) 25%,
+      var(--shimmer-2) 50%,
+      var(--shimmer-1) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -325,7 +325,9 @@ textarea {
 }
 
 /* Smooth theme transition for all elements */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   transition-property: background-color, border-color, color, fill, stroke, box-shadow;
   transition-duration: 0.2s;
   transition-timing-function: ease-out;
@@ -369,6 +371,7 @@ textarea {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

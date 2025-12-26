@@ -14,6 +14,7 @@ export const CACHE_TTL = {
   EVENTS: 30, // 30 seconds for event data
   USER_POSITIONS: 10, // 10 seconds for Solana positions
   MARKET_DETAILS: 20, // 20 seconds for detailed market info
+  EVENT_DETAILS: 30, // 30 seconds for event details
   FEED: 10, // 10 seconds for feed data
 } as const;
 

@@ -4,24 +4,31 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useSignAndSendTransaction, useWallets } from '@privy-io/react-auth/solana';
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, Connection } from '@solana/web3.js';
+import { getAssociatedTokenAddress, createTransferInstruction, TOKEN_PROGRAM_ID, getAccount } from '@solana/spl-token';
 import { useTheme } from './ThemeProvider';
+import { USDC_MINT } from '../lib/tradeApi';
 
 interface WithdrawModalProps {
   isOpen: boolean;
   onClose: () => void;
   walletAddress: string;
   solBalance: number | null;
+  usdcBalance: number | null;
 }
+
+type TokenType = 'SOL' | 'USDC';
 
 export default function WithdrawModal({
   isOpen,
   onClose,
   walletAddress,
   solBalance,
+  usdcBalance,
 }: WithdrawModalProps) {
   const { theme } = useTheme();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
+  const [selectedToken, setSelectedToken] = useState<TokenType>('SOL');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,14 +69,23 @@ export default function WithdrawModal({
       return false;
     }
 
-    const amountInSOL = parseFloat(amount);
-    if (solBalance !== null && amountInSOL > solBalance) {
-      setStatus({ type: 'error', message: `Insufficient balance (${solBalance.toFixed(4)} SOL)` });
+    const amountNum = parseFloat(amount);
+    const currentBalance = selectedToken === 'SOL' ? solBalance : usdcBalance;
+    const tokenSymbol = selectedToken;
+
+    if (currentBalance !== null && amountNum > currentBalance) {
+      setStatus({ type: 'error', message: `Insufficient balance (${currentBalance.toFixed(selectedToken === 'SOL' ? 4 : 2)} ${tokenSymbol})` });
       return false;
     }
 
-    if (amountInSOL < 0.001) {
+    // Minimum amount validation
+    if (selectedToken === 'SOL' && amountNum < 0.001) {
       setStatus({ type: 'error', message: 'Minimum 0.001 SOL' });
+      return false;
+    }
+
+    if (selectedToken === 'USDC' && amountNum < 0.01) {
+      setStatus({ type: 'error', message: 'Minimum 0.01 USDC' });
       return false;
     }
 
@@ -89,19 +105,73 @@ export default function WithdrawModal({
 
     try {
       const recipientPubkey = new PublicKey(recipientAddress.trim());
-      const amountInLamports = Math.floor(parseFloat(amount) * LAMPORTS_PER_SOL);
-
+      const senderPubkey = new PublicKey(walletAddress);
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
 
-      const transferInstruction = SystemProgram.transfer({
-        fromPubkey: new PublicKey(walletAddress),
-        toPubkey: recipientPubkey,
-        lamports: amountInLamports,
-      });
+      let transaction = new Transaction();
 
-      const transaction = new Transaction().add(transferInstruction);
+      if (selectedToken === 'SOL') {
+        // SOL transfer
+        const amountInLamports = Math.floor(parseFloat(amount) * LAMPORTS_PER_SOL);
+        const transferInstruction = SystemProgram.transfer({
+          fromPubkey: senderPubkey,
+          toPubkey: recipientPubkey,
+          lamports: amountInLamports,
+        });
+        transaction.add(transferInstruction);
+      } else {
+        // USDC transfer
+        const usdcMint = new PublicKey(USDC_MINT);
+        const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000); // USDC has 6 decimals
+
+        // Get sender's USDC token account
+        const senderTokenAccount = await getAssociatedTokenAddress(
+          usdcMint,
+          senderPubkey
+        );
+
+        // Get recipient's USDC token account
+        const recipientTokenAccount = await getAssociatedTokenAddress(
+          usdcMint,
+          recipientPubkey
+        );
+
+        // Check if recipient's token account exists
+        let recipientAccountExists = false;
+        try {
+          await getAccount(connection, recipientTokenAccount);
+          recipientAccountExists = true;
+        } catch (err) {
+          // Account doesn't exist, we'll need to create it
+          recipientAccountExists = false;
+        }
+
+        // If recipient account doesn't exist, create it
+        if (!recipientAccountExists) {
+          const { createAssociatedTokenAccountInstruction } = await import('@solana/spl-token');
+          const createAccountInstruction = createAssociatedTokenAccountInstruction(
+            senderPubkey, // payer
+            recipientTokenAccount, // associated token account
+            recipientPubkey, // owner
+            usdcMint // mint
+          );
+          transaction.add(createAccountInstruction);
+        }
+
+        // Add transfer instruction
+        const transferInstruction = createTransferInstruction(
+          senderTokenAccount,
+          recipientTokenAccount,
+          senderPubkey,
+          amountInSmallestUnit,
+          [],
+          TOKEN_PROGRAM_ID
+        );
+        transaction.add(transferInstruction);
+      }
+
       transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new PublicKey(walletAddress);
+      transaction.feePayer = senderPubkey;
       transaction.lastValidBlockHeight = lastValidBlockHeight;
 
       const transactionBytes = transaction.serialize({
@@ -172,8 +242,14 @@ export default function WithdrawModal({
   };
 
   const setMaxAmount = () => {
-    if (solBalance !== null && solBalance > 0.001) {
-      setAmount((solBalance - 0.001).toFixed(6));
+    if (selectedToken === 'SOL') {
+      if (solBalance !== null && solBalance > 0.001) {
+        setAmount((solBalance - 0.001).toFixed(6));
+      }
+    } else {
+      if (usdcBalance !== null && usdcBalance > 0.01) {
+        setAmount(usdcBalance.toFixed(6));
+      }
     }
   };
 
@@ -212,11 +288,50 @@ export default function WithdrawModal({
 
         {/* Content */}
         <div className="px-5 py-4 space-y-4">
+          {/* Token Selector */}
+          <div className="flex gap-2 p-1 bg-[var(--input-bg)] rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedToken('SOL');
+                setAmount('');
+              }}
+              disabled={loading}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${selectedToken === 'SOL'
+                ? 'bg-cyan-600 text-white shadow-lg'
+                : theme === 'light'
+                  ? 'text-gray-600 hover:bg-gray-100'
+                  : 'text-gray-400 hover:bg-gray-800'
+                } disabled:opacity-50`}
+            >
+              SOL
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedToken('USDC');
+                setAmount('');
+              }}
+              disabled={loading}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${selectedToken === 'USDC'
+                ? 'bg-cyan-600 text-white shadow-lg'
+                : theme === 'light'
+                  ? 'text-gray-600 hover:bg-gray-100'
+                  : 'text-gray-400 hover:bg-gray-800'
+                } disabled:opacity-50`}
+            >
+              USDC
+            </button>
+          </div>
+
           {/* Balance */}
           <div className="text-center py-2">
             <p className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide">Available</p>
             <p className="text-2xl font-bold text-[var(--text-primary)]">
-              {solBalance !== null ? `${solBalance.toFixed(4)} SOL` : '--'}
+              {selectedToken === 'SOL'
+                ? solBalance !== null ? `${solBalance.toFixed(4)} SOL` : '--'
+                : usdcBalance !== null ? `${usdcBalance.toFixed(2)} USDC` : '--'
+              }
             </p>
           </div>
 
@@ -244,7 +359,7 @@ export default function WithdrawModal({
               <label className="text-xs font-medium text-[var(--text-secondary)]">Amount</label>
               <button
                 onClick={setMaxAmount}
-                disabled={loading || !solBalance}
+                disabled={loading || (selectedToken === 'SOL' ? !solBalance : !usdcBalance)}
                 className="text-xs text-cyan-400 hover:text-cyan-300 font-medium disabled:opacity-50"
               >
                 MAX
@@ -264,7 +379,7 @@ export default function WithdrawModal({
                   : 'bg-gray-800 border border-gray-700 text-white placeholder-gray-500'
                   } focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:opacity-50`}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-tertiary)]">SOL</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-tertiary)]">{selectedToken}</span>
             </div>
           </div>
 

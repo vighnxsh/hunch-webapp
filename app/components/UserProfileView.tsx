@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import Link from 'next/link';
 import UserTrades from './UserTrades';
+import UserPositionsEnhanced from './UserPositionsEnhanced';
 import { useTheme } from './ThemeProvider';
 import FollowersFollowingModal from './FollowersFollowingModal';
 import { useAppData } from '../contexts/AppDataContext';
@@ -250,11 +251,11 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                     </div>
                 </div>
 
-                {/* Flex Container: UserTrades (Left) and CreditCard (Right) */}
+                {/* Flex Container: UserPositions (Left) and CreditCard (Right) */}
                 <div className="flex flex-col lg:flex-row gap-6">
-                    {/* User Trades Section with Active/Previous Tabs - LEFT SIDE */}
+                    {/* User Positions Section with Active/Previous Tabs - LEFT SIDE */}
                     <div className="flex-1 lg:pr-16">
-                        <UserTrades userId={userId} />
+                        <UserPositionsEnhanced userId={userId} />
                     </div>
 
                     {/* Credit Card Style Stats - RIGHT SIDE */}

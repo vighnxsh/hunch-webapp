@@ -5,7 +5,18 @@ import { createTrade, getUserTrades, updateTradeQuote } from '@/app/lib/tradeSer
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, marketTicker, eventTicker, side, amount, transactionSig, quote } = body;
+    const { 
+      userId, 
+      marketTicker, 
+      eventTicker, 
+      side, 
+      amount, 
+      transactionSig, 
+      quote,
+      entryPrice,
+      tokenAmount,
+      usdcAmount 
+    } = body;
 
     if (!userId || !marketTicker || !side || !amount || !transactionSig) {
       return NextResponse.json(
@@ -29,6 +40,9 @@ export async function POST(request: NextRequest) {
       amount,
       transactionSig,
       quote: quote || undefined,
+      entryPrice: entryPrice && entryPrice !== 'null' ? parseFloat(entryPrice) : undefined,
+      tokenAmount: tokenAmount && tokenAmount !== 'null' ? parseFloat(tokenAmount) : undefined,
+      usdcAmount: usdcAmount && usdcAmount !== 'null' ? parseFloat(usdcAmount) : undefined,
     });
 
     return NextResponse.json(trade, { status: 201 });

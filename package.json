@@ -12,7 +12,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "generate-icons": "node scripts/generate-icons.js"
+    "generate-icons": "node scripts/generate-icons.js",
+    "backfill:trades": "npx tsx scripts/backfill-trade-execution-details.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.1.0",

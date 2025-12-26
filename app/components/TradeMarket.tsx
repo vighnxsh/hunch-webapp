@@ -113,7 +113,19 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
     return mint;
   };
 
-  // Real trade handler using DFlow API
+  /**
+   * Real trade handler using DFlow API
+   * 
+   * Flow:
+   * 1. Validate user and inputs
+   * 2. Request order from DFlow API
+   * 3. Sign transaction
+   * 4. Submit to blockchain
+   * 5. WAIT for transaction confirmation (CRITICAL)
+   * 6. Extract execution details (price, amounts)
+   * 7. Store trade in database (ONLY after confirmation)
+   * 8. Show quote modal for user comments
+   */
   const handlePlaceOrder = async () => {
     // Show login modal if not authenticated
     if (!authenticated) {
@@ -208,79 +220,174 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       setStatus('Transaction submitted! Confirming...');
 
       // Wait for transaction confirmation before storing trade
+      // IMPORTANT: Always wait for confirmation before DB operations
+      const maxAttempts = 30;
+      let attempts = 0;
       let confirmationStatus;
-      if (orderResponse.executionMode === 'sync') {
-        // For sync trades, wait for confirmation
-        const maxAttempts = 30;
-        let attempts = 0;
+      
+      // Wait for transaction to be confirmed (at least confirmed status)
+      while (attempts < maxAttempts) {
+        const statusResult = await connection.getSignatureStatuses([signatureString]);
+        confirmationStatus = statusResult.value[0];
         
-        // Wait for transaction to be confirmed (at least confirmed status)
-        while (attempts < maxAttempts) {
-          const statusResult = await connection.getSignatureStatuses([signatureString]);
-          confirmationStatus = statusResult.value[0];
-          
-          // Check if transaction failed
-          if (confirmationStatus?.err) {
-            throw new Error(`Transaction failed: ${JSON.stringify(confirmationStatus.err)}`);
-          }
-          
-          // If confirmed or finalized, we're done
-          if (confirmationStatus && 
-              (confirmationStatus.confirmationStatus === 'confirmed' ||
-               confirmationStatus.confirmationStatus === 'finalized')) {
-            break;
-          }
-          
-          // Otherwise wait and retry
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          attempts++;
+        // Check if transaction failed
+        if (confirmationStatus?.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmationStatus.err)}`);
         }
         
-        if (attempts >= maxAttempts) {
-          throw new Error('Transaction confirmation timeout - transaction may still be processing');
+        // If confirmed or finalized, we're done
+        if (confirmationStatus && 
+            (confirmationStatus.confirmationStatus === 'confirmed' ||
+             confirmationStatus.confirmationStatus === 'finalized')) {
+          break;
         }
-      } else {
-        // For async trades, just wait a bit for initial submission
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        
+        // Otherwise wait and retry
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        attempts++;
+      }
+      
+      if (attempts >= maxAttempts) {
+        throw new Error('Transaction confirmation timeout - transaction may still be processing');
+      }
+
+      // Only proceed if transaction is confirmed
+      if (!confirmationStatus || 
+          (confirmationStatus.confirmationStatus !== 'confirmed' && 
+           confirmationStatus.confirmationStatus !== 'finalized')) {
+        throw new Error('Transaction not confirmed');
       }
 
       setStatus('Transaction confirmed! Storing trade...');
+
+      // ============================================================
+      // CRITICAL: Only execute DB operations after confirmation
+      // Transaction is now confirmed on blockchain, safe to proceed
+      // ============================================================
 
       // Check if user is synced
       if (!currentUserId) {
         throw new Error('User not synced. Please refresh and try again.');
       }
 
-      // Store the trade in database
-      const tradeResponse = await fetch('/api/trades', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Calculate execution details from order response
+      const usdcAmount = parseFloat(amount); // User input amount in USDC
+      
+      // Extract token amount from order response
+      // OrderResponse has outAmount and inAmount directly
+      let tokenAmount: number | undefined;
+      let entryPrice: number | undefined;
+      
+      // Get token amount from order response (outAmount is in smallest units)
+      if (orderResponse.outAmount) {
+        try {
+          // Outcome tokens typically have 6 decimals
+          tokenAmount = parseFloat(orderResponse.outAmount) / 1_000_000;
+          
+          // Calculate entry price: price per token
+          if (tokenAmount > 0) {
+            entryPrice = usdcAmount / tokenAmount;
+          }
+        } catch (e) {
+          console.error('Failed to parse order response amounts:', e);
+        }
+      }
+      
+      // Fallback: estimate from market price if parsing failed
+      if (!tokenAmount || !entryPrice) {
+        console.warn('Using fallback price calculation from market data');
+        const currentPrice = side === 'yes' 
+          ? (market.yesAsk ? parseFloat(market.yesAsk) : 0.5)
+          : (market.noAsk ? parseFloat(market.noAsk) : 0.5);
+        
+        if (currentPrice > 0) {
+          tokenAmount = usdcAmount / currentPrice;
+          entryPrice = currentPrice;
+        }
+      }
+
+      // Log execution details for debugging
+      console.log('Trade execution details:', {
+        usdcAmount,
+        tokenAmount,
+        entryPrice,
+        side,
+        marketTicker: market.ticker,
+        orderResponse: {
+          inAmount: orderResponse.inAmount,
+          outAmount: orderResponse.outAmount,
+        },
+      });
+
+      // Store the trade in database - ONLY after transaction is confirmed
+      let trade;
+      try {
+        const tradePayload = {
           userId: currentUserId,
           marketTicker: market.ticker,
           eventTicker: market.eventTicker || null,
           side: side,
           amount: amountInSmallestUnit, // Store in smallest unit
           transactionSig: signatureString,
-        }),
-      });
+          entryPrice: entryPrice !== undefined ? entryPrice.toString() : null,
+          tokenAmount: tokenAmount !== undefined ? tokenAmount.toString() : null,
+          usdcAmount: usdcAmount !== undefined ? usdcAmount.toString() : null,
+        };
 
-      if (!tradeResponse.ok) {
-        const errorData = await tradeResponse.json();
-        throw new Error(errorData.error || 'Failed to create trade');
+        console.log('Storing trade with payload:', tradePayload);
+
+        const tradeResponse = await fetch('/api/trades', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(tradePayload),
+        });
+
+        if (!tradeResponse.ok) {
+          const errorData = await tradeResponse.json();
+          throw new Error(errorData.error || 'Failed to create trade record');
+        }
+
+        trade = await tradeResponse.json();
+        setCurrentTradeId(trade.id);
+        
+        console.log('✅ Trade stored successfully:', trade.id);
+      } catch (dbError: any) {
+        // Transaction succeeded but DB storage failed
+        console.error('❌ Failed to store trade in database:', dbError);
+        console.error('Trade payload was:', {
+          userId: currentUserId,
+          marketTicker: market.ticker,
+          side,
+          amount: amountInSmallestUnit,
+          entryPrice,
+          tokenAmount,
+          usdcAmount,
+        });
+        
+        setStatus(`⚠️ Trade executed on blockchain but failed to save record. Transaction: ${signatureString}`);
+        
+        // Still show the modal even if DB failed, since transaction succeeded
+        setShowQuoteModal(false); // Don't show modal if we couldn't save the trade
+        setLoading(false);
+        return; // Exit early
       }
 
-      const trade = await tradeResponse.json();
-      setCurrentTradeId(trade.id);
-
-      // Monitor trade status if async
+      // ============================================================
+      // SUCCESS: Trade confirmed on blockchain AND stored in database
+      // Now safe to show UI elements and allow user comments
+      // ============================================================
+      
+      setStatus('✅ Trade executed successfully!');
+      
+      // Monitor async trade status if needed, but trade is already stored
       if (orderResponse.executionMode === 'async') {
-        setStatus('✅ Order placed! Monitoring execution...');
+        // Trade is confirmed and stored, now monitor for final execution
         monitorAsyncTrade(signatureString);
-      } else {
-        setStatus('✅ Trade executed successfully!');
-        setShowQuoteModal(true);
       }
+      
+      // Show quote modal for users to add comments (optional)
+      // This is a separate PATCH operation that happens after trade storage
+      setShowQuoteModal(true);
     } catch (error: any) {
       // Enhanced error handling for transaction failures
       let errorMessage = error.message || 'Unknown error occurred';
@@ -332,7 +439,13 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
     setTimeout(checkStatus, 2000); // Start checking after 2 seconds
   };
 
-  // TODO: Remove when DFlow API is ready - Quote submission handler
+  /**
+   * Quote submission handler
+   * 
+   * This is a SEPARATE operation that happens AFTER trade is confirmed and stored.
+   * It updates the trade record with user's optional comment/quote.
+   * This is safe to fail without affecting the trade execution.
+   */
   const handleQuoteSubmit = async (quote: string) => {
     if (!currentTradeId || !user) return;
 

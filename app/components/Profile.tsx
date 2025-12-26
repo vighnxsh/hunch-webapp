@@ -4,7 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useCreateWallet } from '@privy-io/react-auth/solana';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
+import { USDC_MINT } from '../lib/tradeApi';
 import UserTrades from './UserTrades';
+import UserPositionsEnhanced from './UserPositionsEnhanced';
 import CreditCard from './CreditCard';
 import { useTheme } from './ThemeProvider';
 import FollowersFollowingModal from './FollowersFollowingModal';
@@ -17,8 +20,9 @@ export default function Profile() {
   const { createWallet } = useCreateWallet();
   const { theme } = useTheme();
   const { currentUserId, userCounts, updateUserCounts, isUserLoading } = useAppData();
-  
+
   const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
   const [solPrice, setSolPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [creatingWallet, setCreatingWallet] = useState(false);
@@ -231,8 +235,28 @@ export default function Profile() {
 
     try {
       const publicKey = new PublicKey(walletAddress);
+
+      // Fetch SOL balance
       const balance = await connection.getBalance(publicKey);
       setSolBalance(balance / LAMPORTS_PER_SOL);
+
+      // Fetch USDC balance
+      try {
+        const usdcMint = new PublicKey(USDC_MINT);
+        const usdcTokenAddress = await getAssociatedTokenAddress(
+          usdcMint,
+          publicKey
+        );
+
+        const usdcAccount = await getAccount(connection, usdcTokenAddress);
+        // USDC has 6 decimals
+        const usdcBal = Number(usdcAccount.amount) / 1_000_000;
+        setUsdcBalance(usdcBal);
+      } catch (usdcErr) {
+        // If USDC account doesn't exist, set balance to 0
+        console.log('No USDC account found, setting balance to 0');
+        setUsdcBalance(0);
+      }
     } catch (err: any) {
       setError('Failed to fetch balance');
       console.error('Error fetching balance:', err);
@@ -276,175 +300,176 @@ export default function Profile() {
 
   return (
     <>
-    <div className=" backdrop-blur-sm   rounded-2xl p-6">
+      <div className=" backdrop-blur-sm   rounded-2xl p-6">
 
 
-      {/* User Info Section */}
-      <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
-        <div className="flex items-start gap-4">
-          <img
-            src={getUserAvatar()}
-            alt="Profile"
-            className="w-16 h-16 rounded-full border-2 border-cyan-500/30"
-          />
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
-              {getUserDisplayName()}
-            </h3>
-            {getUserEmail() && (
-              <p className="text-[var(--text-secondary)] text-sm mb-2">{getUserEmail()}</p>
-            )}
-            {/* Followers/Following Counts - Clickable */}
-            <div className="flex items-center gap-4 mt-4">
-              <button
-                onClick={() => {
-                  setModalType('followers');
-                  setModalOpen(true);
-                }}
-                className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
-              >
-                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{followersCount}</span>
-                <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Followers</span>
-              </button>
-              <button
-                onClick={() => {
-                  setModalType('following');
-                  setModalOpen(true);
-                }}
-                className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
-              >
-                <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{followingCount}</span>
-                <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Following</span>
-              </button>
+        {/* User Info Section */}
+        <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
+          <div className="flex items-start gap-4">
+            <img
+              src={getUserAvatar()}
+              alt="Profile"
+              className="w-16 h-16 rounded-full border-2 border-cyan-500/30"
+            />
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
+                {getUserDisplayName()}
+              </h3>
+              {getUserEmail() && (
+                <p className="text-[var(--text-secondary)] text-sm mb-2">{getUserEmail()}</p>
+              )}
+              {/* Followers/Following Counts - Clickable */}
+              <div className="flex items-center gap-4 mt-4">
+                <button
+                  onClick={() => {
+                    setModalType('followers');
+                    setModalOpen(true);
+                  }}
+                  className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
+                >
+                  <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{followersCount}</span>
+                  <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Followers</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setModalType('following');
+                    setModalOpen(true);
+                  }}
+                  className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
+                >
+                  <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{followingCount}</span>
+                  <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Following</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Wallet Creation Section (only shown if no wallet) */}
+        {!walletAddress && (
+          <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
+            <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 uppercase tracking-wider">
+              Solana Wallet
+            </h4>
+            <div className="bg-[var(--card-bg)]/30 rounded-xl p-6 border border-[var(--border-color)]">
+              {creatingWallet ? (
+                <div className="flex flex-col items-center justify-center gap-4 py-4">
+                  <svg className="w-8 h-8 text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p className="text-cyan-300 text-sm font-medium">
+                    Creating your wallet...
+                  </p>
+                  <p className="text-[var(--text-tertiary)] text-xs text-center max-w-sm">
+                    This usually takes just a few seconds. Please wait...
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-4 py-4">
+                  <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-2">
+                    <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <p className="text-[var(--text-secondary)] text-sm text-center mb-1">
+                    No wallet found
+                  </p>
+                  <p className="text-[var(--text-tertiary)] text-xs text-center max-w-sm mb-4">
+                    Create a Solana wallet to start trading on prediction markets
+                  </p>
+                  <button
+                    onClick={async () => {
+                      setCreatingWallet(true);
+                      setError(null);
+
+                      // Check if HTTPS is available
+                      if (!isHttpsAvailable()) {
+                        setError('Embedded wallets require HTTPS. Please use HTTPS or deploy to a staging environment.');
+                        setCreatingWallet(false);
+                        return;
+                      }
+
+                      try {
+                        await createWallet();
+                        // Wait a moment and check again
+                        setTimeout(() => {
+                          setCreatingWallet(false);
+                        }, 5000);
+                      } catch (err: any) {
+                        const errorMessage = err?.message || 'Failed to create wallet';
+                        if (errorMessage.includes('HTTPS') || errorMessage.includes('https')) {
+                          setError('Embedded wallets require HTTPS. Please use HTTPS or deploy to a staging environment.');
+                        } else {
+                          setError(errorMessage);
+                        }
+                        setCreatingWallet(false);
+                        console.error('Wallet creation error:', err);
+                      }
+                    }}
+                    disabled={creatingWallet}
+                    className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creatingWallet ? 'Creating...' : 'Create Solana Wallet'}
+                  </button>
+                  {error && (
+                    <div className="mt-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                      <p className="text-red-400 text-xs text-center">{error}</p>
+                      {error.includes('HTTPS') && (
+                        <p className="text-red-300/70 text-xs text-center mt-2">
+                          For local development, you can use tools like{' '}
+                          <a
+                            href="https://github.com/FiloSottile/mkcert"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline hover:text-red-200"
+                          >
+                            mkcert
+                          </a>
+                          {' '}to enable HTTPS on localhost.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Credit Card Style Stats */}
+        <CreditCard
+          theme={theme}
+          loading={loading}
+          error={error}
+          solBalance={solBalance}
+          usdcBalance={usdcBalance}
+          solPrice={solPrice}
+          tradesCount={tradesCount}
+          username={getUserDisplayName()}
+          walletAddress={walletAddress || undefined}
+        />
+
+
+
+        {/* User Positions Section */}
+        {currentUserId && (
+          <div className="mb-6">
+            <UserPositionsEnhanced userId={currentUserId} />
+          </div>
+        )}
+
+        {/* User Discovery Section */}
       </div>
 
-      {/* Wallet Creation Section (only shown if no wallet) */}
-      {!walletAddress && (
-        <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
-          <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 uppercase tracking-wider">
-            Solana Wallet
-          </h4>
-          <div className="bg-[var(--card-bg)]/30 rounded-xl p-6 border border-[var(--border-color)]">
-            {creatingWallet ? (
-              <div className="flex flex-col items-center justify-center gap-4 py-4">
-                <svg className="w-8 h-8 text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p className="text-cyan-300 text-sm font-medium">
-                  Creating your wallet...
-                </p>
-                <p className="text-[var(--text-tertiary)] text-xs text-center max-w-sm">
-                  This usually takes just a few seconds. Please wait...
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-4 py-4">
-                <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-2">
-                  <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </div>
-                <p className="text-[var(--text-secondary)] text-sm text-center mb-1">
-                  No wallet found
-                </p>
-                <p className="text-[var(--text-tertiary)] text-xs text-center max-w-sm mb-4">
-                  Create a Solana wallet to start trading on prediction markets
-                </p>
-                <button
-                  onClick={async () => {
-                    setCreatingWallet(true);
-                    setError(null);
-
-                    // Check if HTTPS is available
-                    if (!isHttpsAvailable()) {
-                      setError('Embedded wallets require HTTPS. Please use HTTPS or deploy to a staging environment.');
-                      setCreatingWallet(false);
-                      return;
-                    }
-
-                    try {
-                      await createWallet();
-                      // Wait a moment and check again
-                      setTimeout(() => {
-                        setCreatingWallet(false);
-                      }, 5000);
-                    } catch (err: any) {
-                      const errorMessage = err?.message || 'Failed to create wallet';
-                      if (errorMessage.includes('HTTPS') || errorMessage.includes('https')) {
-                        setError('Embedded wallets require HTTPS. Please use HTTPS or deploy to a staging environment.');
-                      } else {
-                        setError(errorMessage);
-                      }
-                      setCreatingWallet(false);
-                      console.error('Wallet creation error:', err);
-                    }
-                  }}
-                  disabled={creatingWallet}
-                  className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {creatingWallet ? 'Creating...' : 'Create Solana Wallet'}
-                </button>
-                {error && (
-                  <div className="mt-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                    <p className="text-red-400 text-xs text-center">{error}</p>
-                    {error.includes('HTTPS') && (
-                      <p className="text-red-300/70 text-xs text-center mt-2">
-                        For local development, you can use tools like{' '}
-                        <a
-                          href="https://github.com/FiloSottile/mkcert"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline hover:text-red-200"
-                        >
-                          mkcert
-                        </a>
-                        {' '}to enable HTTPS on localhost.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Credit Card Style Stats */}
-      <CreditCard
-        theme={theme}
-        loading={loading}
-        error={error}
-        solBalance={solBalance}
-        solPrice={solPrice}
-        tradesCount={tradesCount}
-        username={getUserDisplayName()}
-        walletAddress={walletAddress || undefined}
+      {/* Followers/Following Modal */}
+      <FollowersFollowingModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        userId={currentUserId || ''}
+        type={modalType}
+        currentUserId={currentUserId}
       />
-
-
-
-      {/* User Trades Section */}
-      {currentUserId && (
-        <div className="mb-6">
-          <UserTrades userId={currentUserId} walletAddress={walletAddress} />
-        </div>
-      )}
-
-      {/* User Discovery Section */}
-    </div>
-    
-    {/* Followers/Following Modal */}
-    <FollowersFollowingModal
-      isOpen={modalOpen}
-      onClose={() => setModalOpen(false)}
-      userId={currentUserId || ''}
-      type={modalType}
-      currentUserId={currentUserId}
-    />
     </>
   );
 }

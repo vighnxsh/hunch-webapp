@@ -8,6 +8,9 @@ import UserPositionsEnhanced from './UserPositionsEnhanced';
 import { useTheme } from './ThemeProvider';
 import FollowersFollowingModal from './FollowersFollowingModal';
 import { useAppData } from '../contexts/AppDataContext';
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
+import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
+import { USDC_MINT } from '../lib/tradeApi';
 
 interface UserProfile {
     id: string;
@@ -36,6 +39,10 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
     const [checkingFollow, setCheckingFollow] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [modalType, setModalType] = useState<'followers' | 'following'>('followers');
+    const [solBalance, setSolBalance] = useState<number | null>(null);
+    const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
+    const [solPrice, setSolPrice] = useState<number | null>(null);
+    const [balancesLoading, setBalancesLoading] = useState(false);
 
     // Fetch the profile being viewed
     useEffect(() => {
@@ -134,6 +141,72 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
 
     const displayName = profile?.displayName || (profile?.walletAddress ? `${profile.walletAddress.slice(0, 6)}...${profile.walletAddress.slice(-4)}` : 'Unknown');
     const isOwnProfile = currentUserId === userId;
+    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+    const connection = new Connection(rpcUrl, 'confirmed');
+
+    const formatCurrency = (value: number | null | undefined) => {
+        if (value === null || value === undefined || Number.isNaN(value)) return '—';
+        return value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+    };
+
+    const combinedUsdBalance = (() => {
+        const solUsd = solBalance !== null && solPrice !== null ? solBalance * solPrice : 0;
+        const usdcUsd = usdcBalance ?? 0;
+        return solUsd + usdcUsd;
+    })();
+
+    // Fetch SOL price periodically
+    useEffect(() => {
+        const fetchSolPrice = async () => {
+            try {
+                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+                if (response.ok) {
+                    const data = await response.json();
+                    setSolPrice(data.solana?.usd || null);
+                }
+            } catch (err) {
+                console.error('Error fetching SOL price:', err);
+            }
+        };
+        fetchSolPrice();
+        const interval = setInterval(fetchSolPrice, 5 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Fetch SOL + USDC balances for viewed wallet
+    useEffect(() => {
+        const fetchBalances = async () => {
+            if (!profile?.walletAddress) return;
+            setBalancesLoading(true);
+            try {
+                const publicKey = new PublicKey(profile.walletAddress);
+
+                // SOL balance
+                const lamports = await connection.getBalance(publicKey);
+                setSolBalance(lamports / LAMPORTS_PER_SOL);
+
+                // USDC balance
+                try {
+                    const usdcMint = new PublicKey(USDC_MINT);
+                    const usdcTokenAddress = await getAssociatedTokenAddress(usdcMint, publicKey);
+                    const usdcAccount = await getAccount(connection, usdcTokenAddress);
+                    const usdcBal = Number(usdcAccount.amount) / 1_000_000; // USDC has 6 decimals
+                    setUsdcBalance(usdcBal);
+                } catch (usdcErr) {
+                    console.log('No USDC account found, setting balance to 0');
+                    setUsdcBalance(0);
+                }
+            } catch (err) {
+                console.error('Error fetching balances:', err);
+                setSolBalance(null);
+                setUsdcBalance(null);
+            } finally {
+                setBalancesLoading(false);
+            }
+        };
+
+        fetchBalances();
+    }, [profile?.walletAddress, connection]);
 
     if (loading) {
         return (
@@ -289,11 +362,11 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                 {/* Middle Row - Viewing Other User */}
                                 <div className="flex-1 flex flex-col justify-center -mt-2">
                                     <p className={`text-sm sm:text-sm font-medium tracking-wider uppercase mb-1 ${theme === 'light' ? 'text-black/80' : 'text-white/60'
-                                        }`}>Cash Balance</p>
+                                        }`}>Cash Balance (SOL + USDC)</p>
                                     <div className="flex items-baseline gap-2">
                                         <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-number ${theme === 'light' ? 'text-slate-900' : 'text-white'
                                             }`}>
-                                            $300
+                                            {balancesLoading ? '…' : formatCurrency(combinedUsdBalance)}
                                         </span>
                                     </div>
                                 </div>

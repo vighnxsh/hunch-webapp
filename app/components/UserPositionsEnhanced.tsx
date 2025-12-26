@@ -98,37 +98,7 @@ export default function UserPositionsEnhanced({ userId }: UserPositionsEnhancedP
   return (
     <div className="space-y-4">
       {/* Stats Summary */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-4 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)]">
-            <div className="text-xs text-[var(--text-secondary)] mb-1">Total P&L</div>
-            <div className={`text-lg font-bold ${getPLColorClass(stats.totalProfitLoss)}`}>
-              {formatCurrency(stats.totalProfitLoss)}
-            </div>
-          </div>
-          
-          <div className="p-4 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)]">
-            <div className="text-xs text-[var(--text-secondary)] mb-1">Active Positions</div>
-            <div className="text-lg font-bold text-[var(--text-primary)]">
-              {stats.activePositions}
-            </div>
-          </div>
-          
-          <div className="p-4 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)]">
-            <div className="text-xs text-[var(--text-secondary)] mb-1">Win Rate</div>
-            <div className="text-lg font-bold text-[var(--text-primary)]">
-              {stats.winRate.toFixed(1)}%
-            </div>
-          </div>
-          
-          <div className="p-4 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)]">
-            <div className="text-xs text-[var(--text-secondary)] mb-1">Total Positions</div>
-            <div className="text-lg font-bold text-[var(--text-primary)]">
-              {stats.totalPositions}
-            </div>
-          </div>
-        </div>
-      )}
+     
 
       {/* Tab Navigation */}
       <div className="flex gap-2 border-b border-[var(--border-color)]">
@@ -140,9 +110,9 @@ export default function UserPositionsEnhanced({ userId }: UserPositionsEnhancedP
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
           }`}
         >
-          Active Positions
+          ACTIVE
           {activePositions.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs">
+            <span className="ml-2 px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xl">
               {activePositions.length}
             </span>
           )}
@@ -159,7 +129,7 @@ export default function UserPositionsEnhanced({ userId }: UserPositionsEnhancedP
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
           }`}
         >
-          Previous Positions
+          PREVIOUS
           {previousPositions.length > 0 && (
             <span className="ml-2 px-2 py-0.5 rounded-full bg-[var(--border-color)] text-[var(--text-secondary)] text-xs">
               {previousPositions.length}

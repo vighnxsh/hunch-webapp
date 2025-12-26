@@ -448,6 +448,8 @@ export default function Profile() {
           tradesCount={tradesCount}
           username={getUserDisplayName()}
           walletAddress={walletAddress || undefined}
+          showBreakdown={false}
+          showStats={true}
         />
 
 

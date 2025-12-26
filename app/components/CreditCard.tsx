@@ -14,6 +14,8 @@ interface CreditCardProps {
   tradesCount: number;
   username?: string;
   walletAddress?: string;
+  showBreakdown?: boolean;
+  showStats?: boolean;
 }
 
 export default function CreditCard({
@@ -26,6 +28,8 @@ export default function CreditCard({
   tradesCount,
   username,
   walletAddress,
+  showBreakdown = true,
+  showStats = true,
 }: CreditCardProps) {
   const [flipped, setFlipped] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -36,6 +40,19 @@ export default function CreditCard({
       // This callback ensures the modal state is properly handled
     },
   });
+
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined || Number.isNaN(value)) return '—';
+    return value.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const solUsd = solBalance !== null && solPrice !== null ? solBalance * solPrice : null;
+  const usdcUsd = usdcBalance !== null ? usdcBalance : null;
+  const combinedUsd = (solUsd ?? 0) + (usdcUsd ?? 0);
 
   return (
     <div className="mb-6">
@@ -90,91 +107,130 @@ export default function CreditCard({
                 </span>
               </div>
 
-              {/* Middle Row - Token Balances */}
-              <div className="flex-1 flex flex-col justify-center items-start -mt-2">
-                <p className={`text-sm sm:text-sm font-medium tracking-wider uppercase mb-2 ${theme === 'light' ? 'text-black/80' : 'text-white/60'
-                  }`}>Balances</p>
+              {/* Middle Row - Balances */}
+              {showBreakdown ? (
+                <div className="flex-1 flex flex-col justify-center items-start -mt-2">
+                  <p className={`text-sm sm:text-sm font-medium tracking-wider uppercase mb-2 ${theme === 'light' ? 'text-black/80' : 'text-white/60'
+                    }`}>Balances</p>
 
-                {/* Token Grid */}
-                <div className="grid grid-cols-2 gap-4 w-full">
-                  {/* SOL Balance */}
-                  <div>
+                  {/* Combined USD */}
+                  <div className="mb-3">
                     <p className={`text-xs font-medium tracking-wide uppercase mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
-                      }`}>SOL</p>
+                      }`}>Total (USD)</p>
                     {loading ? (
-                      <div className={`h-6 w-20 rounded animate-pulse ${theme === 'light' ? 'bg-gray-300/50' : 'bg-white/20'
+                      <div className={`h-7 w-28 rounded animate-pulse ${theme === 'light' ? 'bg-gray-300/50' : 'bg-white/20'
                         }`} />
                     ) : error ? (
-                      <span className={`text-lg font-bold ${theme === 'light' ? 'text-gray-400' : 'text-black'
+                      <span className={`text-2xl font-extrabold tracking-tight ${theme === 'light' ? 'text-gray-400' : 'text-white'
                         }`}>--</span>
-                    ) : solBalance !== null ? (
-                      <>
-                        <p className={`text-xl font-extrabold tracking-tight ${theme === 'light' ? 'text-slate-900' : 'text-white'
-                          }`}>
-                          {solBalance.toFixed(3)}
-                        </p>
-                        {solPrice !== null && (
+                    ) : (
+                      <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${theme === 'light' ? 'text-slate-900' : 'text-white'
+                        }`}>
+                        {formatCurrency(combinedUsd)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Token Grid */}
+                  <div className="grid grid-cols-2 gap-4 w-full">
+                    {/* SOL Balance */}
+                    <div>
+                      <p className={`text-xs font-medium tracking-wide uppercase mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
+                        }`}>SOL</p>
+                      {loading ? (
+                        <div className={`h-6 w-20 rounded animate-pulse ${theme === 'light' ? 'bg-gray-300/50' : 'bg-white/20'
+                          }`} />
+                      ) : error ? (
+                        <span className={`text-lg font-bold ${theme === 'light' ? 'text-gray-400' : 'text-black'
+                          }`}>--</span>
+                      ) : solBalance !== null ? (
+                        <>
+                          <p className={`text-xl font-extrabold tracking-tight ${theme === 'light' ? 'text-slate-900' : 'text-white'
+                            }`}>
+                            {solBalance.toFixed(3)}
+                          </p>
+                          {solPrice !== null && (
+                            <p className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
+                              }`}>
+                              ${(solBalance * solPrice).toFixed(2)}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <span className={`text-lg font-bold ${theme === 'light' ? 'text-gray-700' : 'text-white/80'
+                          }`}>0.000</span>
+                      )}
+                    </div>
+
+                    {/* USDC Balance */}
+                    <div>
+                      <p className={`text-xs font-medium tracking-wide uppercase mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
+                        }`}>USDC</p>
+                      {loading ? (
+                        <div className={`h-6 w-20 rounded animate-pulse ${theme === 'light' ? 'bg-gray-300/50' : 'bg-white/20'
+                          }`} />
+                      ) : error ? (
+                        <span className={`text-lg font-bold ${theme === 'light' ? 'text-gray-400' : 'text-black'
+                          }`}>--</span>
+                      ) : usdcBalance !== null ? (
+                        <>
+                          <p className={`text-xl font-extrabold tracking-tight ${theme === 'light' ? 'text-slate-900' : 'text-white'
+                            }`}>
+                            {usdcBalance.toFixed(2)}
+                          </p>
                           <p className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
                             }`}>
-                            ${(solBalance * solPrice).toFixed(2)}
+                            ${usdcBalance.toFixed(2)}
                           </p>
-                        )}
-                      </>
-                    ) : (
-                      <span className={`text-lg font-bold ${theme === 'light' ? 'text-gray-700' : 'text-white/80'
-                        }`}>0.000</span>
-                    )}
-                  </div>
-
-                  {/* USDC Balance */}
-                  <div>
-                    <p className={`text-xs font-medium tracking-wide uppercase mb-1 ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
-                      }`}>USDC</p>
-                    {loading ? (
-                      <div className={`h-6 w-20 rounded animate-pulse ${theme === 'light' ? 'bg-gray-300/50' : 'bg-white/20'
-                        }`} />
-                    ) : error ? (
-                      <span className={`text-lg font-bold ${theme === 'light' ? 'text-gray-400' : 'text-black'
-                        }`}>--</span>
-                    ) : usdcBalance !== null ? (
-                      <>
-                        <p className={`text-xl font-extrabold tracking-tight ${theme === 'light' ? 'text-slate-900' : 'text-white'
-                          }`}>
-                          {usdcBalance.toFixed(2)}
-                        </p>
-                        <p className={`text-xs ${theme === 'light' ? 'text-gray-600' : 'text-white/50'
-                          }`}>
-                          ${usdcBalance.toFixed(2)}
-                        </p>
-                      </>
-                    ) : (
-                      <span className={`text-lg font-bold ${theme === 'light' ? 'text-gray-700' : 'text-white/80'
-                        }`}>0.00</span>
-                    )}
+                        </>
+                      ) : (
+                        <span className={`text-lg font-bold ${theme === 'light' ? 'text-gray-700' : 'text-white/80'
+                          }`}>0.00</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex-1 flex flex-col justify-center items-start -mt-2">
+                  <p className={`text-sm sm:text-sm font-medium tracking-wider uppercase mb-2 ${theme === 'light' ? 'text-black/80' : 'text-white/60'
+                    }`}>Cash Balance</p>
+                  {loading ? (
+                    <div className={`h-8 w-32 rounded animate-pulse ${theme === 'light' ? 'bg-gray-300/50' : 'bg-white/20'
+                      }`} />
+                  ) : error ? (
+                    <span className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${theme === 'light' ? 'text-gray-400' : 'text-white'
+                      }`}>--</span>
+                  ) : (
+                    <span className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${theme === 'light' ? 'text-slate-900' : 'text-white'
+                      }`}>
+                      {formatCurrency(combinedUsd)}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Bottom Row - Stats */}
-              <div className="flex items-end justify-between">
-                {/* Total Trades */}
-                <div>
-                  <p className={`text-[10px] sm:text-xs font-medium tracking-wider uppercase mb-0.5 ${theme === 'light' ? 'text-gray-700' : 'text-white/90'
-                    }`}>Total Bets</p>
-                  <span className={`font-semibold text-base sm:text-xl ${theme === 'light' ? 'text-gray-700' : 'text-white'
-                    }`}>{tradesCount}</span>
-                </div>
+              {showStats && (
+                <div className="flex items-end justify-between">
+                  {/* Total Trades */}
+                  <div>
+                    <p className={`text-[10px] sm:text-xs font-medium tracking-wider uppercase mb-0.5 ${theme === 'light' ? 'text-gray-700' : 'text-white/90'
+                      }`}>Total Betssss</p>
+                    <span className={`font-semibold text-base sm:text-xl ${theme === 'light' ? 'text-gray-700' : 'text-white'
+                      }`}>{tradesCount}</span>
+                  </div>
 
-                {/* PnL */}
-                <div className="text-right">
-                  <p className={`text-sm sm:text-lg font-medium tracking-wider uppercase mb-0.5 ${theme === 'light' ? 'text-gray-700' : 'text-white/60'
-                    }`}>P&L</p>
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span className={`text-lg sm:text-2xl font-bold ${theme === 'light' ? 'text-gray-500' : 'text-white/60'
-                      }`}>--</span>
+                  {/* PnL */}
+                  <div className="text-right">
+                    <p className={`text-sm sm:text-lg font-medium tracking-wider uppercase mb-0.5 ${theme === 'light' ? 'text-gray-700' : 'text-white/60'
+                      }`}>P&L</p>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span className={`text-lg sm:text-2xl font-bold ${theme === 'light' ? 'text-gray-500' : 'text-white/60'
+                        }`}>--</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Texture Overlay */}

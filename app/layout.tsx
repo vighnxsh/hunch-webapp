@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { PrivyAuthProvider } from "./components/PrivyProvider";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -9,10 +10,12 @@ import Navbar from "./components/Navbar";
 import BottomNavbar from "./components/BottomNavbar";
 import LayoutContent from "./components/LayoutContent";
 
-const inter = Inter({
+const robotoRound = localFont({
+  src: "../public/fonts/Roboto-Round-Regular.ttf",
   variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400",
+  style: "normal",
+  display: "swap",
 });
 
 const spaceGrotesk = Space_Grotesk({
@@ -70,8 +73,8 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
-        style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}
+        className={`${robotoRound.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
+        style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
       >
         <ThemeProvider>
           <PrivyAuthProvider>

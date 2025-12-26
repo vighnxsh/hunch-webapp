@@ -67,7 +67,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
+    <div
+      className="min-h-screen bg-[var(--background)]"
+      style={{ fontFamily: 'var(--font-inter)' }}
+    >
       {/* Top Right Settings Button */}
       <div className="fixed top-4 right-4 z-50" ref={settingsRef}>
         <button

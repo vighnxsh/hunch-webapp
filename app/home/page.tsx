@@ -4,6 +4,7 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useCreateWallet } from '@privy-io/react-auth/solana';
 import { useEffect, useState } from 'react';
 import EventsList from '../components/EventsList';
+import MarketRail from '../components/MarketRail';
 
 export default function HomePage() {
   const { ready, authenticated, user } = usePrivy();
@@ -136,8 +137,8 @@ export default function HomePage() {
       {/* Wallet Creation Banner - Non-blocking, only for authenticated users */}
       {authenticated && (walletCreating || walletError) && (
         <div className={`sticky top-0 z-40 border-b ${walletError
-            ? 'bg-red-500/10 border-red-500/30'
-            : 'bg-cyan-500/10 border-cyan-500/30'
+          ? 'bg-red-500/10 border-red-500/30'
+          : 'bg-cyan-500/10 border-cyan-500/30'
           }`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center justify-between">
@@ -180,8 +181,8 @@ export default function HomePage() {
                   setWalletError(null);
                 }}
                 className={`text-sm transition-colors ${walletError
-                    ? 'text-red-400 hover:text-red-300'
-                    : 'text-cyan-400 hover:text-cyan-300'
+                  ? 'text-red-400 hover:text-red-300'
+                  : 'text-cyan-400 hover:text-cyan-300'
                   }`}
               >
                 Dismiss
@@ -191,7 +192,8 @@ export default function HomePage() {
         </div>
       )}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
-        <EventsList />
+        {/* EventsList with MarketRail inserted below filters */}
+        <EventsList renderBelowFilters={<MarketRail />} />
       </main>
     </div>
   );

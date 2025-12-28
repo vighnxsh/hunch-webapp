@@ -6,9 +6,11 @@ import { PrivyAuthProvider } from "./components/PrivyProvider";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./components/AuthContext";
 import { AppDataProvider } from "./contexts/AppDataContext";
+import { CatProvider } from "./contexts/CatContext";
 import Navbar from "./components/Navbar";
 import BottomNavbar from "./components/BottomNavbar";
 import LayoutContent from "./components/LayoutContent";
+import PeekCat from "./components/PeekCat";
 
 const robotoRound = localFont({
   src: "../public/fonts/Roboto-Round-Regular.ttf",
@@ -79,11 +81,14 @@ export default function RootLayout({
         <ThemeProvider>
           <PrivyAuthProvider>
             <AuthProvider>
-                <AppDataProvider>
+              <AppDataProvider>
+                <CatProvider>
                   <Navbar />
                   <LayoutContent>{children}</LayoutContent>
                   <BottomNavbar />
-                </AppDataProvider>
+                  <PeekCat />
+                </CatProvider>
+              </AppDataProvider>
             </AuthProvider>
           </PrivyAuthProvider>
         </ThemeProvider>

@@ -33,36 +33,43 @@
   --font-jetbrains-mono: 'JetBrains Mono', monospace;
   --font-bbh-hegarty: 'Inter', system-ui, sans-serif;
   --font-winky-sans: 'Inter', system-ui, sans-serif;
-  
-  /* Default: Dark theme */
-  --background: #000000;
+
+  /* Default: Dark theme - Hunch Premium */
+  --background: #0D0D0F;
   --foreground: #f5f7fb;
-  --card-bg: #0b0b0f;
-  --card-border: rgba(255, 255, 255, 0.06);
-  --surface: #0a0a0d;
-  --surface-hover: #111116;
-  --muted: #8a8d96;
-  --muted-foreground: #c4c7d0;
-  --accent: #7cff2b;
-  --accent-light: #a6ff6f;
-  --accent-fuchsia: #9ffd63;
-  --success: #6fe035;
-  --danger: #ff5c5c;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --text-primary: #f5f7fb;
-  --text-secondary: #c4c7d0;
-  --text-tertiary: #8a8d96;
-  --nav-bg: rgba(0, 0, 0, 0.92);
-  --dropdown-bg: #0a0a0d;
-  --input-bg: #0f0f14;
-  --shimmer-1: rgba(255, 255, 255, 0.04);
-  --shimmer-2: rgba(124, 255, 43, 0.12);
+  --card-bg: #111114;
+  --card-border: rgba(255, 255, 255, 0.05);
+  --surface: #0E0E11;
+  --surface-hover: #151518;
+  --muted: #6B6D75;
+  --muted-foreground: #A1A3AB;
+  --accent: #67E8F9;
+  --accent-light: #A5F3FC;
+  --accent-fuchsia: #E879F9;
+  --accent-yes: #5EEAD4;
+  --accent-no: #F0ABFC;
+  --success: #34D399;
+  --danger: #F87171;
+  --border-color: rgba(255, 255, 255, 0.06);
+  --text-primary: #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --text-tertiary: #71717A;
+  --nav-bg: rgba(13, 13, 15, 0.95);
+  --dropdown-bg: #111114;
+  --input-bg: #18181B;
+  --shimmer-1: rgba(255, 255, 255, 0.03);
+  --shimmer-2: rgba(103, 232, 249, 0.08);
   --glass-bg: rgba(255, 255, 255, 0.02);
-  --selection-bg: rgba(124, 255, 43, 0.25);
-  --selection-color: #0c0c10;
-  --scrollbar-track: rgba(255, 255, 255, 0.04);
-  --scrollbar-thumb: rgba(124, 255, 43, 0.35);
-  --scrollbar-thumb-hover: rgba(124, 255, 43, 0.55);
+  --selection-bg: rgba(94, 234, 212, 0.2);
+  --selection-color: #0D0D0F;
+  --scrollbar-track: rgba(255, 255, 255, 0.03);
+  --scrollbar-thumb: rgba(103, 232, 249, 0.25);
+  --scrollbar-thumb-hover: rgba(103, 232, 249, 0.4);
+
+  /* Glow effects - ultra subtle (≤8% opacity) */
+  --glow-cyan: rgba(103, 232, 249, 0.08);
+  --glow-magenta: rgba(232, 121, 249, 0.08);
+  --glow-cyan-strong: rgba(103, 232, 249, 0.15);
 }
 
 [data-theme="light"] {
@@ -389,6 +396,151 @@ textarea {
 
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
+}
+
+/* Breathing animation for Instinct Pills */
+@keyframes breathing {
+
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 var(--glow-cyan);
+  }
+
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px 4px var(--glow-cyan);
+  }
+}
+
+.animate-breathing {
+  animation: breathing 3s ease-in-out infinite;
+}
+
+.animate-breathing-magenta {
+  animation: breathing 3s ease-in-out infinite;
+  --glow-cyan: var(--glow-magenta);
+}
+
+/* Peek-in animation for cat micro-interaction */
+@keyframes peek-in {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  80% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.9);
+  }
+}
+
+.animate-peek-in {
+  animation: peek-in 2s ease-out forwards;
+}
+
+/* Tail-flick hover shadow for cards */
+.tail-flick-shadow {
+  position: relative;
+}
+
+.tail-flick-shadow::after {
+  content: '';
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  width: 50px;
+  height: 8px;
+  background: radial-gradient(ellipse, var(--glow-cyan) 0%, transparent 70%);
+  border-radius: 50%;
+  opacity: 0;
+  transform: translateX(-15px) rotate(-5deg);
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.tail-flick-shadow:hover::after {
+  opacity: 1;
+  transform: translateX(0) rotate(0deg);
+}
+
+/* Subtle card hover lift with glow */
+.card-hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px -8px var(--glow-cyan), 0 4px 16px -4px rgba(0, 0, 0, 0.4);
+}
+
+/* Instinct pill button styles */
+.instinct-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.instinct-pill-yes {
+  background: linear-gradient(135deg, #5EEAD4 0%, #67E8F9 100%);
+  color: #0D0D0F;
+}
+
+.instinct-pill-yes:hover {
+  background: linear-gradient(135deg, #5EEAD4 0%, #A5F3FC 100%);
+  box-shadow: 0 0 24px var(--glow-cyan-strong);
+}
+
+.instinct-pill-no {
+  background: linear-gradient(135deg, #E879F9 0%, #F0ABFC 100%);
+  color: #0D0D0F;
+}
+
+.instinct-pill-no:hover {
+  background: linear-gradient(135deg, #D946EF 0%, #F0ABFC 100%);
+  box-shadow: 0 0 24px rgba(232, 121, 249, 0.15);
+}
+
+.instinct-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  animation: none;
+}
+
+/* Avatar stack styles */
+.avatar-stack {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.avatar-stack>* {
+  margin-left: -8px;
+  border: 2px solid var(--background);
+  border-radius: 9999px;
+}
+
+.avatar-stack>*:last-child {
+  margin-left: 0;
 }
 
 /* BBH Sans Hegarty font */

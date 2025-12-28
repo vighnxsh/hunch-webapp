@@ -215,7 +215,7 @@ export default function CreditCard({
                   {/* Total Trades */}
                   <div>
                     <p className={`text-[10px] sm:text-xs font-medium tracking-wider uppercase mb-0.5 ${theme === 'light' ? 'text-gray-700' : 'text-white/90'
-                      }`}>Total Betssss</p>
+                      }`}>Total Bets</p>
                     <span className={`font-semibold text-base sm:text-xl ${theme === 'light' ? 'text-gray-700' : 'text-white'
                       }`}>{tradesCount}</span>
                   </div>

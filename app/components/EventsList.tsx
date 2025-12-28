@@ -91,12 +91,13 @@ function EventCard({
 
   return (
     <div
+      id={`event-${event.ticker}`}
       onClick={onClick}
-      className="group relative flex flex-col gap-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-3xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      className="group relative flex flex-col gap-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-3xl p-4 cursor-pointer transition-all duration-300 card-hover-lift tail-flick-shadow"
     >
       {/* Header (image + title) – always visible */}
       <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex-shrink-0">
+        <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent-light)]/20 flex-shrink-0">
           {event.imageUrl ? (
             <img
               src={event.imageUrl}
@@ -110,7 +111,7 @@ function EventCard({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-[var(--text-primary)] leading-snug text-xl sm:text-xl group-hover:text-cyan-500 transition-colors line-clamp-2">
+          <h3 className="font-semibold text-[var(--text-primary)] leading-snug text-xl sm:text-xl group-hover:text-[var(--accent)] transition-colors line-clamp-2">
             {event.title || 'Untitled Event'}
           </h3>
         </div>
@@ -182,13 +183,13 @@ function EventCard({
                       <>
                         <button
                           onClick={(e) => handleMarketButtonClick(e, market, 'yes', key)}
-                          className="font-semibold px-3 py-1 text-md rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-300 text-black hover:bg-cyan-300 transition-colors shadow-sm"
+                          className="font-semibold px-3 py-1.5 text-sm rounded-full bg-gradient-to-r from-[#5EEAD4] to-[#67E8F9] text-[#0D0D0F] hover:shadow-[0_0_16px_var(--glow-cyan)] transition-all"
                         >
                           Yes
                         </button>
                         <button
                           onClick={(e) => handleMarketButtonClick(e, market, 'no', key)}
-                          className="text-md font-semibold px-3 py-1 rounded-xl bg-gradient-to-br from-pink-500 to-pink-400 text-white hover:bg-pink-400 transition-colors shadow-sm"
+                          className="font-semibold px-3 py-1.5 text-sm rounded-full bg-gradient-to-r from-[#E879F9] to-[#F0ABFC] text-[#0D0D0F] hover:shadow-[0_0_16px_var(--glow-magenta)] transition-all"
                         >
                           No
                         </button>
@@ -350,7 +351,7 @@ function EventCard({
 }
 
 
-export default function EventsList() {
+export default function EventsList({ renderBelowFilters }: { renderBelowFilters?: React.ReactNode }) {
   const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
@@ -622,6 +623,9 @@ export default function EventsList() {
           );
         })}
       </div>
+
+      {/* Slot for content below filters (e.g., MarketRail) */}
+      {renderBelowFilters}
 
       {/* Events Grid - 1 col mobile, 2 cols tablet, 3 cols desktop */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

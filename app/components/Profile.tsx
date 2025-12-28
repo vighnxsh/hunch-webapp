@@ -306,11 +306,21 @@ export default function Profile() {
         {/* User Info Section */}
         <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
           <div className="flex items-start gap-4">
-            <img
-              src={getUserAvatar()}
-              alt="Profile"
-              className="w-16 h-16 rounded-full border-2 border-cyan-500/30"
-            />
+            <div className="relative">
+              <img
+                src={getUserAvatar()}
+                alt="Profile"
+                className="w-16 h-16 rounded-full border-2 border-[var(--accent)]/40 shadow-[0_0_20px_var(--glow-cyan)]"
+              />
+              {/* Instinct badge - subtle indicator */}
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--accent)] flex items-center justify-center" title="Sharp nose">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#0D0D0F">
+                  <ellipse cx="12" cy="14" rx="4" ry="3" />
+                  <circle cx="8" cy="8" r="2" />
+                  <circle cx="16" cy="8" r="2" />
+                </svg>
+              </div>
+            </div>
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
                 {getUserDisplayName()}
@@ -327,7 +337,7 @@ export default function Profile() {
                   }}
                   className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
                 >
-                  <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{followersCount}</span>
+                  <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors font-number">{followersCount}</span>
                   <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Followers</span>
                 </button>
                 <button
@@ -337,8 +347,8 @@ export default function Profile() {
                   }}
                   className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
                 >
-                  <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors font-number">{followingCount}</span>
-                  <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Following</span>
+                  <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors font-number">{followingCount}</span>
+                  <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Lurking</span>
                 </button>
               </div>
             </div>

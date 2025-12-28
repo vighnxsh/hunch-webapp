@@ -451,3 +451,57 @@ export async function fetchMarketDetails(ticker: string): Promise<Market> {
   );
 }
 
+export interface Candlestick {
+  end_period_ts: number;
+  open_interest: number;
+  volume: number;
+  price: {
+    close: number | null;
+    previous_dollars: string;
+  };
+}
+
+export interface EventCandlesticksResponse {
+  adjusted_end_ts: number;
+  market_candlesticks: Candlestick[][];
+  market_tickers: string[];
+}
+
+export async function fetchEventCandlesticks(
+  eventTicker: string,
+  options?: {
+    startTs?: number;
+    endTs?: number;
+    periodInterval?: number;
+  }
+): Promise<EventCandlesticksResponse> {
+  const queryParams = new URLSearchParams();
+  if (options?.startTs) queryParams.append("startTs", options.startTs.toString());
+  if (options?.endTs) queryParams.append("endTs", options.endTs.toString());
+  if (options?.periodInterval) queryParams.append("periodInterval", options.periodInterval.toString());
+
+  try {
+    const response = await fetch(
+      `${METADATA_API_BASE_URL}/api/v1/event/${encodeURIComponent(eventTicker)}/candlesticks?${queryParams.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch candlesticks for ${eventTicker}: ${response.status}`);
+      return { adjusted_end_ts: 0, market_candlesticks: [], market_tickers: [] };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching candlesticks for ${eventTicker}:`, error);
+    return { adjusted_end_ts: 0, market_candlesticks: [], market_tickers: [] };
+  }
+}
+
+

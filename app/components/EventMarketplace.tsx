@@ -47,7 +47,7 @@ function EventCard({ event, onClick }: EventCardProps) {
     return (
         <div
             onClick={onClick}
-            className="group relative flex-shrink-0 w-[280px] sm:w-[300px] bg-gradient-to-b from-[var(--surface)] to-[var(--surface-hover)]/50 border border-[var(--border-color)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-cyan-500/40 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1"
+            className="group relative flex-shrink-0 w-[280px] sm:w-[300px] bg-gradient-to-b from-[var(--surface)] to-[var(--surface-hover)]/50 border border-[var(--border-color)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-[var(--accent)]/30 card-hover-lift tail-flick-shadow"
         >
             {/* Event Image */}
             <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-cyan-500/20 to-teal-500/20">
@@ -77,7 +77,7 @@ function EventCard({ event, onClick }: EventCardProps) {
 
             <div className="p-4 space-y-3">
                 {/* Title */}
-                <h3 className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight line-clamp-2 group-hover:text-cyan-400 transition-colors">
+                <h3 className="font-semibold text-[var(--text-primary)] text-[15px] leading-tight line-clamp-2 group-hover:text-[var(--accent)] transition-colors">
                     {event.title || 'Untitled Event'}
                 </h3>
 
@@ -99,10 +99,10 @@ function EventCard({ event, onClick }: EventCardProps) {
                             </span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-bold text-cyan-400">
+                            <span className="text-sm font-bold text-[var(--accent)]">
                                 {formatPercent(hotMarket.yesBid)}
                             </span>
-                            <span className="text-[10px] px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded font-semibold">
+                            <span className="text-[10px] px-1.5 py-0.5 bg-[var(--accent)]/20 text-[var(--accent)] rounded font-semibold">
                                 YES
                             </span>
                         </div>
@@ -111,8 +111,8 @@ function EventCard({ event, onClick }: EventCardProps) {
 
                 {/* CTA */}
                 <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs text-cyan-400 font-medium group-hover:text-cyan-300 transition-colors">
-                        View Markets →
+                    <span className="text-xs text-[var(--accent)] font-medium group-hover:text-[var(--accent-light)] transition-colors">
+                        Hunt Markets →
                     </span>
                 </div>
             </div>
@@ -196,11 +196,11 @@ export default function EventMarketplace() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                         </svg>
                     </div>
-                    <h2 className="text-lg font-bold text-[var(--text-primary)]">Trending Markets</h2>
+                    <h2 className="text-lg font-bold text-[var(--text-primary)]">Stalking</h2>
                 </div>
                 <button
                     onClick={() => router.push('/home')}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+                    className="text-xs text-[var(--accent)] hover:text-[var(--accent-light)] font-medium transition-colors"
                 >
                     View All →
                 </button>

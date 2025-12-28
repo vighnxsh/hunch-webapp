@@ -11,6 +11,7 @@ import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/t
 import TradeQuoteModal from './TradeQuoteModal';
 import { useAuth } from './AuthContext';
 import { useAppData } from '../contexts/AppDataContext';
+import { useCatSafe } from '../contexts/CatContext';
 
 interface TradeMarketProps {
   market: Market;
@@ -22,13 +23,14 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
   const { wallets } = useWallets();
   const { signTransaction } = useSignTransaction();
   const { currentUserId } = useAppData(); // Get userId from context
-  
+
   // Create Solana connection for sending transactions
   const connection = new Connection(
     process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com',
     'confirmed'
   );
   const { requireAuth } = useAuth();
+  const catContext = useCatSafe();
   const [side, setSide] = useState<'yes' | 'no'>(initialSide);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -53,13 +55,13 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
   // Calculate "to win" amount based on market price
   const calculateToWin = (): string | null => {
     if (!amount || parseFloat(amount) <= 0) return null;
-    
-    const price = side === 'yes' 
+
+    const price = side === 'yes'
       ? (market.yesAsk ? parseFloat(market.yesAsk) : null)
       : (market.noAsk ? parseFloat(market.noAsk) : null);
-    
+
     if (!price || price <= 0) return null;
-    
+
     const toWin = parseFloat(amount) / price;
     return toWin.toFixed(2);
   };
@@ -104,7 +106,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
         const mint = type === 'yes' ? usdcAccount.yesMint : usdcAccount.noMint;
         if (mint) return mint;
       }
-      
+
       const accountKeys = Object.keys(market.accounts);
       for (const key of accountKeys) {
         const account = (market.accounts as any)[key];
@@ -114,7 +116,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
         }
       }
     }
-    
+
     const mint = type === 'yes' ? market.yesMint : market.noMint;
     return mint;
   };
@@ -193,7 +195,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
 
       // Decode the transaction from base64 to Uint8Array
       const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
-      
+
       // Sign the transaction using Privy
       const signResult = await signTransaction({
         transaction: transactionBytes,
@@ -213,7 +215,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
 
       // Create VersionedTransaction from signed bytes and send it
       const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
-      
+
       // Send the signed transaction to the network
       const signature = await connection.sendTransaction(signedTransaction, {
         skipPreflight: true, // Skip simulation for DFlow transactions
@@ -230,37 +232,37 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       const maxAttempts = 30;
       let attempts = 0;
       let confirmationStatus;
-      
+
       // Wait for transaction to be confirmed (at least confirmed status)
       while (attempts < maxAttempts) {
         const statusResult = await connection.getSignatureStatuses([signatureString]);
         confirmationStatus = statusResult.value[0];
-        
+
         // Check if transaction failed
         if (confirmationStatus?.err) {
           throw new Error(`Transaction failed: ${JSON.stringify(confirmationStatus.err)}`);
         }
-        
+
         // If confirmed or finalized, we're done
-        if (confirmationStatus && 
-            (confirmationStatus.confirmationStatus === 'confirmed' ||
-             confirmationStatus.confirmationStatus === 'finalized')) {
+        if (confirmationStatus &&
+          (confirmationStatus.confirmationStatus === 'confirmed' ||
+            confirmationStatus.confirmationStatus === 'finalized')) {
           break;
         }
-        
+
         // Otherwise wait and retry
         await new Promise((resolve) => setTimeout(resolve, 1000));
         attempts++;
       }
-      
+
       if (attempts >= maxAttempts) {
         throw new Error('Transaction confirmation timeout - transaction may still be processing');
       }
 
       // Only proceed if transaction is confirmed
-      if (!confirmationStatus || 
-          (confirmationStatus.confirmationStatus !== 'confirmed' && 
-           confirmationStatus.confirmationStatus !== 'finalized')) {
+      if (!confirmationStatus ||
+        (confirmationStatus.confirmationStatus !== 'confirmed' &&
+          confirmationStatus.confirmationStatus !== 'finalized')) {
         throw new Error('Transaction not confirmed');
       }
 
@@ -301,10 +303,10 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       // entryPrice = (inAmount USDC) / (outAmount outcomeTokens)
       // Fallback to request amount if response doesn't include inAmount
       const spentUsdc =
-        orderResponse.inAmount 
-          ? Number(orderResponse.inAmount) / 1_000_000 
+        orderResponse.inAmount
+          ? Number(orderResponse.inAmount) / 1_000_000
           : Number(amountInSmallestUnit) / 1_000_000;
-          
+
       const receivedTokens =
         orderResponse.outAmount ? Number(orderResponse.outAmount) / 1_000_000 : null;
 
@@ -343,6 +345,10 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
 
       console.log('📝 Pending trade payload (will store after quote modal):', tradePayload);
       setPendingTradePayload(tradePayload);
+      // Trigger peek cat on successful trade
+      if (catContext) {
+        catContext.triggerPeekCat('Good hunch.');
+      }
       setStatus('✅ Trade executed successfully! Add a comment or skip.');
       setLoading(false);
       setShowQuoteModal(true);
@@ -350,7 +356,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
     } catch (error: any) {
       // Enhanced error handling for transaction failures
       let errorMessage = error.message || 'Unknown error occurred';
-      
+
       // Check for specific Solana errors
       if (error.message?.includes('Transaction simulation failed')) {
         errorMessage = 'Transaction simulation failed. This may be due to insufficient balance, expired blockhash, or invalid transaction. Please try again.';
@@ -359,7 +365,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       } else if (error.message?.includes('insufficient funds')) {
         errorMessage = 'Insufficient USDC balance. Please ensure you have enough USDC in your wallet.';
       }
-      
+
       setStatus(`❌ Error: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -374,7 +380,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
     const checkStatus = async () => {
       try {
         const statusResponse = await getOrderStatus(signature);
-        
+
         if (statusResponse.status === 'closed') {
           setStatus('✅ Trade executed successfully!');
           setShowQuoteModal(true);
@@ -458,20 +464,20 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
         <div className="space-y-4">
           {/* Side Selection */}
           <div>
-            
+
             {/* Probability Display */}
             {market.status === 'active' && !probabilities.loading &&
               (probabilities.yesProbability !== null || probabilities.noProbability !== null) && (
                 <div className="flex gap-2 mb-2">
                   <div className="flex-1 text-center">
-                    <div className="text-lg font-bold text-cyan-400 font-number">
+                    <div className="text-lg font-bold text-[var(--accent)] font-number">
                       {probabilities.yesProbability !== null
                         ? `${probabilities.yesProbability}%`
                         : '--'}
                     </div>
                   </div>
                   <div className="flex-1 text-center">
-                    <div className="text-lg font-bold text-pink-400 font-number">
+                    <div className="text-lg font-bold text-[var(--accent-fuchsia)] font-number">
                       {probabilities.noProbability !== null
                         ? `${probabilities.noProbability}%`
                         : '--'}
@@ -488,8 +494,8 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
             <div className="flex gap-2">
               <button
                 onClick={() => setSide('yes')}
-                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${side === 'yes'
-                  ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                className={`flex-1 px-4 py-3 rounded-full font-semibold transition-all duration-200 ${side === 'yes'
+                  ? 'bg-gradient-to-r from-[#5EEAD4] to-[#67E8F9] text-[#0D0D0F] shadow-[0_0_20px_var(--glow-cyan)]'
                   : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
                   }`}
               >
@@ -497,8 +503,8 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               </button>
               <button
                 onClick={() => setSide('no')}
-                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${side === 'no'
-                  ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/25'
+                className={`flex-1 px-4 py-3 rounded-full font-semibold transition-all duration-200 ${side === 'no'
+                  ? 'bg-gradient-to-r from-[#E879F9] to-[#F0ABFC] text-[#0D0D0F] shadow-[0_0_20px_var(--glow-magenta)]'
                   : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
                   }`}
               >
@@ -522,7 +528,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               disabled={loading}
               className="w-full px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 transition-all font-number"
             />
-            
+
             {/* To Win Display */}
             {toWinAmount && (
               <div className="mt-2 flex items-center justify-between animate-fadeIn">
@@ -542,7 +548,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               </p>
             </div>
           )}
-          
+
           <button
             onClick={handlePlaceOrder}
             disabled={loading || !amount || parseFloat(amount) <= 0}

@@ -7,6 +7,7 @@ import { fetchEvents, Event, Market } from '../lib/api';
 import { useCatSafe } from '../contexts/CatContext';
 import TradeMarket from './TradeMarket';
 import EventMotionGraph from './EventMotionGraph';
+import OrderModal from './OrderModal';
 
 // Format helpers
 const formatPercent = (value?: string | number) => {
@@ -110,16 +111,16 @@ function MarketRailCard({
 
         // Cat-themed, observational signals
         const signals = [
-        '🐾 Activity picked up after the move',
-        '🐾 Most interest came later',
-        '🐾 Early participation was limited',
-        '🐾 Late entries increased quickly',
-        '🐾 Quiet until recent movement',
-        '🐾 Some followed after odds shifted',
-        '🐾 Activity clustered in a short window',
-        '🐾 Few acted before the change',
-        `🐾 ${smallNum} entered early`,
-        '🐾 Gradual interest before movement',
+            '🐾 Activity picked up after the move',
+            '🐾 Most interest came later',
+            '🐾 Early participation was limited',
+            '🐾 Late entries increased quickly',
+            '🐾 Quiet until recent movement',
+            '🐾 Some followed after odds shifted',
+            '🐾 Activity clustered in a short window',
+            '🐾 Few acted before the change',
+            `🐾 ${smallNum} entered early`,
+            '🐾 Gradual interest before movement',
         ];
 
         return signals[signalIndex];
@@ -485,61 +486,15 @@ export default function MarketRail() {
                 onSelect={setCurrentIndex}
             />
 
-            {/* Trade Modal */}
-            <AnimatePresence>
-                {tradeModalOpen && selectedMarket && currentMarket && (
-                    <motion.div
-                        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setTradeModalOpen(false)}
-                    >
-                        <motion.div
-                            className="w-full max-w-md max-h-[85vh] bg-[var(--card-bg)] rounded-t-3xl sm:rounded-3xl border border-[var(--border-color)] shadow-2xl overflow-hidden"
-                            initial={{ y: '100%' }}
-                            animate={{ y: 0 }}
-                            exit={{ y: '100%' }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {/* Modal header */}
-                            <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
-                                <div className="flex items-center gap-3">
-                                    {currentMarket.event.imageUrl && (
-                                        <div className="w-10 h-10 rounded-xl overflow-hidden">
-                                            <img
-                                                src={currentMarket.event.imageUrl}
-                                                alt={currentMarket.event.title}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                                            {currentMarket.event.title}
-                                        </p>
-                                        <p className="text-xs text-[var(--text-tertiary)] truncate">
-                                            {selectedMarket.yesSubTitle || selectedMarket.title}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setTradeModalOpen(false)}
-                                    className="w-8 h-8 rounded-full bg-[var(--surface-hover)] flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-
-                            {/* Trade component */}
-                            <div className="p-4 overflow-y-auto max-h-[60vh]">
-                                <TradeMarket market={selectedMarket} initialSide="yes" />
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Order Modal - CatGuide Pill Choice Flow */}
+            {selectedMarket && currentMarket && (
+                <OrderModal
+                    isOpen={tradeModalOpen}
+                    onClose={() => setTradeModalOpen(false)}
+                    market={selectedMarket}
+                    event={currentMarket.event}
+                />
+            )}
         </div>
     );
 }

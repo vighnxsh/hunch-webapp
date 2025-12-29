@@ -4,7 +4,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { fetchEvents, fetchTagsByCategories, Event, TagsByCategories, Market } from '../lib/api';
-import TradeMarket from './TradeMarket';
+import OrderModal from './OrderModal';
+// ===== DEMO DATA IMPORT - REMOVE WHEN API IS BACK =====
+import { USE_DEMO_DATA, DEMO_EVENTS } from '../lib/demoData';
+// ======================================================
 
 // Topic filters with gradient colors
 const TOPIC_FILTERS = [
@@ -423,6 +426,20 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
       try {
         setLoading(true);
         setError(null);
+
+        // ===== USE DEMO DATA IF ENABLED =====
+        if (USE_DEMO_DATA) {
+          console.log('🎭 Using demo data (API is down)');
+          const activeEvents = filterActiveEvents(DEMO_EVENTS);
+          setEvents(activeEvents);
+          setFilteredEvents(activeEvents);
+          setCursor(undefined);
+          setHasMore(false);
+          setLoading(false);
+          return;
+        }
+        // ====================================
+
         const response = await fetchEvents(EVENTS_PER_PAGE, {
           status: 'active',
           withNestedMarkets: true,
@@ -431,6 +448,10 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
         const activeEvents = filterActiveEvents(response.events || []);
         setEvents(activeEvents);
         setFilteredEvents(activeEvents);
+    // ===== DEMO MODE: NO PAGINATION =====
+    if (USE_DEMO_DATA) return;
+    // ====================================
+
         setCursor(response.cursor);
         setHasMore(!!response.cursor);
       } catch (err: any) {
@@ -572,6 +593,22 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
 
   return (
     <div className="space-y-4">
+      {/* ===== DEMO MODE BANNER - REMOVE WHEN API IS BACK ===== */}
+      {USE_DEMO_DATA && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 flex items-center gap-3">
+          <div className="flex-shrink-0 w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center">
+            <span className="text-2xl">🎭</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-yellow-300 font-semibold text-sm">Demo Mode Active</p>
+            <p className="text-yellow-300/70 text-xs mt-0.5">
+              API is down. Showing demo markets. To disable, set USE_DEMO_DATA = false in demoData.ts
+            </p>
+          </div>
+        </div>
+      )}
+      {/* ====================================================== */}
+
       {/* Desktop Search Bar (keeps desktop search accessible) */}
       <div className="hidden md:block">
         <div className="relative max-w-2xl">
@@ -751,78 +788,13 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
         </div>
       </motion.div>
 
-      {tradeModalMarket && (
-        <div
-          className={
-            isMobile
-              ? 'fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm px-0'
-              : 'fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4'
-          }
-          onClick={handleCloseTradeModal}
-        >
-          <div
-            className={
-              isMobile
-                ? 'w-full max-w-md max-h-[80vh] bg-black rounded-t-2xl shadow-2xl overflow-hidden animate-fadeIn flex flex-col mb-2'
-                : 'w-full max-w-lg bg-black border border-[var(--border-color)]/40 rounded-2xl shadow-2xl overflow-hidden animate-fadeIn'
-            }
-            style={isMobile ? { animation: 'slideUp 160ms ease-out' } : undefined}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start gap-3 p-4 border-b border-[var(--border-color)]/50">
-              {tradeModalEvent?.imageUrl ? (
-                <div className="w-12 h-12 rounded-xl overflow-hidden bg-[var(--surface-hover)] flex-shrink-0">
-                  <img
-                    src={tradeModalEvent.imageUrl}
-                    alt={tradeModalEvent.title || 'Event'}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl">📊</span>
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] uppercase tracking-wide text-[var(--text-tertiary)]">
-                  {tradeModalEvent?.title || 'Event'}
-                </p>
-                <p className="text-[12px] text-[var(--text-secondary)] line-clamp-2">
-                  {tradeModalEvent?.subtitle}
-                </p>
-                <h3 className="text-sm font-semibold text-[var(--text-primary)] leading-snug mt-2">
-                  {tradeModalMarket.yesSubTitle ||
-                    tradeModalMarket.noSubTitle ||
-                    tradeModalMarket.subtitle ||
-                    tradeModalMarket.title ||
-                    'Market Option'}
-                </h3>
-              </div>
-              <button
-                onClick={handleCloseTradeModal}
-                className="w-8 h-8 rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] flex items-center justify-center hover:bg-[var(--surface)] transition-colors"
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4 pb-20 overflow-y-auto">
-              <TradeMarket market={tradeModalMarket} initialSide={tradeModalSide} />
-            </div>
-          </div>
-          {isMobile && (
-            <style jsx>{`
-              @keyframes slideUp {
-                from {
-                  transform: translateY(100%);
-                }
-                to {
-                  transform: translateY(0);
-                }
-              }
-            `}</style>
-          )}
-        </div>
+      {tradeModalMarket && tradeModalEvent && (
+        <OrderModal
+          isOpen={true}
+          onClose={handleCloseTradeModal}
+          market={tradeModalMarket}
+          event={tradeModalEvent}
+        />
       )}
     </div>
   );

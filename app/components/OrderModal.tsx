@@ -34,7 +34,7 @@ function ReceiptCard({
 }: {
     event: Event;
     market: Market;
-    selectedSide: 'yes' | 'no';
+    selectedSide: 'yes' | 'no' | null;
     amount: string;
     setAmount: (val: string) => void;
     potentialReturn: string | null;
@@ -46,10 +46,10 @@ function ReceiptCard({
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (inputRef.current) {
+        if (selectedSide && inputRef.current) {
             inputRef.current.focus();
         }
-    }, []);
+    }, [selectedSide]);
 
     const isValidAmount = amount && parseFloat(amount) > 0;
     const buttonDisabled = loading || !isValidAmount;
@@ -60,82 +60,104 @@ function ReceiptCard({
             onClick={(e) => e.stopPropagation()}
         >
             <div className="p-4">
-                {/* Market & Event Info */}
-                <div className="text-center mb-3 pb-3 border-b border-dashed border-gray-200">
+                {/* Market & Event Info - Always visible */}
+                <div className="text-center pb-3 border-b border-dashed border-gray-200">
                     <p className="text-[9px] text-gray-400 font-medium uppercase tracking-wider mb-0.5">{event.title}</p>
                     <h3 className="text-xs font-bold text-gray-800 leading-tight line-clamp-2">{market.title}</h3>
                 </div>
 
-                {/* Amount Input - Compact */}
-                <div className="mb-3">
-                    <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg font-semibold">$</span>
-                        <input
-                            ref={inputRef}
-                            type="number"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                            disabled={loading}
-                            className="w-full pl-8 pr-3 py-3 border-2 border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-gray-400 focus:border-gray-500 disabled:opacity-50 transition-all font-mono text-xl font-bold"
-                        />
-                    </div>
-                </div>
-
-                {/* Potential Win - Compact */}
+                {/* Input Section - Only visible when side is selected */}
                 <AnimatePresence>
-                    {potentialReturn && (
+                    {selectedSide && (
                         <motion.div
-                            className="mb-3 px-3 py-2 bg-green-50 rounded-lg border border-green-200"
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
                         >
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-medium text-green-600">Potential win</span>
-                                <span className="text-base font-bold text-green-600 font-mono">${potentialReturn}</span>
+                            {/* Selected side indicator */}
+                            <div className="mt-3 mb-3 flex justify-center">
+                                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${selectedSide === 'yes'
+                                    ? 'bg-cyan-100 text-cyan-600'
+                                    : 'bg-pink-100 text-pink-600'
+                                    }`}>
+                                    Betting {selectedSide.toUpperCase()}
+                                </span>
                             </div>
+
+                            {/* Amount Input */}
+                            <div className="mb-3">
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg font-semibold">$</span>
+                                    <input
+                                        ref={inputRef}
+                                        type="number"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        step="0.01"
+                                        min="0"
+                                        disabled={loading}
+                                        className="w-full pl-8 pr-3 py-3 border-2 border-gray-300 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-gray-400 focus:border-gray-500 disabled:opacity-50 transition-all font-mono text-xl font-bold"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Potential Win */}
+                            <AnimatePresence>
+                                {potentialReturn && (
+                                    <motion.div
+                                        className="mb-3 px-3 py-2 bg-green-50 rounded-lg border border-green-200"
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-medium text-green-600">Potential win</span>
+                                            <span className="text-base font-bold text-green-600 font-mono">${potentialReturn}</span>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Place Order Button */}
+                            <button
+                                onClick={onPlaceOrder}
+                                disabled={buttonDisabled}
+                                className={`
+                                    w-full py-3 rounded-xl font-bold text-sm transition-all duration-200 
+                                    ${buttonDisabled
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-gray-900 text-white hover:bg-black active:scale-[0.98]'
+                                    }
+                                `}
+                            >
+                                {loading
+                                    ? 'Placing...'
+                                    : !isValidAmount
+                                        ? 'Enter Amount'
+                                        : authenticated
+                                            ? 'Place Trade'
+                                            : 'Sign in'}
+                            </button>
+
+                            {/* Status Message */}
+                            <AnimatePresence>
+                                {status && (
+                                    <motion.p
+                                        className={`mt-2 text-xs text-center font-medium ${status.includes('✅') ? 'text-green-600'
+                                            : status.includes('❌') ? 'text-red-500'
+                                                : 'text-blue-500'
+                                            }`}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                    >
+                                        {status}
+                                    </motion.p>
+                                )}
+                            </AnimatePresence>
                         </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Place Order Button - Compact */}
-                <button
-                    onClick={onPlaceOrder}
-                    disabled={buttonDisabled}
-                    className={`
-                        w-full py-3 rounded-xl font-bold text-sm transition-all duration-200 
-                        ${buttonDisabled
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'bg-gray-900 text-white hover:bg-black active:scale-[0.98]'
-                        }
-                    `}
-                >
-                    {loading
-                        ? 'Placing...'
-                        : !isValidAmount
-                            ? 'Enter Amount'
-                            : authenticated
-                                ? 'Place Trade'
-                                : 'Sign in'}
-                </button>
-
-                {/* Status Message - Compact */}
-                <AnimatePresence>
-                    {status && (
-                        <motion.p
-                            className={`mt-2 text-xs text-center font-medium ${status.includes('✅') ? 'text-green-600'
-                                : status.includes('❌') ? 'text-red-500'
-                                    : 'text-blue-500'
-                                }`}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                        >
-                            {status}
-                        </motion.p>
                     )}
                 </AnimatePresence>
             </div>
@@ -498,7 +520,7 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                                             className="absolute pointer-events-auto group"
                                             style={{
                                                 bottom: 'calc(32% + 20px)',
-                                                left: 'calc(6% - 10px)',
+                                                left: 'calc(6% - 16px)',
                                             }}
                                             initial={{ opacity: 0, scale: 0 }}
                                             animate={{ opacity: 1, scale: 1 }}
@@ -530,7 +552,7 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                                             className="absolute pointer-events-auto group"
                                             style={{
                                                 bottom: 'calc(32% + 20px)',
-                                                right: 'calc(6% - 10px)',
+                                                right: 'calc(6% - 16px)',
                                             }}
                                             initial={{ opacity: 0, scale: 0 }}
                                             animate={{ opacity: 1, scale: 1 }}
@@ -559,31 +581,21 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                                 </div>
                             </div>
 
-                            {/* Receipt - Attached directly below cat with overlap */}
-                            <AnimatePresence>
-                                {selectedSide && (
-                                    <motion.div
-                                        className="w-full max-w-[320px] mx-auto -mt-12"
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                                    >
-                                        <ReceiptCard
-                                            event={event}
-                                            market={market}
-                                            selectedSide={selectedSide}
-                                            amount={amount}
-                                            setAmount={setAmount}
-                                            potentialReturn={potentialReturn}
-                                            onPlaceOrder={handlePlaceOrder}
-                                            loading={loading}
-                                            status={status}
-                                            authenticated={authenticated}
-                                        />
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                            {/* Receipt - Always visible, attached directly below cat */}
+                            <div className="w-full max-w-[320px] mx-auto -mt-12">
+                                <ReceiptCard
+                                    event={event}
+                                    market={market}
+                                    selectedSide={selectedSide}
+                                    amount={amount}
+                                    setAmount={setAmount}
+                                    potentialReturn={potentialReturn}
+                                    onPlaceOrder={handlePlaceOrder}
+                                    loading={loading}
+                                    status={status}
+                                    authenticated={authenticated}
+                                />
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}

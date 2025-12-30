@@ -335,7 +335,7 @@ export async function fetchEventsBySeries(
 export async function filterOutcomeMints(addresses: string[]): Promise<string[]> {
   try {
     console.log('filterOutcomeMints - Request:', JSON.stringify({ addresses }, null, 2));
-    
+
     const response = await fetch(
       `${METADATA_API_BASE_URL}/api/v1/filter_outcome_mints`,
       {
@@ -394,7 +394,7 @@ export async function fetchMarketByMint(mintAddress: string): Promise<Market> {
 export async function fetchMarketsBatch(mints: string[]): Promise<Market[]> {
   try {
     console.log('fetchMarketsBatch - Request:', JSON.stringify({ mints }, null, 2));
-    
+
     const response = await fetch(
       `${METADATA_API_BASE_URL}/api/v1/markets/batch`,
       {
@@ -504,4 +504,86 @@ export async function fetchEventCandlesticks(
   }
 }
 
+// Candlestick data by mint address
+export interface CandlestickData {
+  end_period_ts: number;
+  open_interest: number;
+  volume: number;
+  price: {
+    close: number | null;
+    close_dollars: string;
+    high: number | null;
+    high_dollars: string;
+    low: number | null;
+    low_dollars: string;
+    open: number | null;
+    open_dollars: string;
+    mean: number | null;
+    mean_dollars: string;
+    previous: number | null;
+    previous_dollars: string;
+  };
+  yes_ask: {
+    close: number | null;
+    close_dollars: string;
+    high: number | null;
+    high_dollars: string;
+    low: number | null;
+    low_dollars: string;
+    open: number | null;
+    open_dollars: string;
+  };
+  yes_bid: {
+    close: number | null;
+    close_dollars: string;
+    high: number | null;
+    high_dollars: string;
+    low: number | null;
+    low_dollars: string;
+    open: number | null;
+    open_dollars: string;
+  };
+}
 
+export interface CandlesticksByMintResponse {
+  candlesticks: CandlestickData[];
+  ticker: string;
+}
+
+/**
+ * Fetch candlestick data by mint address for social price charts
+ */
+export async function fetchCandlesticksByMint(
+  mintAddress: string,
+  options?: {
+    startTs?: number;
+    endTs?: number;
+    periodInterval?: number;
+  }
+): Promise<CandlesticksByMintResponse> {
+  const queryParams = new URLSearchParams();
+  if (options?.startTs) queryParams.append("startTs", options.startTs.toString());
+  if (options?.endTs) queryParams.append("endTs", options.endTs.toString());
+  if (options?.periodInterval) queryParams.append("periodInterval", options.periodInterval.toString());
+
+  try {
+    const url = `${METADATA_API_BASE_URL}/api/v1/market/by-mint/${mintAddress}/candlesticks${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch candlesticks for mint ${mintAddress}: ${response.status}`);
+      return { candlesticks: [], ticker: '' };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching candlesticks for mint ${mintAddress}:`, error);
+    return { candlesticks: [], ticker: '' };
+  }
+}

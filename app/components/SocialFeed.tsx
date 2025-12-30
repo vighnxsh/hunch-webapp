@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
@@ -8,6 +8,8 @@ import { formatMarketTitle } from '../lib/marketUtils';
 import { getCachedUserId, syncUserOnLogin, needsSync } from '../lib/authSync';
 import { fetchMarketDetails, fetchEventDetails, Market, EventDetails } from '../lib/api';
 import { useAppData } from '../contexts/AppDataContext';
+import FeedChartItem from './FeedChartItem';
+import { TradeEntry } from './SocialPriceChart';
 
 // Market data cache for feed items
 interface MarketData {
@@ -180,7 +182,7 @@ export default function SocialFeed() {
       // If authenticated and has userId, fetch personalized feed (following)
       // Otherwise, fetch global feed (all recent trades)
       let url = '/api/feed?limit=50';
-      
+
       if (authenticated && currentUserId) {
         url += `&userId=${currentUserId}&mode=following`;
       } else {
@@ -347,6 +349,40 @@ export default function SocialFeed() {
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
 
+  // Group trades by marketTicker for chart view
+  const groupedTradesByMarket = useMemo(() => {
+    const groups = new Map<string, TradeEntry[]>();
+
+    feedItems.forEach(item => {
+      const existing = groups.get(item.marketTicker) || [];
+      // Convert FeedItem to TradeEntry format
+      const tradeEntry: TradeEntry = {
+        id: item.id,
+        userId: item.userId,
+        side: item.side as 'yes' | 'no',
+        amount: item.amount,
+        createdAt: item.createdAt,
+        user: {
+          id: item.user.id,
+          displayName: item.user.displayName,
+          avatarUrl: item.user.avatarUrl,
+          walletAddress: item.user.walletAddress,
+        },
+      };
+      existing.push(tradeEntry);
+      groups.set(item.marketTicker, existing);
+    });
+
+    // Convert to array and sort by most recent trade
+    return Array.from(groups.entries())
+      .map(([marketTicker, trades]) => ({
+        marketTicker,
+        trades,
+        mostRecentTradeTime: Math.max(...trades.map(t => new Date(t.createdAt).getTime())),
+      }))
+      .sort((a, b) => b.mostRecentTradeTime - a.mostRecentTradeTime);
+  }, [feedItems]);
+
   if (!ready) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -359,7 +395,7 @@ export default function SocialFeed() {
   return (
     <div className="space-y-6">
       {/* Minimal Search Bar - Left aligned, Expandable - Hidden on mobile, only for authenticated users */}
-    
+
       {authenticated && <div className="hidden md:flex justify-center relative mb-4 z-50">
         <div className={`relative transition-all duration-300 ease-out ${isSearchFocused || searchQuery ? 'w-96' : 'w-72'}`}>
           {/* Search Icon */}
@@ -430,26 +466,21 @@ export default function SocialFeed() {
 
       {/* Feed Section */}
       <div>
-        <div className="hidden md:flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            {/* <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              </div> */}
-            </div>
+        {/* Header with Refresh */}
+        <div className="flex items-center justify-end mb-5">
+          {/* Refresh Button */}
           <button
             onClick={loadFeed}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-xs font-medium"
           >
             {loading ? (
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             )}
@@ -487,211 +518,119 @@ export default function SocialFeed() {
             </div>
             <p className="text-[var(--text-secondary)] text-lg mb-2">No trades yet</p>
             <p className="text-[var(--text-tertiary)] text-sm">
-              {authenticated 
+              {authenticated
                 ? 'Follow users to see their trades in your feed'
                 : 'Be the first to make a prediction!'}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[var(--border-color)]">
+          /* Chart View - Individual Trades */
+          <div className="space-y-4">
             {feedItems.map((item) => {
-              const displayName = item.user.displayName || truncateAddress(item.user.walletAddress);
-              const hasQuote = item.quote && item.quote.trim().length > 0;
-              const marketData = marketDataCache.get(item.marketTicker);
-              const isLoadingMarket = !marketData || marketData.loading;
-              const eventImage = marketData?.event?.imageUrl;
-              const marketTitle = marketData?.market?.title || formatMarketTitle('', item.marketTicker);
-              const eventTicker = marketData?.market?.eventTicker || item.eventTicker;
-
-              // Get market answer based on side (yesSubTitle for YES, noSubTitle for NO)
-              const marketAnswer = item.side === 'yes' 
-                ? marketData?.market?.yesSubTitle 
-                : marketData?.market?.noSubTitle;
-
-              // Calculate probability from yesBid if available
-              const yesBid = marketData?.market?.yesBid;
-              const probability = yesBid ? Math.round(parseFloat(yesBid) * 100) : null;
-
+              // Convert FeedItem to TradeEntry for FeedChartItem
+              const tradeEntry: TradeEntry = {
+                id: item.id,
+                userId: item.userId,
+                side: item.side as 'yes' | 'no',
+                amount: item.amount,
+                createdAt: item.createdAt,
+                user: {
+                  id: item.user.id,
+                  displayName: item.user.displayName,
+                  avatarUrl: item.user.avatarUrl,
+                  walletAddress: item.user.walletAddress,
+                },
+              };
               return (
-                <div key={item.id} className="py-4 relative">
-                  {/* Comment overlay - shown on top if present */}
-                  {hasQuote && (
-                    <div className="mb-3 px-4 py-3 bg-gradient-to-r from-cyan-500/10 to-transparent border-l-4 border-cyan-500 rounded-r-lg">
-                      <p className="text-[var(--text-primary)] text-base font-medium">
-                        {item.quote}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Main post content */}
-                  <div className="flex gap-3">
-                    {/* Profile Picture */}
-                    <button
-                      onClick={() => router.push(`/user/${item.user.id}`)}
-                      className="flex-shrink-0 focus:outline-none hover:opacity-80 transition-opacity"
-                    >
-                      <img
-                        src={item.user.avatarUrl || '/default.png'}
-                        alt={displayName}
-                        className="w-10 h-10 rounded-full"
-                      />
-                    </button>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      {/* Username and Time */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <button
-                          onClick={() => router.push(`/user/${item.user.id}`)}
-                          className="focus:outline-none hover:text-cyan-400 transition-colors"
-                        >
-                          <span className="font-semibold text-[var(--text-primary)] text-sm">
-                            {displayName}
-                          </span>
-                        </button>
-                        <span className="text-[var(--text-tertiary)] text-xs ml-auto">
-                          {formatTimeAgo(item.createdAt)}
-                        </span>
-                      </div>
-
-                      {/* Amount - Big and Clear */}
-                      <div className="mb-2">
-                        <span className="text-2xl font-bold text-[var(--text-primary)] font-number">
-                          ${formatAmount(item.amount)}
-                        </span>
-                        <span className={`ml-2 text-xl font-bold ${item.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'}`}>
-                          {item.side.toUpperCase()}
-                        </span>
-                        {marketAnswer && (
-                          <>
-                            <span className="text-[var(--text-secondary)] text-base ml-2">on</span>
-                            <span className="ml-2 text-lg font-semibold text-[var(--text-primary)]">{marketAnswer}</span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Market Card with Image and Title */}
-                      <button
-                        onClick={() => eventTicker && router.push(`/event/${encodeURIComponent(eventTicker)}`)}
-                        className="w-full text-left focus:outline-none group"
-                        disabled={!eventTicker}
-                      >
-                        <div className="flex rounded-xl border border-[var(--border-color)] overflow-hidden bg-[var(--card-bg)]/40 hover:bg-[var(--surface-hover)]/50 hover:border-cyan-500/30 transition-all">
-                          {/* Image - Left */}
-                          <div className="flex-shrink-0 w-28 h-20 relative overflow-hidden">
-                            {isLoadingMarket ? (
-                              <div className="w-full h-full bg-[var(--surface-hover)] animate-pulse" />
-                            ) : eventImage ? (
-                              <img
-                                src={eventImage}
-                                alt={marketTitle}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-cyan-600/20 to-teal-600/20 flex items-center justify-center">
-                                <svg className="w-6 h-6 text-cyan-400/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Content - Right */}
-                          <div className="flex-1 p-3 min-w-0 flex flex-col justify-center">
-                            <h3 className="text-[var(--text-primary)] text-sm font-medium line-clamp-2 leading-snug group-hover:text-cyan-400 transition-colors">
-                              {marketTitle}
-                            </h3>
-                            {probability !== null && (
-                              <span className={`mt-1 text-xs font-semibold font-number ${probability >= 50 ? 'text-green-400' : 'text-red-400'}`}>
-                                {probability}% chance
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <FeedChartItem
+                  key={item.id}
+                  trade={tradeEntry}
+                  marketTicker={item.marketTicker}
+                  quote={item.quote}
+                />
               );
             })}
           </div>
         )}
       </div>
 
+
       {/* Mobile Floating Search - bubble expands left into bar (authenticated) */}
-      {authenticated && (
-        <motion.div
-          className="md:hidden fixed bottom-28 right-4 z-50 pointer-events-auto"
-          animate={{
-            width: isMobileSearchOpen ? '80vw' : '56px',
-            maxWidth: isMobileSearchOpen ? 320 : 56,
-            paddingLeft: isMobileSearchOpen ? 16 : 0,
-            paddingRight: isMobileSearchOpen ? 16 : 0,
-          }}
-          transition={{ type: 'tween', duration: 0.22, ease: 'easeInOut' }}
-        >
-          <div className="flex items-center gap-2 w-full h-14 px-2 border border-[var(--border-color)] rounded-full shadow-2xl bg-[var(--surface)]/90 backdrop-blur-sm origin-right">
-            <button
-              onClick={() => setIsMobileSearchOpen((prev) => !prev)}
-              aria-label="Toggle search"
-              className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--text-primary)] hover:text-cyan-400 transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
+      {
+        authenticated && (
+          <motion.div
+            className="md:hidden fixed bottom-28 right-4 z-50 pointer-events-auto"
+            animate={{
+              width: isMobileSearchOpen ? '80vw' : '56px',
+              maxWidth: isMobileSearchOpen ? 320 : 56,
+              paddingLeft: isMobileSearchOpen ? 16 : 0,
+              paddingRight: isMobileSearchOpen ? 16 : 0,
+            }}
+            transition={{ type: 'tween', duration: 0.22, ease: 'easeInOut' }}
+          >
+            <div className="flex items-center gap-2 w-full h-14 px-2 border border-[var(--border-color)] rounded-full shadow-2xl bg-[var(--surface)]/90 backdrop-blur-sm origin-right">
+              <button
+                onClick={() => setIsMobileSearchOpen((prev) => !prev)}
+                aria-label="Toggle search"
+                className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--text-primary)] hover:text-cyan-400 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
 
-            <motion.input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search friends..."
-              className="flex-1 min-w-0 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm outline-none"
-              animate={{
-                opacity: isMobileSearchOpen ? 1 : 0,
-                x: isMobileSearchOpen ? 0 : 6,
-                width: isMobileSearchOpen ? '100%' : '0%',
-              }}
-              transition={{ type: 'tween', duration: 0.18, ease: 'easeOut' }}
-              style={{ pointerEvents: isMobileSearchOpen ? 'auto' : 'none' }}
-            />
+              <motion.input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search friends..."
+                className="flex-1 min-w-0 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm outline-none"
+                animate={{
+                  opacity: isMobileSearchOpen ? 1 : 0,
+                  x: isMobileSearchOpen ? 0 : 6,
+                  width: isMobileSearchOpen ? '100%' : '0%',
+                }}
+                transition={{ type: 'tween', duration: 0.18, ease: 'easeOut' }}
+                style={{ pointerEvents: isMobileSearchOpen ? 'auto' : 'none' }}
+              />
 
-            <AnimatePresence mode="popLayout">
-              {isMobileSearchOpen && searchQuery && (
-                <motion.button
-                  key="clear"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSearchResults([]);
-                  }}
+              <AnimatePresence mode="popLayout">
+                {isMobileSearchOpen && searchQuery && (
+                  <motion.button
+                    key="clear"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchResults([]);
+                    }}
+                    className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                    aria-label="Clear search"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.14, ease: 'easeOut' }}
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
+              {isMobileSearchOpen && (
+                <button
+                  onClick={() => setIsMobileSearchOpen(false)}
                   className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                  aria-label="Clear search"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.14, ease: 'easeOut' }}
+                  aria-label="Close search"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                </motion.button>
+                </button>
               )}
-            </AnimatePresence>
-
-            {isMobileSearchOpen && (
-              <button
-                onClick={() => setIsMobileSearchOpen(false)}
-                className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                aria-label="Close search"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </motion.div>
-      )}
+            </div>
+          </motion.div>
+        )
+      }
     </div >
   );
 }

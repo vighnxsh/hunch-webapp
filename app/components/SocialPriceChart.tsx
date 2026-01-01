@@ -143,6 +143,46 @@ export default function SocialPriceChart({
         return ticks;
     }, [yDomain]);
 
+    // Map trades to chart positions for avatar overlays
+    const tradeMarkers = useMemo(() => {
+        if (!trades || trades.length === 0 || chartData.length === 0) return [];
+
+        const [minY, maxY] = yDomain;
+        const yRange = maxY - minY;
+
+        return trades.map(trade => {
+            const tradeTimestamp = Math.floor(new Date(trade.createdAt).getTime() / 1000);
+
+            // Find the closest data point to the trade timestamp
+            let closestPoint = chartData[0];
+            let minDiff = Math.abs(chartData[0].timestamp - tradeTimestamp);
+
+            for (const point of chartData) {
+                const diff = Math.abs(point.timestamp - tradeTimestamp);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestPoint = point;
+                }
+            }
+
+            // Calculate X position (percentage across the chart)
+            const xMin = chartData[0].timestamp;
+            const xMax = chartData[chartData.length - 1].timestamp;
+            const xRange = xMax - xMin;
+            const xPercent = xRange > 0 ? ((tradeTimestamp - xMin) / xRange) * 100 : 0;
+
+            // Calculate Y position (percentage from bottom)
+            const yPercent = yRange > 0 ? ((closestPoint.price - minY) / yRange) * 100 : 50;
+
+            return {
+                trade,
+                xPercent,
+                yPercent,
+                price: closestPoint.price,
+            };
+        });
+    }, [trades, chartData, yDomain]);
+
     if (chartData.length === 0) {
         return (
             <div className={`w-full flex items-center justify-center ${className}`} style={{ height }}>
@@ -153,7 +193,7 @@ export default function SocialPriceChart({
 
     return (
         <div
-            className={`w-full ${className}`}
+            className={`w-full ${className} relative`}
             style={{ height }}
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
@@ -227,6 +267,50 @@ export default function SocialPriceChart({
                     />
                 </LineChart>
             </ResponsiveContainer>
+
+            {/* User Avatar Markers - Positioned below the chart line */}
+            {tradeMarkers.map((marker, index) => {
+                const amount = (parseFloat(marker.trade.amount) / 1_000_000).toFixed(2);
+                const sideColor = marker.trade.side === 'yes' ? '#22d3ee' : '#f472b6';
+
+                return (
+                    <div
+                        key={marker.trade.id}
+                        className="absolute pointer-events-auto group/avatar"
+                        style={{
+                            left: `calc(${marker.xPercent}% + 4px)`,
+                            bottom: `calc(${marker.yPercent}% - 20px)`,
+                            transform: 'translate(-50%, 0)',
+                            zIndex: 10,
+                        }}
+                    >
+                        <div className="relative flex flex-col items-center">
+                            {/* Price Label - Shows on Hover */}
+                            <div
+                                className="mb-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-200"
+                                style={{
+                                    backgroundColor: 'rgba(12, 12, 14, 0.95)',
+                                    border: `1px solid ${sideColor}`,
+                                    color: sideColor,
+                                }}
+                            >
+                                {marker.price}¢
+                            </div>
+
+                            {/* Avatar with Glow */}
+                            <img
+                                src={marker.trade.user.avatarUrl || '/default.png'}
+                                alt=""
+                                className="w-7 h-7 rounded-full border-2 shadow-lg cursor-pointer transition-transform group-hover/avatar:scale-110"
+                                style={{
+                                    borderColor: 'var(--card-bg)',
+                                    boxShadow: `0 0 0 2px ${sideColor}80, 0 4px 12px rgba(0,0,0,0.4)`,
+                                }}
+                            />
+                        </div>
+                    </div>
+                );
+            })}
         </div>
     );
 }

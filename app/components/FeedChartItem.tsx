@@ -35,26 +35,54 @@ function formatAmount(amount: string) {
 
 // Helper to extract mint from market accounts
 function getMintFromAccounts(market: Market, side: 'yes' | 'no'): string | null {
-    const accounts = market.accounts;
-    if (!accounts) return null;
-
+    // Determine which mint to retrieve based on the trade side
     const mintKey = side === 'yes' ? 'yesMint' : 'noMint';
 
+    // First, check if the mint exists directly on the market object
+    if (side === 'yes' && market.yesMint) {
+        console.log(`[getMintFromAccounts] Using direct market.yesMint: ${market.yesMint}`);
+        return market.yesMint;
+    }
+    if (side === 'no' && market.noMint) {
+        console.log(`[getMintFromAccounts] Using direct market.noMint: ${market.noMint}`);
+        return market.noMint;
+    }
+
+    // Fall back to checking the accounts structure
+    const accounts = market.accounts;
+    if (!accounts) {
+        console.warn(`No ${mintKey} found on market and no accounts structure`, market);
+        return null;
+    }
+
     if (typeof accounts === 'object') {
-        // Check direct structure
+        // Check direct structure first (accounts.yesMint or accounts.noMint)
         if (mintKey in accounts && typeof (accounts as any)[mintKey] === 'string') {
+            console.log(`[getMintFromAccounts] Using accounts.${mintKey}: ${(accounts as any)[mintKey]}`);
             return (accounts as any)[mintKey];
         }
 
-        // Iterate through nested collateral entries
-        for (const key of Object.keys(accounts)) {
-            const entry = (accounts as any)[key];
-            if (entry && typeof entry === 'object' && mintKey in entry) {
-                return entry[mintKey];
+        // Iterate through nested collateral entries (e.g., CASH, USDC)
+        // Each collateral type has its own yesMint and noMint
+        const collateralKeys = Object.keys(accounts);
+        for (const collateralKey of collateralKeys) {
+            const entry = (accounts as any)[collateralKey];
+            if (entry && typeof entry === 'object') {
+                // Check if this entry has the specific mint we're looking for
+                if (mintKey in entry && typeof entry[mintKey] === 'string') {
+                    const mintValue = entry[mintKey];
+                    console.log(`[getMintFromAccounts] Found ${mintKey} in collateral ${collateralKey}: ${mintValue}`);
+                    return mintValue;
+                }
             }
         }
     }
 
+    console.warn(`Could not find ${mintKey} in market for side ${side}`, {
+        yesMint: market.yesMint,
+        noMint: market.noMint,
+        accounts
+    });
     return null;
 }
 
@@ -94,6 +122,8 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
                 const tradeSide = trade.side as 'yes' | 'no';
                 const mint = getMintFromAccounts(marketData, tradeSide);
 
+                console.log(`[FeedChartItem] Trade side: ${tradeSide}, Mint: ${mint}`);
+
                 if (mint) {
                     // Get last 7 days of data with hourly intervals for smooth chart
                     const now = Math.floor(Date.now() / 1000);
@@ -108,6 +138,8 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
                     if (mounted && candleData.candlesticks) {
                         setCandlesticks(candleData.candlesticks);
                     }
+                } else {
+                    console.error(`[FeedChartItem] No mint found for trade side: ${tradeSide}`);
                 }
 
 
@@ -241,7 +273,7 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
 
             <div
                 onClick={handleClick}
-                className="mx-4 rounded-xl border border-[var(--border-color)] bg-[var(--surface)]/50 overflow-hidden cursor-pointer hover:border-cyan-500/30 transition-all group"
+                className="mx-4 rounded-xl bg-transparent overflow-hidden cursor-pointer hover:bg-white/[0.02] transition-all group"
             >
                 {/* Chart Header - Event & Market Context */}
                 <div className="p-3 flex items-center justify-between">
@@ -280,13 +312,13 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
                     )}
                 </div>
 
-                {/* Price Chart */}
-                <div className="px-2 pb-2">
+                {/* Probability Chart */}
+                <div className="px-1 pb-2">
                     <SocialPriceChart
                         candlesticks={candlesticks}
                         trades={[trade]}
-                        height={100}
-                        lineColor={trade.side === 'yes' ? '#06b6d4' : '#d946ef'}
+                        height={110}
+                        lineColor="#5b8def"
                     />
                 </div>
             </div>

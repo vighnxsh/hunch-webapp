@@ -1,292 +1,40 @@
 {
-  "candlesticks": [
-    {
-      "end_period_ts": 1766552400,
-      "open_interest": 1965553,
-      "price": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 4,
-        "high_dollars": "0.0400",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "max": null,
-        "mean": 4,
-        "mean_dollars": "0.0400",
-        "min": null,
-        "open": 4,
-        "open_dollars": "0.0400",
-        "previous": 4,
-        "previous_dollars": "0.0400"
-      },
-      "volume": 43157,
-      "yes_ask": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 4,
-        "high_dollars": "0.0400",
-        "low": 4,
-        "low_dollars": "0.0400",
-        "open": 4,
-        "open_dollars": "0.0400"
-      },
-      "yes_bid": {
-        "close": 3,
-        "close_dollars": "0.0300",
-        "high": 3,
-        "high_dollars": "0.0300",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "open": 3,
-        "open_dollars": "0.0300"
-      }
+  "ticker": "KXSB-26-LAR",
+  "eventTicker": "KXSB-26",
+  "marketType": "binary",
+  "title": "Will the Los Angeles R win the 2026 Pro Football Championship?",
+  "subtitle": "",
+  "yesSubTitle": "Los Angeles R",
+  "noSubTitle": "Los Angeles R",
+  "openTime": 1739372400,
+  "closeTime": 1833634800,
+  "expirationTime": 1833634800,
+  "status": "active",
+  "volume": 4015631,
+  "result": "",
+  "openInterest": 2740354,
+  "canCloseEarly": true,
+  "earlyCloseCondition": "This market will close and expire after a title holder is declared.",
+  "rulesPrimary": "If Los Angeles R wins the 2026 Pro Football Championship, then the market resolves to Yes.",
+  "rulesSecondary": "",
+  "yesBid": "0.1200",
+  "yesAsk": "0.1400",
+  "noBid": "0.8600",
+  "noAsk": "0.8800",
+  "accounts": {
+    "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH": {
+      "marketLedger": "ZhhPPyqW1xQNMoPHERMm9s2GsrMu1YjxGP2bgyCmaWu",
+      "yesMint": "BA9qg9mBEAhkKPQEqpHmP4obLTviTTxr4eEo6vQK6bCh",
+      "noMint": "7bri6riCDkSvMHXyjsaAPLCsLyan6XWN6QVYpKDgEfG7",
+      "isInitialized": true,
+      "redemptionStatus": "pending"
     },
-    {
-      "end_period_ts": 1766638800,
-      "open_interest": 1985110,
-      "price": {
-        "close": 5,
-        "close_dollars": "0.0500",
-        "high": 5,
-        "high_dollars": "0.0500",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "max": null,
-        "mean": 4,
-        "mean_dollars": "0.0409",
-        "min": null,
-        "open": 4,
-        "open_dollars": "0.0400",
-        "previous": 4,
-        "previous_dollars": "0.0400"
-      },
-      "volume": 24989,
-      "yes_ask": {
-        "close": 5,
-        "close_dollars": "0.0500",
-        "high": 5,
-        "high_dollars": "0.0500",
-        "low": 4,
-        "low_dollars": "0.0400",
-        "open": 4,
-        "open_dollars": "0.0400"
-      },
-      "yes_bid": {
-        "close": 3,
-        "close_dollars": "0.0300",
-        "high": 4,
-        "high_dollars": "0.0400",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "open": 3,
-        "open_dollars": "0.0300"
-      }
-    },
-    {
-      "end_period_ts": 1766725200,
-      "open_interest": 2014370,
-      "price": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 5,
-        "high_dollars": "0.0500",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "max": null,
-        "mean": 4,
-        "mean_dollars": "0.0455",
-        "min": null,
-        "open": 3,
-        "open_dollars": "0.0300",
-        "previous": 5,
-        "previous_dollars": "0.0500"
-      },
-      "volume": 37744,
-      "yes_ask": {
-        "close": 5,
-        "close_dollars": "0.0500",
-        "high": 5,
-        "high_dollars": "0.0500",
-        "low": 4,
-        "low_dollars": "0.0400",
-        "open": 5,
-        "open_dollars": "0.0500"
-      },
-      "yes_bid": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 4,
-        "high_dollars": "0.0400",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "open": 3,
-        "open_dollars": "0.0300"
-      }
-    },
-    {
-      "end_period_ts": 1766811600,
-      "open_interest": 2042865,
-      "price": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 5,
-        "high_dollars": "0.0500",
-        "low": 4,
-        "low_dollars": "0.0400",
-        "max": null,
-        "mean": 4,
-        "mean_dollars": "0.0485",
-        "min": null,
-        "open": 5,
-        "open_dollars": "0.0500",
-        "previous": 4,
-        "previous_dollars": "0.0400"
-      },
-      "volume": 30745,
-      "yes_ask": {
-        "close": 5,
-        "close_dollars": "0.0500",
-        "high": 5,
-        "high_dollars": "0.0500",
-        "low": 5,
-        "low_dollars": "0.0500",
-        "open": 5,
-        "open_dollars": "0.0500"
-      },
-      "yes_bid": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 4,
-        "high_dollars": "0.0400",
-        "low": 4,
-        "low_dollars": "0.0400",
-        "open": 4,
-        "open_dollars": "0.0400"
-      }
-    },
-    {
-      "end_period_ts": 1766898000,
-      "open_interest": 2065412,
-      "price": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 5,
-        "high_dollars": "0.0500",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "max": null,
-        "mean": 4,
-        "mean_dollars": "0.0427",
-        "min": null,
-        "open": 5,
-        "open_dollars": "0.0500",
-        "previous": 4,
-        "previous_dollars": "0.0400"
-      },
-      "volume": 36017,
-      "yes_ask": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 5,
-        "high_dollars": "0.0500",
-        "low": 4,
-        "low_dollars": "0.0400",
-        "open": 5,
-        "open_dollars": "0.0500"
-      },
-      "yes_bid": {
-        "close": 3,
-        "close_dollars": "0.0300",
-        "high": 4,
-        "high_dollars": "0.0400",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "open": 4,
-        "open_dollars": "0.0400"
-      }
-    },
-    {
-      "end_period_ts": 1766984400,
-      "open_interest": 2077603,
-      "price": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 4,
-        "high_dollars": "0.0400",
-        "low": 2,
-        "low_dollars": "0.0200",
-        "max": null,
-        "mean": 2,
-        "mean_dollars": "0.0299",
-        "min": null,
-        "open": 3,
-        "open_dollars": "0.0300",
-        "previous": 4,
-        "previous_dollars": "0.0400"
-      },
-      "volume": 36760,
-      "yes_ask": {
-        "close": 4,
-        "close_dollars": "0.0400",
-        "high": 4,
-        "high_dollars": "0.0400",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "open": 4,
-        "open_dollars": "0.0400"
-      },
-      "yes_bid": {
-        "close": 3,
-        "close_dollars": "0.0300",
-        "high": 3,
-        "high_dollars": "0.0300",
-        "low": 2,
-        "low_dollars": "0.0200",
-        "open": 3,
-        "open_dollars": "0.0300"
-      }
-    },
-    {
-      "end_period_ts": 1767070800,
-      "open_interest": 2088413,
-      "price": {
-        "close": 3,
-        "close_dollars": "0.0300",
-        "high": 3,
-        "high_dollars": "0.0300",
-        "low": 2,
-        "low_dollars": "0.0200",
-        "max": null,
-        "mean": 2,
-        "mean_dollars": "0.0297",
-        "min": null,
-        "open": 2,
-        "open_dollars": "0.0200",
-        "previous": 4,
-        "previous_dollars": "0.0400"
-      },
-      "volume": 20638,
-      "yes_ask": {
-        "close": 3,
-        "close_dollars": "0.0300",
-        "high": 4,
-        "high_dollars": "0.0400",
-        "low": 3,
-        "low_dollars": "0.0300",
-        "open": 4,
-        "open_dollars": "0.0400"
-      },
-      "yes_bid": {
-        "close": 2,
-        "close_dollars": "0.0200",
-        "high": 3,
-        "high_dollars": "0.0300",
-        "low": 2,
-        "low_dollars": "0.0200",
-        "open": 3,
-        "open_dollars": "0.0300"
-      }
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
+      "marketLedger": "HZHojSEkvzWZ6hreruyaZPRwHnD1ZaQPngpktaRG5SGo",
+      "yesMint": "xxGxaYctXP6k7bjuqMnRvQutzVMSDYrmyfiiFvVFXjL",
+      "noMint": "9LU4uVnb9qKMCFHcSFmBRwNAVdC3ki7CJho6KtXqJDZR",
+      "isInitialized": true,
+      "redemptionStatus": "pending"
     }
-  ],
-  "ticker": "KXSB-26-LAC"
+  }
 }

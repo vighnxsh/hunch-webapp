@@ -8,6 +8,7 @@ import { Connection, VersionedTransaction } from '@solana/web3.js';
 import { fetchEventDetails, fetchMarketDetails, EventDetails, Market } from '../../lib/api';
 import TradeMarket from '../../components/TradeMarket';
 import ShareBlink from '../../components/ShareBlink';
+import EventDetailChart from '../../components/EventDetailChart';
 import { useAuth } from '../../components/AuthContext';
 import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../../lib/tradeApi';
 
@@ -29,12 +30,12 @@ export default function EventPage() {
     const [selectedSide, setSelectedSide] = useState<'yes' | 'no'>('yes');
     const [isMobileView, setIsMobileView] = useState(false);
     const [mobileTradeOpen, setMobileTradeOpen] = useState(false);
-    
+
     // Mobile trade state
     const [mobileAmount, setMobileAmount] = useState('');
     const [mobileTradeLoading, setMobileTradeLoading] = useState(false);
     const [mobileTradeStatus, setMobileTradeStatus] = useState('');
-    
+
     const solanaWallet = wallets[0];
     const walletAddress = solanaWallet?.address;
 
@@ -157,7 +158,7 @@ export default function EventPage() {
                 const mint = type === 'yes' ? usdcAccount.yesMint : usdcAccount.noMint;
                 if (mint) return mint;
             }
-            
+
             const accountKeys = Object.keys(market.accounts);
             for (const key of accountKeys) {
                 const account = (market.accounts as any)[key];
@@ -167,7 +168,7 @@ export default function EventPage() {
                 }
             }
         }
-        
+
         const mint = type === 'yes' ? market.yesMint : market.noMint;
         return mint;
     };
@@ -233,7 +234,7 @@ export default function EventPage() {
 
             // Decode the transaction from base64 to Uint8Array
             const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
-            
+
             // Sign the transaction using Privy
             const signResult = await signTransaction({
                 transaction: transactionBytes,
@@ -259,7 +260,7 @@ export default function EventPage() {
 
             // Create VersionedTransaction from signed bytes and send it
             const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
-            
+
             // Send the signed transaction to the network
             const signature = await connection.sendTransaction(signedTransaction, {
                 skipPreflight: true, // Skip simulation for DFlow transactions
@@ -277,29 +278,29 @@ export default function EventPage() {
                 // For sync trades, wait for confirmation
                 const maxAttempts = 30;
                 let attempts = 0;
-                
+
                 // Wait for transaction to be confirmed (at least confirmed status)
                 while (attempts < maxAttempts) {
                     const statusResult = await connection.getSignatureStatuses([signatureString]);
                     confirmationStatus = statusResult.value[0];
-                    
+
                     // Check if transaction failed
                     if (confirmationStatus?.err) {
                         throw new Error(`Transaction failed: ${JSON.stringify(confirmationStatus.err)}`);
                     }
-                    
+
                     // If confirmed or finalized, we're done
-                    if (confirmationStatus && 
+                    if (confirmationStatus &&
                         (confirmationStatus.confirmationStatus === 'confirmed' ||
-                         confirmationStatus.confirmationStatus === 'finalized')) {
+                            confirmationStatus.confirmationStatus === 'finalized')) {
                         break;
                     }
-                    
+
                     // Otherwise wait and retry
                     await new Promise((resolve) => setTimeout(resolve, 1000));
                     attempts++;
                 }
-                
+
                 if (attempts >= maxAttempts) {
                     throw new Error('Transaction confirmation timeout - transaction may still be processing');
                 }
@@ -352,7 +353,7 @@ export default function EventPage() {
         } catch (error: any) {
             // Enhanced error handling for transaction failures
             let errorMessage = error.message || 'Unknown error occurred';
-            
+
             // Check for specific Solana errors
             if (error.message?.includes('Transaction simulation failed')) {
                 errorMessage = 'Transaction simulation failed. This may be due to insufficient balance, expired blockhash, or invalid transaction. Please try again.';
@@ -361,7 +362,7 @@ export default function EventPage() {
             } else if (error.message?.includes('insufficient funds')) {
                 errorMessage = 'Insufficient USDC balance. Please ensure you have enough USDC in your wallet.';
             }
-            
+
             setMobileTradeStatus(`❌ ${errorMessage}`);
         } finally {
             setMobileTradeLoading(false);
@@ -458,6 +459,21 @@ export default function EventPage() {
                             </div>
                         </div>
 
+                        {/* Price Chart Section */}
+                        {activeMarkets.length > 0 && (
+                            <div className="bg-[var(--surface)] rounded-2xl p-4">
+                                <h2 className="text-sm font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-3">
+                                    Price History
+                                </h2>
+                                <EventDetailChart
+                                    eventTicker={eventId}
+                                    markets={activeMarkets}
+                                    selectedMarketTicker={selectedMarketTicker}
+                                    onMarketSelect={setSelectedMarketTicker}
+                                />
+                            </div>
+                        )}
+
                         {/* Markets List */}
                         <div className="space-y-3">
                             <h2 className="text-sm font-semibold text-[var(--text-tertiary)] uppercase tracking-wide px-1">
@@ -515,8 +531,8 @@ export default function EventPage() {
                                                             <div className="h-10 bg-[var(--surface-hover)] rounded-lg animate-pulse" />
                                                         ) : (
                                                             <div className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:min-w-[100px] text-center transition-all cursor-pointer ${isSelected && selectedSide === 'yes'
-                                                                    ? 'bg-cyan-500 border-2 border-cyan-400 shadow-lg shadow-cyan-500/25'
-                                                                    : 'bg-cyan-500/15 border border-cyan-500/30 hover:bg-cyan-500/25'
+                                                                ? 'bg-cyan-500 border-2 border-cyan-400 shadow-lg shadow-cyan-500/25'
+                                                                : 'bg-cyan-500/15 border border-cyan-500/30 hover:bg-cyan-500/25'
                                                                 }`}>
                                                                 <span className={`font-bold text-xs sm:text-sm ${isSelected && selectedSide === 'yes' ? 'text-white' : 'text-cyan-400'
                                                                     }`}>
@@ -540,8 +556,8 @@ export default function EventPage() {
                                                             <div className="h-10 bg-[var(--surface-hover)] rounded-lg animate-pulse" />
                                                         ) : (
                                                             <div className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:min-w-[100px] text-center transition-all cursor-pointer ${isSelected && selectedSide === 'no'
-                                                                    ? 'bg-pink-500 border-2 border-pink-400 shadow-lg shadow-pink-500/25'
-                                                                    : 'bg-pink-500/15 border border-pink-500/30 hover:bg-pink-500/25'
+                                                                ? 'bg-pink-500 border-2 border-pink-400 shadow-lg shadow-pink-500/25'
+                                                                : 'bg-pink-500/15 border border-pink-500/30 hover:bg-pink-500/25'
                                                                 }`}>
                                                                 <span className={`font-bold text-xs sm:text-sm ${isSelected && selectedSide === 'no' ? 'text-white' : 'text-pink-400'
                                                                     }`}>
@@ -638,21 +654,19 @@ export default function EventPage() {
                         <div className="flex gap-2 mb-3">
                             <button
                                 onClick={() => setSelectedSide('yes')}
-                                className={`flex-1 py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200 ${
-                                    selectedSide === 'yes'
+                                className={`flex-1 py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200 ${selectedSide === 'yes'
                                         ? 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-white shadow-lg shadow-cyan-500/30 scale-[1.02]'
                                         : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20'
-                                }`}
+                                    }`}
                             >
                                 Yes {selectedMarket.yesAsk ? `${Math.round(parseFloat(selectedMarket.yesAsk) * 100)}¢` : '—'}
                             </button>
                             <button
                                 onClick={() => setSelectedSide('no')}
-                                className={`flex-1 py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200 ${
-                                    selectedSide === 'no'
+                                className={`flex-1 py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200 ${selectedSide === 'no'
                                         ? 'bg-gradient-to-r from-pink-500 to-pink-400 text-white shadow-lg shadow-pink-500/30 scale-[1.02]'
                                         : 'bg-pink-500/10 text-pink-400 border border-pink-500/20 hover:bg-pink-500/20'
-                                }`}
+                                    }`}
                             >
                                 No {selectedMarket.noAsk ? `${Math.round(parseFloat(selectedMarket.noAsk) * 100)}¢` : '—'}
                             </button>
@@ -671,10 +685,10 @@ export default function EventPage() {
                                 className="flex-1 bg-transparent text-[var(--text-primary)] text-base placeholder-[var(--text-tertiary)]/60 focus:outline-none disabled:opacity-50"
                             />
                         </div>
-                        
+
                         <div className="flex items-center justify-between mb-3 px-2 py-1.5 bg-green-500/5 rounded-xl border border-green-500/10">
                             {(() => {
-                                const price = selectedSide === 'yes' 
+                                const price = selectedSide === 'yes'
                                     ? (selectedMarket.yesAsk ? parseFloat(selectedMarket.yesAsk) : null)
                                     : (selectedMarket.noAsk ? parseFloat(selectedMarket.noAsk) : null);
                                 const amount = mobileAmount ? parseFloat(mobileAmount) : 0;
@@ -701,13 +715,12 @@ export default function EventPage() {
                         </button>
 
                         {mobileTradeStatus && (
-                            <p className={`mt-3 text-xs px-3 py-2 rounded-xl text-center font-medium ${
-                                mobileTradeStatus.includes('✅')
+                            <p className={`mt-3 text-xs px-3 py-2 rounded-xl text-center font-medium ${mobileTradeStatus.includes('✅')
                                     ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                                     : mobileTradeStatus.includes('❌')
                                         ? 'bg-red-500/10 text-red-400 border border-red-500/20'
                                         : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                            }`}>
+                                }`}>
                                 {mobileTradeStatus}
                             </p>
                         )}

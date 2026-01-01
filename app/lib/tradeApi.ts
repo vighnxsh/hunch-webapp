@@ -1,13 +1,6 @@
-// Base URLs for the DFlow Trade / Quote API
-// - In development we default to the dev quote API so you can make real trades with test capital.
-// - In production, override these with the prod URL via env vars.
-const TRADE_API_BASE_URL =
-  process.env.NEXT_PUBLIC_PM_TRADE_API_BASE_URL ??
-  "https://dev-quote-api.dflow.net";
-
-const AGGREGATOR_API_BASE_URL =
-  process.env.NEXT_PUBLIC_PM_AGGREGATOR_API_BASE_URL ??
-  "https://dev-quote-api.dflow.net";
+// Internal API route prefix - all DFlow calls now go through server-side routes
+// This prevents exposing external API endpoints in the client bundle
+const INTERNAL_API_PREFIX = '/api/dflow';
 
 export interface OrderRequest {
   userPublicKey: string;
@@ -52,7 +45,7 @@ export interface SubmitIntentRequest {
 }
 
 /**
- * Request an order from the Trade API
+ * Request an order from the Trade API (via internal route)
  */
 export async function requestOrder(params: OrderRequest): Promise<OrderResponse> {
   const queryParams = new URLSearchParams();
@@ -60,17 +53,16 @@ export async function requestOrder(params: OrderRequest): Promise<OrderResponse>
   queryParams.append("inputMint", params.inputMint);
   queryParams.append("outputMint", params.outputMint);
   queryParams.append("amount", params.amount);
-  
+
   // Slippage is required for prediction markets, default to 100 bps (1%) if not provided
   const slippageBps = params.slippageBps ?? 100;
   queryParams.append("slippageBps", slippageBps.toString());
 
-  const url = `${TRADE_API_BASE_URL}/order?${queryParams.toString()}`;
-  
+  const url = `${INTERNAL_API_PREFIX}/quote?${queryParams.toString()}`;
+
   // Log for debugging - verify URL format matches expected format
   console.log('Requesting order:', {
     url,
-    decodedUrl: decodeURIComponent(url),
     params: {
       userPublicKey: params.userPublicKey,
       inputMint: params.inputMint,
@@ -98,15 +90,17 @@ export async function requestOrder(params: OrderRequest): Promise<OrderResponse>
   if (!response.ok) {
     const errorText = await response.text();
     let errorMessage = `Failed to request order: ${response.statusText}`;
-    
+
     try {
       const errorJson = JSON.parse(errorText);
       if (errorJson.msg) {
         errorMessage = errorJson.msg;
       } else if (errorJson.message) {
         errorMessage = errorJson.message;
+      } else if (errorJson.error) {
+        errorMessage = errorJson.error;
       }
-      
+
       // Provide helpful error messages
       if (errorJson.code === 'route_not_found') {
         errorMessage = `No trading route found for this token pair. The market may not have sufficient liquidity or the tokens may not be tradeable.`;
@@ -117,7 +111,7 @@ export async function requestOrder(params: OrderRequest): Promise<OrderResponse>
         errorMessage += ` - ${errorText}`;
       }
     }
-    
+
     throw new Error(errorMessage);
   }
 
@@ -136,10 +130,12 @@ export async function requestOrder(params: OrderRequest): Promise<OrderResponse>
 
 /**
  * Get order status for async trades
+ * Note: This still needs a server-side implementation; for now using inline placeholder
  */
 export async function getOrderStatus(signature: string): Promise<OrderStatusResponse> {
+  // TODO: Create /api/dflow/order-status route when needed
   const response = await fetch(
-    `${TRADE_API_BASE_URL}/order-status?signature=${signature}`,
+    `${INTERNAL_API_PREFIX}/order-status?signature=${signature}`,
     {
       method: "GET",
       headers: {
@@ -157,6 +153,7 @@ export async function getOrderStatus(signature: string): Promise<OrderStatusResp
 
 /**
  * Request a swap intent (for declarative swaps)
+ * Note: This still needs a server-side implementation; for now using inline placeholder
  */
 export async function requestSwapIntent(params: {
   inputMint: string;
@@ -170,13 +167,14 @@ export async function requestSwapIntent(params: {
   queryParams.append("outputMint", params.outputMint);
   queryParams.append("amount", params.amount);
   queryParams.append("userPublicKey", params.userPublicKey);
-  
+
   if (params.slippageBps) {
     queryParams.append("slippageBps", params.slippageBps.toString());
   }
 
+  // TODO: Create /api/dflow/intent route when needed
   const response = await fetch(
-    `${AGGREGATOR_API_BASE_URL}/intent?${queryParams.toString()}`,
+    `${INTERNAL_API_PREFIX}/intent?${queryParams.toString()}`,
     {
       method: "GET",
       headers: {
@@ -195,9 +193,11 @@ export async function requestSwapIntent(params: {
 
 /**
  * Submit a signed swap intent
+ * Note: This still needs a server-side implementation; for now using inline placeholder
  */
 export async function submitSwapIntent(request: SubmitIntentRequest): Promise<any> {
-  const response = await fetch(`${AGGREGATOR_API_BASE_URL}/submit-intent`, {
+  // TODO: Create /api/dflow/submit-intent route when needed
+  const response = await fetch(`${INTERNAL_API_PREFIX}/submit-intent`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -216,4 +216,3 @@ export async function submitSwapIntent(request: SubmitIntentRequest): Promise<an
 // Common mint addresses
 export const SOL_MINT = "So11111111111111111111111111111111111111112";
 export const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-

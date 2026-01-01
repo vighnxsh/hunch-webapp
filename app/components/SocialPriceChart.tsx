@@ -1,14 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
-    AreaChart,
-    Area,
+    LineChart,
+    Line,
     ResponsiveContainer,
     XAxis,
     YAxis,
     Tooltip,
-    ReferenceDot,
+    CartesianGrid,
 } from 'recharts';
 import { CandlestickData } from '../lib/api';
 
@@ -31,7 +31,7 @@ export interface TradeEntry {
 interface ChartDataPoint {
     timestamp: number;
     price: number;
-    priceDisplay: string;
+    probability: string;
 }
 
 // Props
@@ -40,11 +40,14 @@ interface SocialPriceChartProps {
     trades: TradeEntry[];
     className?: string;
     height?: number;
-    lineColor?: string; // Custom line color (cyan for YES, pink for NO)
+    lineColor?: string; // Custom line color
 }
 
-// Custom tooltip for price
-const CustomTooltip = ({ active, payload }: any) => {
+// Polymarket-style muted blue
+const POLYMARKET_BLUE = '#5b8def';
+
+// Clean, minimal tooltip for probability
+const ProbabilityTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         const date = new Date(data.timestamp * 1000);
@@ -56,12 +59,12 @@ const CustomTooltip = ({ active, payload }: any) => {
         }).format(date);
 
         return (
-            <div className="bg-[rgba(15,15,20,0.95)] border border-[var(--border-color)]/30 rounded-lg px-3 py-2 shadow-xl backdrop-blur-xl">
-                <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
+            <div className="bg-[rgba(12,12,14,0.92)] rounded-lg px-3 py-2 shadow-lg backdrop-blur-sm border border-white/5">
+                <p className="text-[10px] text-[#999] mb-0.5">
                     {dateStr}
                 </p>
-                <p className="text-sm font-bold text-cyan-400 font-number">
-                    {data.priceDisplay}
+                <p className="text-sm font-semibold text-white tabular-nums">
+                    {data.probability}
                 </p>
             </div>
         );
@@ -69,78 +72,17 @@ const CustomTooltip = ({ active, payload }: any) => {
     return null;
 };
 
-// Avatar marker component for rendering on chart
-function AvatarMarker({
-    cx,
-    cy,
-    trade,
-    onClick,
-}: {
-    cx: number;
-    cy: number;
-    trade: TradeEntry;
-    onClick?: (trade: TradeEntry) => void;
-}) {
-    const ringColor = trade.side === 'yes' ? '#06b6d4' : '#d946ef';
-    const displayName = trade.user.displayName ||
-        `${trade.user.walletAddress.slice(0, 4)}...${trade.user.walletAddress.slice(-4)}`;
-
-    return (
-        <g
-            transform={`translate(${cx}, ${cy})`}
-            style={{ cursor: 'pointer' }}
-            onClick={() => onClick?.(trade)}
-        >
-            {/* Glow effect */}
-            <circle
-                r={16}
-                fill={`${ringColor}15`}
-                className="animate-pulse"
-            />
-            {/* Outer ring */}
-            <circle
-                r={13}
-                fill="none"
-                stroke={ringColor}
-                strokeWidth={2}
-                style={{ filter: `drop-shadow(0 0 4px ${ringColor})` }}
-            />
-            {/* Avatar clip path */}
-            <defs>
-                <clipPath id={`avatar-clip-${trade.id}`}>
-                    <circle r={11} />
-                </clipPath>
-            </defs>
-            {/* Avatar image */}
-            <image
-                href={trade.user.avatarUrl || '/default.png'}
-                x={-11}
-                y={-11}
-                width={22}
-                height={22}
-                clipPath={`url(#avatar-clip-${trade.id})`}
-                style={{ borderRadius: '50%' }}
-            />
-            {/* Tooltip on hover - positioned above */}
-            <foreignObject x={-60} y={-55} width={120} height={45} style={{ pointerEvents: 'none' }}>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--card-bg)] border border-[var(--border-color)] rounded-lg px-2 py-1 text-center shadow-xl">
-                    <p className="text-[10px] text-[var(--text-primary)] font-medium truncate">{displayName}</p>
-                    <p className={`text-[10px] font-bold ${trade.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'}`}>
-                        {trade.side.toUpperCase()} · ${(parseFloat(trade.amount) / 1_000_000).toFixed(2)}
-                    </p>
-                </div>
-            </foreignObject>
-        </g>
-    );
-}
-
 export default function SocialPriceChart({
     candlesticks,
     trades,
     className = '',
     height = 180,
-    lineColor = '#06b6d4', // Default cyan
+    lineColor,
 }: SocialPriceChartProps) {
+    const [isHovering, setIsHovering] = useState(false);
+
+    // Use provided color or default to Polymarket blue
+    const strokeColor = lineColor || POLYMARKET_BLUE;
 
     // Process candlestick data into chart format
     const chartData = useMemo<ChartDataPoint[]>(() => {
@@ -151,75 +93,91 @@ export default function SocialPriceChart({
             .map(c => ({
                 timestamp: c.end_period_ts,
                 price: c.price.close!,
-                priceDisplay: `${c.price.close}¢`,
+                probability: `${c.price.close}%`,
             }))
             .sort((a, b) => a.timestamp - b.timestamp);
     }, [candlesticks]);
 
-    // Map trades to their closest chart data points
-    const tradePositions = useMemo(() => {
-        if (chartData.length === 0 || trades.length === 0) return [];
-
-        return trades.map(trade => {
-            const tradeTimestamp = Math.floor(new Date(trade.createdAt).getTime() / 1000);
-
-            // Find the closest candlestick timestamp
-            let closestPoint = chartData[0];
-            let minDiff = Math.abs(chartData[0].timestamp - tradeTimestamp);
-
-            for (const point of chartData) {
-                const diff = Math.abs(point.timestamp - tradeTimestamp);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    closestPoint = point;
-                }
-            }
-
-            return {
-                trade,
-                timestamp: closestPoint.timestamp,
-                price: closestPoint.price,
-            };
-        });
-    }, [chartData, trades]);
-
-    // Calculate Y domain with padding
+    // Calculate stable Y domain - fixed range with padding
     const yDomain = useMemo<[number, number]>(() => {
-        if (chartData.length === 0) return [0, 100];
+        if (chartData.length === 0) return [30, 80];
 
         const prices = chartData.map(d => d.price);
         const min = Math.min(...prices);
         const max = Math.max(...prices);
-        const padding = Math.max((max - min) * 0.2, 5);
 
-        return [
-            Math.max(0, Math.floor(min - padding)),
-            Math.min(100, Math.ceil(max + padding)),
-        ];
+        // Create a stable, rounded range
+        const range = max - min;
+        const padding = Math.max(range * 0.25, 8);
+
+        // Round to nearest 5 for clean labels
+        let domainMin = Math.floor((min - padding) / 5) * 5;
+        let domainMax = Math.ceil((max + padding) / 5) * 5;
+
+        // Ensure we stay within 0-100 bounds
+        domainMin = Math.max(0, domainMin);
+        domainMax = Math.min(100, domainMax);
+
+        // Ensure minimum range for visual stability
+        if (domainMax - domainMin < 20) {
+            const midpoint = (domainMin + domainMax) / 2;
+            domainMin = Math.max(0, Math.floor(midpoint - 15));
+            domainMax = Math.min(100, Math.ceil(midpoint + 15));
+        }
+
+        return [domainMin, domainMax];
     }, [chartData]);
+
+    // Generate Y-axis ticks for clean percentage labels
+    const yTicks = useMemo(() => {
+        const [min, max] = yDomain;
+        const ticks: number[] = [];
+        // Generate 3-4 evenly spaced ticks
+        const step = Math.ceil((max - min) / 3 / 5) * 5;
+        for (let i = min; i <= max; i += step) {
+            ticks.push(i);
+        }
+        if (ticks[ticks.length - 1] !== max) {
+            ticks.push(max);
+        }
+        return ticks;
+    }, [yDomain]);
 
     if (chartData.length === 0) {
         return (
             <div className={`w-full flex items-center justify-center ${className}`} style={{ height }}>
-                <p className="text-[var(--text-tertiary)] text-sm">No price data available</p>
+                <p className="text-[var(--text-tertiary)] text-sm">No data</p>
             </div>
         );
     }
 
     return (
-        <div className={`w-full ${className}`} style={{ height }}>
+        <div
+            className={`w-full ${className}`}
+            style={{ height }}
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+        >
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
+                <LineChart
                     data={chartData}
-                    margin={{ top: 20, right: 10, bottom: 5, left: 10 }}
+                    margin={{ top: 8, right: 32, bottom: 4, left: 4 }}
                 >
                     <defs>
-                        <linearGradient id={`priceGradient-${lineColor.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={lineColor} stopOpacity={0.3} />
-                            <stop offset="50%" stopColor={lineColor} stopOpacity={0.1} />
-                            <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
+                        {/* Very subtle gradient fill for minimal area effect */}
+                        <linearGradient id="subtleGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={strokeColor} stopOpacity={0.08} />
+                            <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
                         </linearGradient>
                     </defs>
+
+                    {/* Minimal horizontal grid only */}
+                    <CartesianGrid
+                        horizontal={true}
+                        vertical={false}
+                        stroke="rgba(255,255,255,0.06)"
+                        strokeDasharray="none"
+                    />
 
                     <XAxis
                         dataKey="timestamp"
@@ -229,45 +187,45 @@ export default function SocialPriceChart({
                     />
 
                     <YAxis
+                        orientation="right"
                         domain={yDomain}
-                        hide
+                        ticks={yTicks}
+                        tick={{
+                            fontSize: 9,
+                            fill: 'rgba(255,255,255,0.4)',
+                            fontFamily: 'var(--font-number, system-ui)',
+                        }}
+                        tickFormatter={(value) => `${value}%`}
+                        axisLine={false}
+                        tickLine={false}
+                        width={28}
                     />
 
                     <Tooltip
-                        content={<CustomTooltip />}
-                        cursor={{ stroke: 'var(--text-tertiary)', strokeWidth: 1, strokeDasharray: '3 3', opacity: 0.5 }}
+                        content={<ProbabilityTooltip />}
+                        cursor={{
+                            stroke: 'rgba(255,255,255,0.15)',
+                            strokeWidth: 1,
+                        }}
                     />
 
-                    {/* Price area */}
-                    <Area
+                    {/* Single thin line - the core visual */}
+                    <Line
                         type="monotone"
                         dataKey="price"
-                        stroke={lineColor}
-                        strokeWidth={2.5}
-                        fill={`url(#priceGradient-${lineColor.replace('#', '')})`}
+                        stroke={strokeColor}
+                        strokeWidth={1.5}
+                        dot={false}
+                        activeDot={isHovering ? {
+                            r: 3,
+                            strokeWidth: 0,
+                            fill: strokeColor,
+                        } : false}
                         isAnimationActive={true}
-                        animationDuration={1000}
+                        animationDuration={800}
                         animationEasing="ease-out"
-                        style={{ filter: `drop-shadow(0 0 6px ${lineColor}66)` }}
                     />
-
-
-                    {/* Trade avatars as reference dots */}
-                    {tradePositions.map(({ trade, timestamp, price }) => (
-                        <ReferenceDot
-                            key={trade.id}
-                            x={timestamp}
-                            y={price}
-                            shape={(props) => (
-                                <AvatarMarker
-                                    cx={props.cx || 0}
-                                    cy={props.cy || 0}
-                                    trade={trade}
-                                />
-                            )}
-                        />
-                    ))}
-                </AreaChart>
+                </LineChart>
             </ResponsiveContainer>
         </div>
     );

@@ -168,20 +168,22 @@ function MarketRailCard({
             <div
                 onClick={handleCardClick}
                 className={`
-                relative overflow-hidden rounded-3xl border transition-all duration-500 cursor-pointer flex h-[320px]
+                relative overflow-hidden rounded-3xl border transition-all duration-500 cursor-pointer
+                flex flex-col md:flex-row
+                min-h-[280px] md:h-[320px]
                 ${isActive
                         ? 'border-[var(--accent)]/40 shadow-[0_12px_50px_-15px_var(--glow-cyan)]'
                         : 'border-[var(--card-border)]'
                     }
                 bg-gradient-to-br from-[var(--card-bg)] via-[var(--card-bg)] to-[var(--surface)]
             `}>
-                {/* Left Side: Content */}
-                <div className="w-[40%] flex flex-col p-4 sm:p-5 relative border-r border-[var(--border-color)]/50 z-10">
+                {/* Content Section */}
+                <div className="w-full md:w-[40%] flex flex-col p-4 relative md:border-r border-[var(--border-color)]/50 z-10">
 
                     {/* Header: Image and Title */}
                     <div className="flex items-start gap-3 mb-3">
-                        {/* Image - Top Left */}
-                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-2xl overflow-hidden bg-[var(--surface)] ring-2 ring-[var(--border-color)]/40 shadow-lg">
+                        {/* Image */}
+                        <div className="relative w-14 h-14 md:w-16 md:h-16 flex-shrink-0 rounded-2xl overflow-hidden bg-[var(--surface)] ring-2 ring-[var(--border-color)]/40 shadow-lg">
                             {event.imageUrl ? (
                                 <img
                                     src={event.imageUrl}
@@ -190,19 +192,19 @@ function MarketRailCard({
                                 />
                             ) : (
                                 <div className="w-full h-full bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent-fuchsia)]/20 flex items-center justify-center">
-                                    <PawIcon className="w-8 h-8 text-[var(--accent)] opacity-30" />
+                                    <PawIcon className="w-6 h-6 md:w-8 md:h-8 text-[var(--accent)] opacity-30" />
                                 </div>
                             )}
                         </div>
 
                         {/* Title section */}
                         <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-[var(--text-primary)] text-base sm:text-lg leading-tight line-clamp-2 tracking-tight">
+                            <h3 className="font-bold text-[var(--text-primary)] text-base md:text-lg leading-tight line-clamp-2 tracking-tight">
                                 {event.title || 'Untitled Event'}
                             </h3>
-                            {/* Event Subtitle */}
+                            {/* Event Subtitle - hide on mobile to save space */}
                             {event.subtitle && (
-                                <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-1">
+                                <p className="hidden md:block text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-1">
                                     {event.subtitle}
                                 </p>
                             )}
@@ -229,19 +231,19 @@ function MarketRailCard({
                         )}
                     </div>
 
-                    {/* Signal Context - Cat-themed observational note */}
+                    {/* Signal Context - hide on mobile to save space */}
                     <motion.p
                         key={event.ticker}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.5, ease: 'easeOut' }}
-                        className="text-xs text-[var(--text-secondary)] leading-relaxed mb-auto font-medium italic"
+                        className="hidden md:block text-xs text-[var(--text-secondary)] leading-relaxed mb-auto font-medium italic"
                     >
                         {signalText}
                     </motion.p>
 
-                    {/* Top Markets as Trade Buttons - Horizontal */}
-                    <div className="mt-3">
+                    {/* Top Markets as Trade Buttons */}
+                    <div className="mt-auto">
                         <div className="flex flex-row gap-2">
                             {top2Markets.map((m: Market, idx: number) => {
                                 const style = buttonStyles[idx % buttonStyles.length];
@@ -255,15 +257,16 @@ function MarketRailCard({
                                         className={`
                                             flex-1 group relative overflow-hidden rounded-xl 
                                             ${style.bg} border ${style.border} 
-                                            p-2.5 transition-all duration-300 
+                                            p-2.5 md:p-3 transition-all duration-300 
                                             ${style.glow} hover:scale-[1.02] active:scale-[0.98]
+                                            min-h-[60px] md:min-h-[70px]
                                         `}
                                     >
                                         <div className="flex flex-col items-center justify-center gap-1">
-                                            <span className={`text-[10px] font-semibold ${style.text} line-clamp-1 text-center`}>
+                                            <span className={`text-[10px] md:text-[11px] font-semibold ${style.text} line-clamp-1 text-center`}>
                                                 {label}
                                             </span>
-                                            <span className={`text-lg font-extrabold ${style.text} font-number`}>
+                                            <span className={`text-lg md:text-xl font-extrabold ${style.text} font-number`}>
                                                 {percent}
                                             </span>
                                         </div>
@@ -279,8 +282,8 @@ function MarketRailCard({
                     </div>
                 </div>
 
-                {/* Right Side: Financial Chart */}
-                <div className="w-[60%] h-full bg-[var(--surface)]/5 relative">
+                {/* Chart Section - Smaller on mobile */}
+                <div className="w-full md:w-[60%] h-[120px] md:h-full bg-[var(--surface)]/5 relative">
                     <div className="absolute inset-0 bg-gradient-to-l from-[var(--card-bg)]/10 to-transparent pointer-events-none" />
                     <EventMotionGraph
                         eventTicker={event.ticker}

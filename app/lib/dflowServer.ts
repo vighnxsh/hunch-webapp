@@ -411,26 +411,84 @@ export async function filterOutcomeMintsServer(addresses: string[]): Promise<str
 }
 
 /**
+ * Fetch market by mint address (server-only)
+ */
+export async function fetchMarketByMintServer(mintAddress: string): Promise<Market | null> {
+    try {
+        const response = await fetch(
+            `${METADATA_API_BASE_URL}/api/v1/market/by-mint/${mintAddress}`,
+            {
+                method: "GET",
+                headers: getHeaders(),
+                cache: 'no-store',
+            }
+        );
+
+        if (!response.ok) {
+            console.warn(`[dflowServer] Market by-mint API Error (${response.status}) for mint ${mintAddress}`);
+            return null;
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error(`[dflowServer] Error fetching market by mint ${mintAddress}:`, error);
+        return null;
+    }
+}
+
+/**
  * Fetch markets batch by mints (server-only)
+ * Uses /api/v1/markets/batch endpoint as documented
  */
 export async function fetchMarketsBatchServer(mints: string[]): Promise<Market[]> {
-    const response = await fetch(
-        `${METADATA_API_BASE_URL}/api/v1/markets/batch`,
-        {
-            method: "POST",
-            headers: getHeaders(),
-            body: JSON.stringify({ mints }),
-        }
-    );
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[dflowServer] marketsBatch Error:', errorText);
-        throw new Error(`Failed to fetch markets batch: ${response.statusText}`);
+    if (!mints || mints.length === 0) {
+        return [];
     }
 
-    const data = await response.json();
-    return data.markets || [];
+    console.log(`[dflowServer] Fetching ${mints.length} markets via batch endpoint...`);
+    console.log(`[dflowServer] API URL: ${METADATA_API_BASE_URL}/api/v1/markets/batch`);
+    console.log(`[dflowServer] Has API key: ${!!DFLOW_API_KEY}`);
+
+    try {
+        // Try batch endpoint first (as per guide)
+        const response = await fetch(
+            `${METADATA_API_BASE_URL}/api/v1/markets/batch`,
+            {
+                method: "POST",
+                headers: getHeaders(),
+                body: JSON.stringify({ mints }),
+            }
+        );
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log(`[dflowServer] Batch endpoint success, got ${(data.markets || []).length} markets`);
+            return data.markets || [];
+        }
+
+        // Log the error details for debugging
+        const errorText = await response.text();
+        console.warn(`[dflowServer] Batch endpoint failed (${response.status}): ${errorText}`);
+        console.log(`[dflowServer] Falling back to individual fetch...`);
+
+    } catch (error) {
+        console.warn(`[dflowServer] Batch endpoint error, falling back to individual fetch:`, error);
+    }
+
+    // Fallback: fetch markets individually in parallel
+    const results = await Promise.allSettled(
+        mints.map(mint => fetchMarketByMintServer(mint))
+    );
+
+    const markets: Market[] = [];
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value !== null) {
+            markets.push(result.value);
+        }
+    }
+
+    console.log(`[dflowServer] Individual fetch: got ${markets.length}/${mints.length} markets`);
+    return markets;
 }
 
 // Common mint addresses (can be exposed)

@@ -55,7 +55,7 @@ Use the /api/v1/filter_outcome_mints endpoint to filter the user’s token addre
 Filter Prediction Market Tokens
 
 /// Base URL for the DFlow Prediction Market Metadata API
-const METADATA_API_BASE_URL = "https://dev-prediction-markets-api.dflow.net";
+const METADATA_API_BASE_URL = "https://a.prediction-markets-api.dflow.net"; # with header x-api-key
 
 /// Extract all mint addresses from user's tokens
 const allMintAddresses = nonZeroBalances.map((token) => token.mint);

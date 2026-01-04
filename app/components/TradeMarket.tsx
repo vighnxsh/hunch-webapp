@@ -357,15 +357,41 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       // Enhanced error handling for transaction failures
       let errorMessage = error.message || 'Unknown error occurred';
 
-      // Check for specific Solana errors
-      if (error.message?.includes('Transaction simulation failed')) {
-        errorMessage = 'Transaction simulation failed. This may be due to insufficient balance, expired blockhash, or invalid transaction. Please try again.';
+      // Parse Solana InstructionError for better user feedback
+      if (error.message?.includes('InstructionError')) {
+        try {
+          // Extract error details from message like: {"InstructionError":[2,{"Custom":1}]}
+          const match = error.message.match(/\{.*\}/);
+          if (match) {
+            const errorObj = JSON.parse(match[0]);
+            if (errorObj.InstructionError) {
+              const [instructionIndex, errorDetail] = errorObj.InstructionError;
+
+              // Custom error code 1 typically means insufficient balance or invalid state
+              if (errorDetail?.Custom === 1) {
+                errorMessage = '❌ Transaction failed: Insufficient USDC balance or market liquidity issue. Please check your wallet balance and try a smaller amount.';
+              } else if (errorDetail?.Custom === 6000) {
+                errorMessage = '❌ Slippage tolerance exceeded. The price moved too much. Please try again with a higher slippage or different amount.';
+              } else {
+                errorMessage = `❌ Transaction failed at instruction ${instructionIndex}. Error code: ${JSON.stringify(errorDetail)}. This may be due to insufficient balance, invalid market state, or network issues.`;
+              }
+            }
+          }
+        } catch (parseError) {
+          // If parsing fails, use the original error message
+          console.error('Error parsing InstructionError:', parseError);
+        }
+      } else if (error.message?.includes('Transaction simulation failed')) {
+        errorMessage = '❌ Transaction simulation failed. This may be due to insufficient balance, expired blockhash, or invalid transaction. Please try again.';
       } else if (error.message?.includes('User rejected')) {
         errorMessage = 'Transaction was cancelled';
       } else if (error.message?.includes('insufficient funds')) {
-        errorMessage = 'Insufficient USDC balance. Please ensure you have enough USDC in your wallet.';
+        errorMessage = '❌ Insufficient USDC balance. Please ensure you have enough USDC in your wallet.';
+      } else if (error.message?.includes('blockhash not found')) {
+        errorMessage = '❌ Transaction expired. Please try again.';
       }
 
+      console.error('Trade error:', error);
       setStatus(`❌ Error: ${errorMessage}`);
     } finally {
       setLoading(false);

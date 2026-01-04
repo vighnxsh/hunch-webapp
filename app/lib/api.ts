@@ -415,9 +415,9 @@ export async function fetchMarketsBatch(mints: string[]): Promise<Market[]> {
   try {
     console.log('fetchMarketsBatch - Request:', JSON.stringify({ mints }, null, 2));
 
-    // Use existing batch route at /api/markets/batch
+    // Use batch-by-mint route which accepts mints array
     const response = await fetch(
-      getApiUrl(`/api/markets/batch`),
+      getApiUrl(`/api/markets/batch-by-mint`),
       {
         method: "POST",
         headers: {

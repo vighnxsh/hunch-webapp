@@ -121,7 +121,7 @@ export default function UserPositions() {
     }
     return false;
   });
-  
+
   const activeWallet = solanaWallets.find(
     (wallet) => wallet.walletClientType === 'privy'
   ) || solanaWallets[0];
@@ -152,9 +152,8 @@ export default function UserPositions() {
 
     try {
       const publicKey = new PublicKey(walletAddress);
-      
-      // Fetch token accounts from both TOKEN_PROGRAM_ID and TOKEN_2022_PROGRAM_ID
-      // Some tokens may be in the older program
+
+      // Step 1: Fetch token accounts from both TOKEN_PROGRAM_ID and TOKEN_2022_PROGRAM_ID
       const [tokenAccounts2022, tokenAccountsLegacy] = await Promise.all([
         connection.getParsedTokenAccountsByOwner(publicKey, {
           programId: TOKEN_2022_PROGRAM_ID,
@@ -185,24 +184,91 @@ export default function UserPositions() {
 
       console.log(`Found ${userTokens.length} tokens with non-zero balance`);
 
-      // Map tokens to positions - work purely from blockchain data
-      // Without API calls, we can't determine market details or filter outcome mints
-      // So we'll show all tokens with non-zero balance as positions
-      const userPositions: UserPosition[] = userTokens.map((token) => {
+      if (userTokens.length === 0) {
+        setPositions([]);
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Filter to get only prediction market outcome mints
+      const { filterOutcomeMints, fetchMarketsBatch } = await import('../lib/api');
+      const allMintAddresses = userTokens.map((token) => token.mint);
+
+      console.log('Filtering outcome mints from', allMintAddresses.length, 'tokens');
+      const predictionMintAddresses = await filterOutcomeMints(allMintAddresses);
+
+      console.log('Found', predictionMintAddresses.length, 'prediction market tokens');
+
+      if (predictionMintAddresses.length === 0) {
+        setPositions([]);
+        setLoading(false);
+        return;
+      }
+
+      // Filter user tokens to only outcome tokens
+      const outcomeTokens = userTokens.filter((token) =>
+        predictionMintAddresses.includes(token.mint)
+      );
+
+      // Step 3: Fetch market details for all outcome tokens in batch
+      console.log('Fetching market details for', predictionMintAddresses.length, 'mints');
+      const markets = await fetchMarketsBatch(predictionMintAddresses);
+
+      console.log('Received', markets.length, 'markets from batch API');
+
+      // Step 4: Create a map by mint address for efficient lookup
+      const marketsByMint = new Map<string, Market>();
+      markets.forEach((market: Market) => {
+        // Map by yesMint, noMint, and marketLedger
+        if (market.accounts && typeof market.accounts === 'object') {
+          Object.values(market.accounts).forEach((account: any) => {
+            if (account?.yesMint) marketsByMint.set(account.yesMint, market);
+            if (account?.noMint) marketsByMint.set(account.noMint, market);
+            if (account?.marketLedger) marketsByMint.set(account.marketLedger, market);
+          });
+        }
+      });
+
+      // Step 5: Map outcome tokens to their market data and determine position type
+      const userPositions: UserPosition[] = outcomeTokens.map((token) => {
+        const marketData = marketsByMint.get(token.mint);
+
+        if (!marketData) {
+          return {
+            mint: token.mint,
+            balance: token.balance,
+            decimals: token.decimals,
+            position: 'UNKNOWN',
+            market: null,
+          };
+        }
+
+        // Determine if this is a YES or NO token
+        let isYesToken = false;
+        let isNoToken = false;
+
+        if (marketData.accounts && typeof marketData.accounts === 'object') {
+          Object.values(marketData.accounts).forEach((account: any) => {
+            if (account?.yesMint === token.mint) isYesToken = true;
+            if (account?.noMint === token.mint) isNoToken = true;
+          });
+        }
+
         return {
           mint: token.mint,
           balance: token.balance,
           decimals: token.decimals,
-          position: 'UNKNOWN',
-          market: null,
+          position: isYesToken ? 'YES' : isNoToken ? 'NO' : 'UNKNOWN',
+          market: marketData,
         };
       });
 
-      console.log(`Mapped ${userPositions.length} positions from blockchain data`);
+      console.log(`Mapped ${userPositions.length} positions with market data`);
 
       setPositions(userPositions);
     } catch (err: any) {
-      setError(err.message || 'Failed to load positions');
+      const errorMessage = err.message || 'Failed to load positions';
+      setError(errorMessage);
       console.error('Error loading positions:', err);
     } finally {
       setLoading(false);
@@ -235,7 +301,7 @@ export default function UserPositions() {
         (c) => c.charCodeAt(0)
       );
       const transaction = Transaction.from(transactionBytes);
-      
+
       // Sign with Privy embedded wallet
       //@ts-ignore
       const signedTransaction = await activeWallet.signTransaction(transaction);
@@ -284,9 +350,9 @@ export default function UserPositions() {
     } while (status === 'open' || status === 'pendingClose');
   };
 
-  
 
-  
+
+
 
   // Don't return null - show component even if not ready/authenticated (will show empty state)
   // This ensures the component is always visible

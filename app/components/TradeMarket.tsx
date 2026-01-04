@@ -487,7 +487,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               )}
             {probabilities.loading && market.status === 'active' && (
               <div className="flex items-center justify-center gap-2 mb-2 text-xs text-[var(--text-tertiary)]">
-                <div className="h-3 w-3 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 <span>Loading probabilities...</span>
               </div>
             )}
@@ -526,7 +526,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               step="0.01"
               min="0"
               disabled={loading}
-              className="w-full px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 transition-all font-number"
+              className="w-full px-4 py-3 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-white focus:border-transparent disabled:opacity-50 transition-all font-number"
             />
 
             {/* To Win Display */}
@@ -563,7 +563,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               ? 'bg-green-500/10 text-green-400 border border-green-500/30'
               : status.includes('❌')
                 ? 'bg-red-500/10 text-red-400 border border-red-500/30'
-                : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                : 'bg-white/10 text-white border border-white/30'
               }`}>
               {status}
             </p>

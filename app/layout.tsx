@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono, Luckiest_Guy, Vast_Shadow } from "next/font/google";
 import "./globals.css";
 import { PrivyAuthProvider } from "./components/PrivyProvider";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -30,6 +30,18 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
   weight: ["400", "500"],
+});
+
+const luckiestGuy = Luckiest_Guy({
+  variable: "--font-luckiest-guy",
+  subsets: ["latin"],
+  weight: ["400"],
+});
+
+const vastShadow = Vast_Shadow({
+  variable: "--font-vast-shadow",
+  subsets: ["latin"],
+  weight: ["400"],
 });
 
 export const metadata: Metadata = {
@@ -75,7 +87,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${robotoRound.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${robotoRound.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${luckiestGuy.variable} ${vastShadow.variable} antialiased`}
         style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
       >
         <ThemeProvider>

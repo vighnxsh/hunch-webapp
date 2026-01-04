@@ -115,7 +115,9 @@ function UserSearchResultItem({
   };
 
   const handleCardClick = () => {
-    router.push(`/user/${user.id}`);
+    // Use displayName (username) if available, otherwise fall back to userId
+    const username = user.displayName || user.id;
+    router.push(`/user/${encodeURIComponent(username)}`);
   };
 
   const displayName = user.displayName || `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}`;
@@ -163,7 +165,7 @@ export default function SocialFeed() {
   const [searching, setSearching] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Market data cache for displaying event cards
   const [marketDataCache, setMarketDataCache] = useState<Map<string, MarketData>>(new Map());

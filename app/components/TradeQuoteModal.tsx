@@ -73,9 +73,9 @@ export default function TradeQuoteModal({
       />
 
       {/* Modal */}
-      <div className="relative bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 border-2 border-cyan-500/30 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-scaleIn">
+      <div className="relative bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 border-2 border-white/30 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-scaleIn">
         {/* Gradient Border Effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 via-teal-500/20 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-gray-400/20 to-transparent pointer-events-none" />
 
         {/* Content */}
         <div className="relative p-6 space-y-4">
@@ -123,7 +123,7 @@ export default function TradeQuoteModal({
               <span className="text-sm text-gray-400">Position</span>
               <span
                 className={`text-sm font-bold ${
-                  tradeData.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'
+                  tradeData.side === 'yes' ? 'text-white' : 'text-pink-400'
                 }`}
               >
                 {tradeData.side.toUpperCase()}
@@ -172,7 +172,7 @@ export default function TradeQuoteModal({
               onChange={(e) => setQuote(e.target.value)}
               placeholder="Share why you made this trade... (optional)"
               disabled={isSubmitting}
-              className={`w-full px-4 py-3 border rounded-xl bg-gray-800/50 text-white placeholder-gray-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent disabled:opacity-50 transition-all resize-none ${
+              className={`w-full px-4 py-3 border rounded-xl bg-gray-800/50 text-white placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-transparent disabled:opacity-50 transition-all resize-none ${
                 isOverLimit
                   ? 'border-red-500 focus:ring-red-500'
                   : 'border-gray-700'
@@ -212,7 +212,7 @@ export default function TradeQuoteModal({
             <button
               onClick={handleSubmit}
               disabled={isSubmitting || isOverLimit || quote.trim().length === 0}
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl font-semibold transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/25"
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-white to-gray-500 hover:from-white hover:to-gray-400 text-white rounded-xl font-semibold transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed shadow-lg shadow-white/25"
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
@@ -227,8 +227,8 @@ export default function TradeQuoteModal({
         </div>
 
         {/* Decorative Elements */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-gray-400/10 rounded-full blur-3xl pointer-events-none" />
       </div>
 
       <style jsx>{`

@@ -399,7 +399,7 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
     return (
       <div className="bg-(--surface)/50 backdrop-blur-sm border border-border rounded-2xl p-6">
         <div className="flex items-center justify-center py-8">
-          <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -421,7 +421,7 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
       <div className="flex gap-2 mb-6 border-b border-border">
         <button
           onClick={() => setActiveTab('active')}
-          className={`px-4 py-2 text-xl font-bold transition-colors border-b-2 flex items-center gap-2 ${
+          className={`px-4 py-2 md:px-6 md:py-3 text-xl md:text-2xl font-bold transition-colors border-b-2 flex items-center gap-2 ${
             activeTab === 'active'
               ? 'border-text-primary text-text-primary'
               : 'border-transparent text-text-tertiary hover:text-text-secondary'
@@ -429,9 +429,9 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
         >
           ACTIVE
           {(activeTrades.length > 0 || positions.length > 0) && (
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
+            <span className={`text-xs md:text-sm px-2 py-0.5 md:px-3 md:py-1 rounded-full ${
               activeTab === 'active'
-                ? 'bg-cyan-500/20 text-cyan-400'
+                ? 'bg-white/20 text-white'
                 : 'bg-surface-hover text-text-tertiary'
             }`}>
               {activeTrades.length + positions.length}
@@ -440,7 +440,7 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
         </button>
         <button
           onClick={() => setActiveTab('previous')}
-          className={`px-4 py-2 font-bold text-xl transition-colors border-b-2 flex items-center gap-2 ${
+          className={`px-4 py-2 md:px-6 md:py-3 font-bold text-xl md:text-2xl transition-colors border-b-2 flex items-center gap-2 ${
             activeTab === 'previous'
               ? 'border-red-400 text-red-400'
               : 'border-transparent text-text-tertiary hover:text-text-secondary'
@@ -448,7 +448,7 @@ export default function UserTrades({ userId, walletAddress }: UserTradesProps) {
         >
           PREVIOUS
           {previousTrades.length > 0 && (
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
+            <span className={`text-xs md:text-sm px-2 py-0.5 md:px-3 md:py-1 rounded-full ${
               activeTab === 'previous'
                 ? 'bg-red-500/20 text-red-400'
                 : 'bg-surface-hover text-text-tertiary'

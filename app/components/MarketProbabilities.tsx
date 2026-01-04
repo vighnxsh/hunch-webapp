@@ -44,7 +44,7 @@ export default function MarketProbabilitiesDisplay({ market }: MarketProbabiliti
   if (probabilities.loading) {
     return (
       <div className="flex items-center gap-2 text-sm">
-        <div className="h-4 w-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+        <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
         <span className="text-gray-400">Loading probabilities...</span>
       </div>
     );
@@ -59,13 +59,13 @@ export default function MarketProbabilitiesDisplay({ market }: MarketProbabiliti
       <div className="flex-1">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-gray-400">YES</span>
-          <span className="text-sm font-semibold text-cyan-400">
+          <span className="text-sm font-semibold text-white">
             {probabilities.yesProbability !== null ? `${probabilities.yesProbability}%` : '--'}
           </span>
         </div>
         <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
           <div
-            className="h-full bg-cyan-500/30 transition-all duration-300"
+            className="h-full bg-white/30 transition-all duration-300"
             style={{ width: `${probabilities.yesProbability || 0}%` }}
           />
         </div>

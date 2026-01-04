@@ -64,7 +64,7 @@ export default function SignTransaction() {
       <button
         onClick={handleSignTransaction}
         disabled={!publicKey || !signTransaction || loading}
-        className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+        className="px-4 py-2 bg-white text-white rounded-lg hover:bg-white-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? 'Signing...' : 'Sign Transaction'}
       </button>

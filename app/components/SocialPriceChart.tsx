@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
-    LineChart,
-    Line,
+    AreaChart,
+    Area,
     ResponsiveContainer,
     XAxis,
     YAxis,
@@ -11,6 +11,7 @@ import {
     CartesianGrid,
 } from 'recharts';
 import { CandlestickData } from '../lib/api';
+import { useTheme } from './ThemeProvider';
 
 // Trade entry for avatar plotting
 export interface TradeEntry {
@@ -41,13 +42,30 @@ interface SocialPriceChartProps {
     className?: string;
     height?: number;
     lineColor?: string; // Custom line color
+    onHoverPriceChange?: (price: number | null) => void; // Callback for hover price changes
 }
 
-// Polymarket-style muted blue
-const POLYMARKET_BLUE = '#5b8def';
+// Default green color for charts
+const DEFAULT_GREEN = '#22C55E';
 
-// Clean, minimal tooltip for probability
-const ProbabilityTooltip = ({ active, payload }: any) => {
+// Clean, minimal tooltip for probability - theme aware
+const ProbabilityTooltip = ({ active, payload, onPriceChange }: any) => {
+    // Track last price to avoid unnecessary callbacks
+    const lastPriceRef = React.useRef<number | null>(null);
+    
+    // Call callback directly when active state or payload changes
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        if (onPriceChange && data.price !== undefined && data.price !== lastPriceRef.current) {
+            lastPriceRef.current = data.price;
+            onPriceChange(data.price);
+        }
+    } else if (onPriceChange && lastPriceRef.current !== null) {
+        // Reset when not hovering
+        lastPriceRef.current = null;
+        onPriceChange(null);
+    }
+
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         const date = new Date(data.timestamp * 1000);
@@ -59,11 +77,11 @@ const ProbabilityTooltip = ({ active, payload }: any) => {
         }).format(date);
 
         return (
-            <div className="bg-[rgba(12,12,14,0.92)] rounded-lg px-3 py-2 shadow-lg backdrop-blur-sm border border-white/5">
-                <p className="text-[10px] text-[#999] mb-0.5">
+            <div className="bg-[var(--card-bg)] rounded-lg px-3 py-2 shadow-lg backdrop-blur-sm border border-[var(--border-color)]">
+                <p className="text-[10px] text-[var(--text-tertiary)] mb-0.5">
                     {dateStr}
                 </p>
-                <p className="text-sm font-semibold text-white tabular-nums">
+                <p className="text-sm font-semibold text-[var(--text-primary)] tabular-nums">
                     {data.probability}
                 </p>
             </div>
@@ -78,11 +96,30 @@ export default function SocialPriceChart({
     className = '',
     height = 180,
     lineColor,
+    onHoverPriceChange,
 }: SocialPriceChartProps) {
     const [isHovering, setIsHovering] = useState(false);
+    const { theme } = useTheme();
+    const [isMobile, setIsMobile] = useState(false);
+    const [gradientId] = useState(() => `areaGradient-${Math.random().toString(36).substr(2, 9)}`);
 
-    // Use provided color or default to Polymarket blue
-    const strokeColor = lineColor || POLYMARKET_BLUE;
+    // Detect mobile viewport
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 640);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    // Use provided color or default green
+    const strokeColor = lineColor || DEFAULT_GREEN;
+    
+    // Theme-aware cursor color
+    const cursorColor = theme === 'dark' 
+        ? 'rgba(255,255,255,0.15)' 
+        : 'rgba(0,0,0,0.15)';
 
     // Process candlestick data into chart format
     const chartData = useMemo<ChartDataPoint[]>(() => {
@@ -199,24 +236,23 @@ export default function SocialPriceChart({
             onMouseLeave={() => setIsHovering(false)}
         >
             <ResponsiveContainer width="100%" height="100%">
-                <LineChart
+                <AreaChart
                     data={chartData}
-                    margin={{ top: 8, right: 32, bottom: 4, left: 4 }}
+                    margin={{ top: 4, right: 8, bottom: 4, left: 4 }}
                 >
                     <defs>
-                        {/* Very subtle gradient fill for minimal area effect */}
-                        <linearGradient id="subtleGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={strokeColor} stopOpacity={0.08} />
-                            <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
+                        {/* Gradient fill below the line */}
+                        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35} />
+                            <stop offset="50%" stopColor={strokeColor} stopOpacity={0.15} />
+                            <stop offset="100%" stopColor={strokeColor} stopOpacity={0.02} />
                         </linearGradient>
                     </defs>
 
-                    {/* Minimal horizontal grid only */}
+                    {/* No grid lines */}
                     <CartesianGrid
-                        horizontal={true}
+                        horizontal={false}
                         vertical={false}
-                        stroke="rgba(255,255,255,0.06)"
-                        strokeDasharray="none"
                     />
 
                     <XAxis
@@ -229,35 +265,28 @@ export default function SocialPriceChart({
                     <YAxis
                         orientation="right"
                         domain={yDomain}
-                        ticks={yTicks}
-                        tick={{
-                            fontSize: 9,
-                            fill: 'rgba(255,255,255,0.4)',
-                            fontFamily: 'var(--font-number, system-ui)',
-                        }}
-                        tickFormatter={(value) => `${value}%`}
-                        axisLine={false}
-                        tickLine={false}
-                        width={28}
+                        hide={true}
+                        width={0}
                     />
 
                     <Tooltip
-                        content={<ProbabilityTooltip />}
+                        content={<ProbabilityTooltip onPriceChange={onHoverPriceChange} />}
                         cursor={{
-                            stroke: 'rgba(255,255,255,0.15)',
+                            stroke: cursorColor,
                             strokeWidth: 1,
                         }}
                     />
 
-                    {/* Single thin line - the core visual */}
-                    <Line
+                    {/* Area with gradient fill and line on top */}
+                    <Area
                         type="monotone"
                         dataKey="price"
                         stroke={strokeColor}
-                        strokeWidth={1.5}
+                        strokeWidth={2.5}
+                        fill={`url(#${gradientId})`}
                         dot={false}
                         activeDot={isHovering ? {
-                            r: 3,
+                            r: 4,
                             strokeWidth: 0,
                             fill: strokeColor,
                         } : false}
@@ -265,13 +294,25 @@ export default function SocialPriceChart({
                         animationDuration={800}
                         animationEasing="ease-out"
                     />
-                </LineChart>
+                </AreaChart>
             </ResponsiveContainer>
 
             {/* User Avatar Markers - Positioned below the chart line */}
             {tradeMarkers.map((marker, index) => {
                 const amount = (parseFloat(marker.trade.amount) / 1_000_000).toFixed(2);
                 const sideColor = marker.trade.side === 'yes' ? '#22d3ee' : '#f472b6';
+                
+                // Theme-aware colors for tooltip and shadow
+                const tooltipBg = theme === 'dark' 
+                    ? 'rgba(12, 12, 14, 0.95)' 
+                    : 'rgba(255, 255, 255, 0.95)';
+                const shadowColor = theme === 'dark' 
+                    ? 'rgba(0,0,0,0.4)' 
+                    : 'rgba(0,0,0,0.2)';
+
+                // Adjust positioning for mobile
+                const avatarSize = isMobile ? 32 : 28; // Larger on mobile
+                const bottomOffset = isMobile ? 16 : 20;
 
                 return (
                     <div
@@ -279,7 +320,7 @@ export default function SocialPriceChart({
                         className="absolute pointer-events-auto group/avatar"
                         style={{
                             left: `calc(${marker.xPercent}% + 4px)`,
-                            bottom: `calc(${marker.yPercent}% - 20px)`,
+                            bottom: `calc(${marker.yPercent}% - ${bottomOffset}px)`,
                             transform: 'translate(-50%, 0)',
                             zIndex: 10,
                         }}
@@ -289,7 +330,7 @@ export default function SocialPriceChart({
                             <div
                                 className="mb-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-200"
                                 style={{
-                                    backgroundColor: 'rgba(12, 12, 14, 0.95)',
+                                    backgroundColor: tooltipBg,
                                     border: `1px solid ${sideColor}`,
                                     color: sideColor,
                                 }}
@@ -297,14 +338,16 @@ export default function SocialPriceChart({
                                 {marker.price}¢
                             </div>
 
-                            {/* Avatar with Glow */}
+                            {/* Avatar with Black Border - Larger on mobile */}
                             <img
                                 src={marker.trade.user.avatarUrl || '/default.png'}
                                 alt=""
-                                className="w-7 h-7 rounded-full border-2 shadow-lg cursor-pointer transition-transform group-hover/avatar:scale-110"
+                                className="rounded-full border-2 shadow-lg cursor-pointer transition-transform group-hover/avatar:scale-110"
                                 style={{
-                                    borderColor: 'var(--card-bg)',
-                                    boxShadow: `0 0 0 2px ${sideColor}80, 0 4px 12px rgba(0,0,0,0.4)`,
+                                    width: `${avatarSize}px`,
+                                    height: `${avatarSize}px`,
+                                    borderColor: '#000000',
+                                    boxShadow: `0 4px 12px ${shadowColor}`,
                                 }}
                             />
                         </div>

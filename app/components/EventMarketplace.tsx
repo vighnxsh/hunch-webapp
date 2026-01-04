@@ -50,7 +50,7 @@ function EventCard({ event, onClick }: EventCardProps) {
             className="group relative flex-shrink-0 w-[280px] sm:w-[300px] bg-gradient-to-b from-[var(--surface)] to-[var(--surface-hover)]/50 border border-[var(--border-color)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-[var(--accent)]/30 card-hover-lift tail-flick-shadow"
         >
             {/* Event Image */}
-            <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-cyan-500/20 to-teal-500/20">
+            <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-white/20 to-gray-400/20">
                 {event.imageUrl ? (
                     <img
                         src={event.imageUrl}
@@ -191,7 +191,7 @@ export default function EventMarketplace() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white to-gray-400 flex items-center justify-center">
                         <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                         </svg>

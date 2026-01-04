@@ -260,7 +260,7 @@ export default function PositionCard({ position, allowActions = false, onActionC
     >
       <div className="flex items-start gap-3">
         {/* Event Image */}
-        <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-gradient-to-br from-cyan-500/20 to-teal-500/20 border border-[var(--border-color)]">
+        <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-gradient-to-br from-white/20 to-gray-400/20 border border-[var(--border-color)]">
           {position.eventImageUrl ? (
             <img
               src={position.eventImageUrl}
@@ -282,7 +282,7 @@ export default function PositionCard({ position, allowActions = false, onActionC
         {/* Position Details */}
         <div className="flex-1 min-w-0">
           {/* Event Title */}
-          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1 truncate group-hover:text-cyan-400 transition-colors">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1 truncate group-hover:text-white transition-colors">
             {eventTitle}
           </h3>
 
@@ -354,7 +354,7 @@ export default function PositionCard({ position, allowActions = false, onActionC
                   <button
                     onClick={handleRedeem}
                     disabled={actionLoading !== null}
-                    className="flex-1 px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="flex-1 px-3 py-2 rounded-lg bg-white hover:bg-white text-white text-xs font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {actionLoading === 'redeem' ? 'Redeeming…' : 'Redeem'}
                   </button>

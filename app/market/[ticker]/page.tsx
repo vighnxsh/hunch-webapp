@@ -85,7 +85,7 @@ export default function MarketPage() {
                 {displayTitle}
               </h1>
               {dateInfo.formattedDate && (
-                <p className="text-sm text-cyan-400 mb-2 flex items-center gap-1">
+                <p className="text-sm text-white mb-2 flex items-center gap-1">
                   <span>📅</span> {dateInfo.formattedDate}
                 </p>
               )}
@@ -129,7 +129,7 @@ export default function MarketPage() {
             <div className="mt-6 pt-6 border-t border-gray-800 space-y-4">
               <Suspense fallback={
                 <div className="flex items-center justify-center py-8">
-                  <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
                 </div>
               }>
                 <TradeMarket market={market} />

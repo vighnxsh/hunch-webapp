@@ -3,10 +3,12 @@
 import { useLogin, usePrivy } from '@privy-io/react-auth';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from './ThemeProvider';
 
 export default function Login() {
   const { ready, authenticated } = usePrivy();
   const router = useRouter();
+  const { theme } = useTheme();
   const { login } = useLogin({
     onComplete: ({ user, isNewUser, wasAlreadyAuthenticated }) => {
       console.log('Login completed', { user, isNewUser, wasAlreadyAuthenticated });
@@ -59,7 +61,7 @@ export default function Login() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
         <div className="animate-pulse">
-          <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -73,9 +75,9 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--background)] relative overflow-hidden">
       {/* Background gradient effects */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-cyan-900/20 via-transparent to-transparent rounded-full blur-3xl" />
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-white-900/20 via-transparent to-transparent rounded-full blur-3xl" />
         <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-teal-900/20 via-transparent to-transparent rounded-full blur-3xl" />
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse" />
       </div>
 
       {/* Grid pattern overlay */}
@@ -95,11 +97,9 @@ export default function Login() {
 
         {/* Login card */}
         <div className="bg-gradient-to-b from-[var(--surface)]/95 to-[var(--surface)]/70 backdrop-blur-xl border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl">
-          <div className="flex justify-center mb-4">
-            <img src="/logo.png" alt="Logo" className="h-16 w-auto object-contain" />
-          </div>
+          {/* Logo hidden */}
           <p className="text-center text-[var(--text-secondary)] text-lg font-light tracking-wide mb-8">
-            Predict with frens, <span className="text-cyan-400 font-medium">Just Hunch it.</span>
+            Predict with frens, <span className="text-white font-medium">Just Hunch it.</span>
           </p>
           {error && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">

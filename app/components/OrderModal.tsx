@@ -78,7 +78,7 @@ function ReceiptCard({
                             {/* Selected side indicator */}
                             <div className="mt-3 mb-3 flex justify-center">
                                 <span className={`text-xs font-semibold px-3 py-1 rounded-full ${selectedSide === 'yes'
-                                    ? 'bg-cyan-100 text-cyan-600'
+                                    ? 'bg-white-100 text-white'
                                     : 'bg-pink-100 text-pink-600'
                                     }`}>
                                     Betting {selectedSide.toUpperCase()}
@@ -532,15 +532,15 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                                                 relative flex items-center justify-center w-20 h-9 sm:w-24 sm:h-10 
                                                 rounded-full transition-all duration-200
                                                 ${selectedSide === 'yes'
-                                                    ? 'bg-cyan-500 border-2 border-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.6)]'
-                                                    : 'bg-cyan-100 border-2 border-cyan-300/60 hover:bg-cyan-200 hover:border-cyan-400'
+                                                    ? 'bg-white border-2 border-white shadow-[0_0_20px_rgba(6,182,212,0.6)]'
+                                                    : 'bg-white-100 border-2 border-white/60 hover:bg-gray-200 hover:border-white'
                                                 }
                                             `}>
                                                 <span className={`
                                                     font-bold text-sm sm:text-base tracking-wide
                                                     ${selectedSide === 'yes'
                                                         ? 'text-white'
-                                                        : 'text-cyan-600'
+                                                        : 'text-white'
                                                     }
                                                 `}>YES</span>
                                             </div>

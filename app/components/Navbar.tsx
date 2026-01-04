@@ -79,9 +79,7 @@ export default function Navbar() {
   if (!mounted) {
     return (
       <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-24 flex-col items-center py-6 px-2 bg-[var(--nav-bg)] border-r border-[var(--border-color)] z-50">
-        <div className="w-14 h-14 mt-4 relative logo-glow">
-          <img src="/logo.png" alt="Logo" className="w-full h-full object-contain relative z-10" />
-        </div>
+        {/* Logo hidden */}
       </nav>
     );
   }
@@ -93,13 +91,7 @@ export default function Navbar() {
 
   return (
     <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-24 flex-col items-center py-6 px-2 bg-[var(--nav-bg)] backdrop-blur-xl border-r border-[var(--border-color)] z-50">
-      {/* Logo */}
-      <Link
-        href="/home"
-        className="w-14 h-14 hover:opacity-80 transition-opacity mt-4 mb-8 relative logo-glow"
-      >
-        <img src="/logo.png" alt="Logo" className="w-full h-full object-contain relative z-10" />
-      </Link>
+      {/* Logo hidden */}
 
       {/* Navigation Links - Always visible */}
       <div className="flex-1 flex flex-col items-center gap-4 pt-32">
@@ -154,7 +146,7 @@ export default function Navbar() {
             <img 
               src={avatar} 
               alt={name} 
-              className={`w-8 h-8 rounded-full object-cover ${isActive('/profile') ? 'ring-2 ring-cyan-500' : ''}`}
+              className={`w-8 h-8 rounded-full object-cover ${isActive('/profile') ? 'ring-2 ring-white' : ''}`}
             />
           ) : (
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -202,7 +194,7 @@ export default function Navbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
               )}

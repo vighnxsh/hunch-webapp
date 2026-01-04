@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useCreateWallet } from '@privy-io/react-auth/solana';
+import { useCreateWallet, useFundWallet } from '@privy-io/react-auth/solana';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
 import { USDC_MINT } from '../lib/tradeApi';
@@ -18,6 +18,11 @@ export default function Profile() {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const { createWallet } = useCreateWallet();
+  const { fundWallet } = useFundWallet({
+    onUserExited() {
+      // Modal has been closed by the user
+    },
+  });
   const { theme } = useTheme();
   const { currentUserId, userCounts, updateUserCounts, isUserLoading } = useAppData();
 
@@ -77,7 +82,7 @@ export default function Profile() {
         const embeddedWallet = user.linkedAccounts.find(
           (account) => account.type === 'wallet' &&
             'walletClientType' in account &&
-            account.walletClientType === 'privy' &&
+             account.walletClientType === 'privy' &&
             'address' in account
         ) as any;
 
@@ -124,8 +129,9 @@ export default function Profile() {
     return () => clearInterval(pollInterval);
   }, [authenticated, user, wallets]);
 
+  // Create connection only on client side
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
-  const connection = new Connection(rpcUrl, 'confirmed');
+  const connection = typeof window !== 'undefined' ? new Connection(rpcUrl, 'confirmed') : null;
 
   // Fetch follower/following counts and trades count in background (non-blocking)
   useEffect(() => {
@@ -228,7 +234,7 @@ export default function Profile() {
   };
 
   const fetchBalance = async () => {
-    if (!walletAddress) return;
+    if (!walletAddress || !connection) return;
 
     setLoading(true);
     setError(null);
@@ -279,6 +285,17 @@ export default function Profile() {
     return 'User';
   };
 
+  const getUserHandle = () => {
+    // Format handle like "$vzy010" - use wallet address or username
+    if (walletAddress) {
+      return `$${walletAddress.slice(0, 3)}${walletAddress.slice(-3)}`;
+    }
+    if (user?.twitter?.username) {
+      return `@${user.twitter.username}`;
+    }
+    return '$user';
+  };
+
   const getUserAvatar = () => {
     if (user?.twitter?.profilePictureUrl) {
       return user.twitter.profilePictureUrl;
@@ -300,59 +317,91 @@ export default function Profile() {
 
   return (
     <>
-      <div className=" backdrop-blur-sm   rounded-2xl p-6">
-
-
-        {/* User Info Section */}
+      <div className="backdrop-blur-sm rounded-2xl p-6">
+        {/* User Info Section - New Layout */}
         <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
           <div className="flex items-start gap-4">
-            <div className="relative">
-              <img
-                src={getUserAvatar()}
-                alt="Profile"
-                className="w-16 h-16 rounded-full border-2 border-[var(--accent)]/40 shadow-[0_0_20px_var(--glow-cyan)]"
-              />
-              {/* Instinct badge - subtle indicator */}
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--accent)] flex items-center justify-center" title="Sharp nose">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="#0D0D0F">
-                  <ellipse cx="12" cy="14" rx="4" ry="3" />
-                  <circle cx="8" cy="8" r="2" />
-                  <circle cx="16" cy="8" r="2" />
-                </svg>
+            {/* Left Side: Profile Picture and Info */}
+            <div className="flex items-start gap-4 flex-1">
+              {/* Profile Picture */}
+              <div className="relative flex-shrink-0">
+                <img
+                  src={getUserAvatar()}
+                  alt="Profile"
+                  className="w-16 h-16 rounded-full border-2 border-gray-400/50 shadow-[0_0_20px_var(--glow-cyan)]"
+                />
+              </div>
+              
+              {/* Main Content Area */}
+              <div className="flex-1 flex flex-col">
+                {/* Handle - to the right of profile picture */}
+               
+
+                {/* Name with Dropdown and Unverified Badge */}
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+                    {getUserDisplayName()}
+                  </h3>
+                 
+                </div>
+
+                {/* Follower/Following Counts */}
+                <div className="flex items-center gap-4 mt-1 flex-wrap">
+                  <button
+                    onClick={() => {
+                      setModalType('followers');
+                      setModalOpen(true);
+                    }}
+                    className="text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors cursor-pointer text-lg"
+                  >
+                    <span>{followersCount}</span>{' '}
+                    <span className="opacity-60">{followersCount !== 1 ? 'Followers' : 'Follower'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setModalType('following');
+                      setModalOpen(true);
+                    }}
+                    className="text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors cursor-pointer text-lg"
+                  >
+                    <span>{followingCount}</span>{' '}
+                    <span className="opacity-60">Following</span>
+                  </button>
+                  {walletAddress && (
+                    <button
+                      onClick={async () => {
+                        if (walletAddress) {
+                          try {
+                            await fundWallet({
+                              address: walletAddress,
+                            });
+                            // Refresh balance after deposit
+                            setTimeout(() => {
+                              fetchBalance();
+                            }, 2000);
+                          } catch (err) {
+                            console.error('Fund wallet error:', err);
+                          }
+                        }
+                      }}
+                      className="hidden md:flex px-4 py-1.5 bg-gradient-to-r bg-slate-200 text-black rounded-lg transition-all font-medium text-lg items-center gap-2 shadow-md hover:shadow-lg active:scale-95"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Cash
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
-                {getUserDisplayName()}
-              </h3>
-              {getUserEmail() && (
-                <p className="text-[var(--text-secondary)] text-sm mb-2">{getUserEmail()}</p>
-              )}
-              {/* Followers/Following Counts - Clickable */}
-              <div className="flex items-center gap-4 mt-4">
-                <button
-                  onClick={() => {
-                    setModalType('followers');
-                    setModalOpen(true);
-                  }}
-                  className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
-                >
-                  <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors font-number">{followersCount}</span>
-                  <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Followers</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setModalType('following');
-                    setModalOpen(true);
-                  }}
-                  className="flex flex-col hover:bg-[var(--surface-hover)] px-3 py-2 rounded-lg transition-all cursor-pointer group"
-                >
-                  <span className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors font-number">{followingCount}</span>
-                  <span className="text-[var(--text-tertiary)] text-md group-hover:text-[var(--text-secondary)] transition-colors">Lurking</span>
-                </button>
-              </div>
-            </div>
+
+            {/* Right Side Stats */}
+           
           </div>
+
+          {/* Verify Profile Button */}
+          
         </div>
 
         {/* Wallet Creation Section (only shown if no wallet) */}
@@ -461,8 +510,6 @@ export default function Profile() {
           showBreakdown={false}
           showStats={true}
         />
-
-
 
         {/* User Positions Section */}
         {currentUserId && (

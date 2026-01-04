@@ -123,7 +123,7 @@ export default function EventDetailsModal({ eventTicker, onClose }: EventDetails
                     <h4 className="text-xl font-semibold text-white">
                       Related Markets
                     </h4>
-                    <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 text-sm font-medium rounded-lg border border-cyan-500/30">
+                    <span className="px-3 py-1 bg-white/20 text-white text-sm font-medium rounded-lg border border-white/30">
                       {eventDetails.markets.filter((m: Market) => 
                         m.status !== 'finalized' && 
                         m.status !== 'resolved' && 
@@ -155,7 +155,7 @@ export default function EventDetailsModal({ eventTicker, onClose }: EventDetails
                                 {displayTitle}
                               </h5>
                               {dateInfo.formattedDate && (
-                                <p className="text-xs text-cyan-400 mb-2 flex items-center gap-1">
+                                <p className="text-xs text-white mb-2 flex items-center gap-1">
                                   <span>📅</span> {dateInfo.formattedDate}
                                 </p>
                               )}

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { fetchCandlesticksByMint, fetchMarketDetails, fetchEventDetails, Market, EventDetails, CandlestickData } from '../lib/api';
 import SocialPriceChart, { TradeEntry } from './SocialPriceChart';
+import { useTheme } from './ThemeProvider';
+import TradeDrawer from './TradeDrawer';
 
 interface FeedChartItemProps {
     trade: TradeEntry; // Single trade
@@ -30,7 +32,13 @@ function formatAmount(amount: string) {
     if (num >= 1000) {
         return `${(num / 1000).toFixed(1)}K`;
     }
-    return num.toFixed(2);
+    return num.toFixed(0);
+}
+
+// Format currency display
+function formatCurrency(amount: string) {
+    const num = parseFloat(amount) / 1_000_000;
+    return `$${num.toFixed(0)}`;
 }
 
 // Helper to extract mint from market accounts
@@ -88,11 +96,30 @@ function getMintFromAccounts(market: Market, side: 'yes' | 'no'): string | null 
 
 export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartItemProps) {
     const router = useRouter();
+    const { theme } = useTheme();
     const [market, setMarket] = useState<Market | null>(null);
     const [event, setEvent] = useState<EventDetails | null>(null);
     const [candlesticks, setCandlesticks] = useState<CandlestickData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [hoveredPrice, setHoveredPrice] = useState<number | null>(null);
+    const [isMobile, setIsMobile] = useState(false);
+    const [showTradeDrawer, setShowTradeDrawer] = useState(false);
+    
+    // Stable callback for price changes
+    const handlePriceChange = useCallback((price: number | null) => {
+        setHoveredPrice(price);
+    }, []);
+
+    // Detect mobile viewport
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 640); // sm breakpoint
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // Fetch market, event, and candlestick data based on trade side
     useEffect(() => {
@@ -125,12 +152,13 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
                 console.log(`[FeedChartItem] Trade side: ${tradeSide}, Mint: ${mint}`);
 
                 if (mint) {
-                    // Get last 7 days of data with hourly intervals for smooth chart
+                    // Get data - 3 days on mobile, 7 days on desktop
                     const now = Math.floor(Date.now() / 1000);
-                    const oneWeekAgo = now - 7 * 24 * 60 * 60;
+                    const daysToFetch = isMobile ? 3 : 7;
+                    const startTime = now - daysToFetch * 24 * 60 * 60;
 
                     const candleData = await fetchCandlesticksByMint(mint, {
-                        startTs: oneWeekAgo,
+                        startTs: startTime,
                         endTs: now,
                         periodInterval: 60, // Hourly intervals for smooth chart
                     });
@@ -155,7 +183,7 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
 
         loadData();
         return () => { mounted = false; };
-    }, [marketTicker, trade.side]);
+    }, [marketTicker, trade.side, isMobile]);
 
     // Display name for trader
     const displayName = trade.user.displayName ||
@@ -175,34 +203,78 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
         ? candlesticks[candlesticks.length - 1].price.close
         : null;
 
-    // Handle click to navigate to event
+    // Handle click to navigate to event (for chart area)
     const handleClick = () => {
         if (market?.eventTicker) {
             router.push(`/event/${encodeURIComponent(market.eventTicker)}`);
         }
     };
 
+    // Handle trade button click - open drawer
+    const handleTradeClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (market) {
+            setShowTradeDrawer(true);
+        }
+    };
+
     // Navigate to user profile
     const handleUserClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        router.push(`/user/${trade.userId}`);
+        // Use displayName (username) if available, otherwise fall back to userId
+        const username = trade.user.displayName || trade.userId;
+        router.push(`/user/${encodeURIComponent(username)}`);
     };
+
+    // Calculate PnL (mock calculation based on current price vs entry)
+    const calculatePnL = (priceToUse: number | null) => {
+        const price = priceToUse || currentPrice;
+        if (!price || candlesticks.length === 0) return { value: 0, percent: 0 };
+        // Find the price at trade time
+        const tradeTime = Math.floor(new Date(trade.createdAt).getTime() / 1000);
+        let entryPrice = candlesticks[0].price.close || 50;
+        for (const c of candlesticks) {
+            if (c.end_period_ts <= tradeTime) {
+                entryPrice = c.price.close || entryPrice;
+            }
+        }
+        const amount = parseFloat(trade.amount) / 1_000_000;
+        const priceDiff = price - entryPrice;
+        const pnlPercent = entryPrice > 0 ? (priceDiff / entryPrice) * 100 : 0;
+        // Adjust based on side
+        const adjustedPnl = trade.side === 'yes' ? pnlPercent : -pnlPercent;
+        const totalValue = amount * (1 + adjustedPnl / 100);
+        return { value: totalValue, percent: adjustedPnl };
+    };
+
+    const pnl = calculatePnL(hoveredPrice);
+    
+    // Determine chart color based on PnL
+    const chartColor = pnl.percent < 0 ? '#EF4444' : '#22C55E'; // Red if negative, green if positive
 
     // Loading state
     if (loading) {
         return (
-            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)]/60 overflow-hidden">
-                <div className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--surface-hover)] animate-pulse" />
-                    <div className="flex-1">
-                        <div className="h-4 w-2/3 bg-[var(--surface-hover)] rounded animate-pulse mb-2" />
-                        <div className="h-3 w-1/3 bg-[var(--surface-hover)] rounded animate-pulse" />
+            <div className="w-full">
+                {/* Username & Comment Skeleton - Outside Card */}
+                <div className="mb-3 px-2">
+                    <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-full bg-[var(--surface-hover)] animate-pulse" />
+                        <div className="flex-1">
+                            <div className="h-4 w-2/3 bg-[var(--surface-hover)] rounded animate-pulse mb-2" />
+                            <div className="h-3 w-1/3 bg-[var(--surface-hover)] rounded animate-pulse" />
+                        </div>
                     </div>
                 </div>
-                <div className="h-[140px] bg-[var(--surface-hover)]/50 animate-pulse mx-4 rounded-xl" />
-                <div className="p-4 flex gap-4">
-                    <div className="h-8 w-16 bg-[var(--surface-hover)] rounded animate-pulse" />
-                    <div className="h-8 w-16 bg-[var(--surface-hover)] rounded animate-pulse" />
+                {/* Card Skeleton - Starts below username/comment, aligned with them */}
+                <div className="ml-[56px]">
+                    <div className="rounded-3xl border-2 border-[var(--border-color)] bg-[var(--card-bg)] overflow-hidden">
+                        <div className="h-[160px] bg-[var(--surface-hover)]/50 animate-pulse mx-4 rounded-xl mt-4" />
+                        <div className="p-4 flex gap-4">
+                            <div className="h-10 w-24 bg-[var(--surface-hover)] rounded animate-pulse" />
+                            <div className="h-10 w-20 bg-[var(--surface-hover)] rounded animate-pulse" />
+                        </div>
+                    </div>
                 </div>
             </div>
         );
@@ -218,136 +290,176 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="rounded-2xl border border-[var(--border-color)] bg-[var(--card-bg)]/60 backdrop-blur-sm overflow-hidden"
+            className="w-full"
         >
-            {/* Header - Trade Action */}
-            <div className="p-4 pb-3 flex items-center gap-3">
-                {/* User Avatar */}
-                <button
-                    onClick={handleUserClick}
-                    className="flex-shrink-0 hover:opacity-80 transition-opacity"
-                >
-                    <img
-                        src={trade.user.avatarUrl || '/default.png'}
-                        alt={displayName}
-                        className="w-10 h-10 rounded-full"
-                    />
-                </button>
+            {/* Username & Comment - Outside Card */}
+            <div className="mb-3 px-2 relative">
+                <div className="flex items-start gap-3">
+                    {/* User Avatar */}
+                    <button
+                        onClick={handleUserClick}
+                        className="flex-shrink-0 cursor-pointer"
+                    >
+                        <img
+                            src={trade.user.avatarUrl || '/default.png'}
+                            alt={displayName}
+                            className="w-12 h-12 rounded-full border-2 border-[var(--border-color)]"
+                        />
+                    </button>
 
-                {/* Trade Description - Subtle & Contextual */}
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[var(--text-primary)]">
+                    {/* Username & Comment */}
+                    <div className="flex-1 min-w-0">
                         <button
                             onClick={handleUserClick}
-                            className="font-semibold hover:text-cyan-400 transition-colors"
+                            className={`cursor-pointer ${
+                                quote && quote.trim().length > 0
+                                    ? 'font-semibold text-[var(--text-secondary)] text-sm'
+                                    : 'font-bold text-[var(--text-primary)] text-lg'
+                            }`}
+                            style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
                         >
                             {displayName}
                         </button>
-                        <span className="text-[var(--text-secondary)]"> took </span>
-                        <span className={`font-semibold ${trade.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'}`}>
-                            {trade.side.toUpperCase()}
-                        </span>
-                        <span className="text-[var(--text-secondary)]"> on </span>
-                        <span className="font-medium text-[var(--text-primary)]">
-                            {predictionLabel}
-                        </span>
-                    </p>
+                        {quote && quote.trim().length > 0 && (
+                            <p className="text-[var(--text-primary)] text-xl font-medium mt-1">
+                                "{quote}"
+                            </p>
+                        )}
+                    </div>
                 </div>
-
-                {/* Time */}
-                <span className="flex-shrink-0 text-xs text-[var(--text-tertiary)]">
-                    {formatTimeAgo(trade.createdAt)}
-                </span>
             </div>
 
-            {/* Quote Display - Highlighted */}
-            {quote && quote.trim().length > 0 && (
-                <div className="mx-4 mb-3 px-4 py-3 bg-gradient-to-r from-cyan-500/10 to-transparent border-l-3 border-cyan-400 rounded-r-lg">
-                    <p className="text-[var(--text-primary)] text-sm font-medium italic">
-                        "{quote}"
-                    </p>
+            {/* Card Component - Starts below username/comment, aligned with them */}
+            <div className="ml-[56px]">
+                <div
+                    className="rounded-3xl border-2 border-[var(--border-color)] bg-[var(--card-bg)] overflow-visible relative pt-6"
+                    style={{
+                        boxShadow: theme === 'dark' 
+                            ? '0 4px 24px rgba(0,0,0,0.4)' 
+                            : '0 4px 24px rgba(0,0,0,0.1)',
+                    }}
+                >
+                {/* Ticket-style Amount Tag - Top Right Corner - Sticker Overlay */}
+                <div 
+                    className="absolute -top-2 -right-2 z-20 pointer-events-none"
+                    style={{ transform: 'rotate(12deg) scale(1.3)' }}
+                >
+                    <div 
+                        className="vast-shadow-regular relative px-5 py-3 font-black text-lg sm:text-xl text-[#0a0a0a]"
+                        style={{
+                            background: 'linear-gradient(135deg, #FFE566 0%, #FFD93D 50%, #F4C430 100%)',
+                            clipPath: 'polygon(8% 0%, 100% 0%, 100% 100%, 8% 100%, 0% 50%)',
+                            boxShadow: '0 4px 12px rgba(255,217,61,0.4), 0 2px 8px rgba(0,0,0,0.2)',
+                        }}
+                    >
+                        {formatCurrency(trade.amount)}
+                    </div>
                 </div>
-            )}
 
-            {/* Chart Card */}
+                {/* Time Posted - Top Right */}
+                <div className="absolute top-4 right-4 z-10 pr-12 sm:pr-4">
+                    <span className="text-xs text-[var(--text-tertiary)] font-medium">
+                        {formatTimeAgo(trade.createdAt)} ago
+                    </span>
+                </div>
 
-            <div
-                onClick={handleClick}
-                className="mx-4 rounded-xl bg-transparent overflow-hidden cursor-pointer hover:bg-white/[0.02] transition-all group"
-            >
-                {/* Chart Header - Event & Market Context */}
-                <div className="p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        {/* Event Image or Side Icon */}
-                        {eventImage ? (
-                            <img
-                                src={eventImage}
-                                alt=""
-                                className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
-                            />
-                        ) : (
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-base flex-shrink-0 ${trade.side === 'yes'
-                                ? 'bg-gradient-to-br from-cyan-500/20 to-teal-500/20 text-cyan-400'
-                                : 'bg-gradient-to-br from-pink-500/20 to-fuchsia-500/20 text-pink-400'
-                                }`}>
-                                {trade.side === 'yes' ? '✓' : '✗'}
-                            </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs text-[var(--text-tertiary)] truncate">{eventTitle}</p>
-                            <p className={`text-sm font-semibold truncate ${trade.side === 'yes' ? 'text-cyan-400' : 'text-pink-400'}`}>
+                {/* Position Label - YES/NO on Market */}
+                <div className="px-4 pb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span 
+                            className={`luckiest-guy-regular font-black text-3xl sm:text-5xl ${trade.side === 'yes' ? 'bg-clip-text bg-gradient-to-r from-lime-500 to-green-400 text-transparent' : 'bg-clip-text bg-gradient-to-r from-red-500 to-pink-500 text-transparent'}`}
+                        >
+                            {trade.side.toUpperCase()}
+                        </span>
+                        <span className="text-[var(--text-tertiary)] text-lg font-medium">on</span>
+                        <div 
+                            className="px-3 py-1.5 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-color)]"
+                            style={{ maxWidth: 'calc(100% - 100px)' }}
+                        >
+                            <span className="text-[var(--text-primary)] text-sm font-semibold truncate block">
                                 {predictionLabel}
+                            </span>
+                            <span className="text-[var(--text-secondary)] text-xs truncate block">
+                                {eventTitle}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Chart Area */}
+                <div
+                    onClick={handleClick}
+                    className="mx-2 sm:mx-4 rounded-2xl overflow-hidden cursor-pointer relative"
+                    style={{
+                        background: pnl.percent < 0
+                            ? theme === 'dark' 
+                                ? 'linear-gradient(180deg, transparent 0%, rgba(239,68,68,0.08) 100%)'
+                                : 'linear-gradient(180deg, transparent 0%, rgba(239,68,68,0.04) 100%)'
+                            : theme === 'dark' 
+                                ? 'linear-gradient(180deg, transparent 0%, rgba(34,197,94,0.08) 100%)'
+                                : 'linear-gradient(180deg, transparent 0%, rgba(34,197,94,0.04) 100%)',
+                    }}
+                >
+                    {/* Chart */}
+                    <div className="pt-2 h-[100px] sm:h-[130px]">
+                        <SocialPriceChart
+                            candlesticks={candlesticks}
+                            trades={[trade]}
+                            height={130}
+                            lineColor={chartColor}
+                            onHoverPriceChange={handlePriceChange}
+                        />
+                    </div>
+                </div>
+
+                {/* Footer - Total Value, PnL & APE IN Button */}
+                <div className="p-4 pt-4 flex items-end justify-between">
+                    {/* Stats */}
+                    <div className="flex items-center gap-4">
+                        {/* Total Value */}
+                        <div>
+                            <p className="text-[var(--text-tertiary)] text-xs font-medium uppercase tracking-wide">Total Value</p>
+                            <p className="text-[var(--text-primary)] text-xl font-black" style={{ fontFamily: 'system-ui' }}>
+                                {/* ${pnl.value.toFixed(0)} */} $82.4
+                            </p>
+                        </div>
+                        
+                        {/* Divider */}
+                        <div className="w-px h-10 bg-[var(--border-color)]" />
+                        
+                        {/* PnL */}
+                        <div>
+                            <p className="text-[var(--text-tertiary)] text-xs font-medium uppercase tracking-wide">PnL</p>
+                            <p className={`text-xl font-black ${pnl.percent >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`} style={{ fontFamily: 'system-ui' }}>
+                                {pnl.percent >= 0 ? '+' : ''}{pnl.percent.toFixed(1)}%
                             </p>
                         </div>
                     </div>
 
-                    {/* Current Price */}
-                    {currentPrice !== null && (
-                        <div className="text-right flex-shrink-0 ml-2">
-                            <p className="text-base font-bold text-[var(--text-primary)] font-number">
-                                {currentPrice}¢
-                            </p>
-                            <p className="text-[10px] text-[var(--text-tertiary)] uppercase">Current</p>
-                        </div>
-                    )}
+                    {/* APE IN Button */}
+                    <motion.button
+                        onClick={handleTradeClick}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className=" bg-yellow-300 px-5 py-2.5 border-black border-2  font-extrabold text-xl rounded-lg"
+                       
+                    >
+                        Trade
+                    </motion.button>
                 </div>
-
-                {/* Probability Chart */}
-                <div className="px-1 pb-2">
-                    <SocialPriceChart
-                        candlesticks={candlesticks}
-                        trades={[trade]}
-                        height={110}
-                        lineColor="#5b8def"
-                    />
                 </div>
             </div>
 
-            {/* Footer - Social Actions */}
-            <div className="p-4 pt-3 flex items-center gap-6">
-                {/* Comments placeholder */}
-                <button className="flex items-center gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    <span className="text-xs font-medium">0</span>
-                </button>
-
-                {/* Volume */}
-                <div className="flex items-center gap-1.5 text-[var(--text-tertiary)]">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span className="text-xs font-medium font-number">${formatAmount(trade.amount)}</span>
-                </div>
-
-                {/* Share */}
-                <button className="flex items-center gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                    </svg>
-                </button>
-            </div>
+            {/* Trade Drawer */}
+            {market && (
+                <TradeDrawer
+                    isOpen={showTradeDrawer}
+                    onClose={() => setShowTradeDrawer(false)}
+                    market={market}
+                    event={event}
+                    initialSide={trade.side as 'yes' | 'no'}
+                />
+            )}
         </motion.div>
     );
 }

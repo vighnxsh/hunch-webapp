@@ -375,7 +375,7 @@ export default function EventDetailChart({
                                 onClick={() => onMarketSelect?.(market.ticker)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-200
                                     ${isSelected
-                                        ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
+                                        ? 'bg-white text-white shadow-lg shadow-white/20'
                                         : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]/80 hover:text-[var(--text-primary)]'
                                     }`}
                             >

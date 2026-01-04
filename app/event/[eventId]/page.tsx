@@ -403,7 +403,7 @@ export default function EventPage() {
                         </svg>
                     </div>
                     <p className="text-[var(--text-secondary)] mb-4">{error}</p>
-                    <button onClick={() => router.back()} className="px-4 py-2 bg-cyan-600 text-white rounded-xl text-sm font-medium">
+                    <button onClick={() => router.back()} className="px-4 py-2 bg-white text-white rounded-xl text-sm font-medium">
                         Go Back
                     </button>
                 </div>
@@ -443,7 +443,7 @@ export default function EventPage() {
                                     />
                                 </div>
                             ) : (
-                                <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex items-center justify-center flex-shrink-0">
+                                <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-gradient-to-br from-white/20 to-gray-400/20 flex items-center justify-center flex-shrink-0">
                                     <span className="text-2xl">📊</span>
                                 </div>
                             )}
@@ -531,10 +531,10 @@ export default function EventPage() {
                                                             <div className="h-10 bg-[var(--surface-hover)] rounded-lg animate-pulse" />
                                                         ) : (
                                                             <div className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:min-w-[100px] text-center transition-all cursor-pointer ${isSelected && selectedSide === 'yes'
-                                                                ? 'bg-cyan-500 border-2 border-cyan-400 shadow-lg shadow-cyan-500/25'
-                                                                : 'bg-cyan-500/15 border border-cyan-500/30 hover:bg-cyan-500/25'
+                                                                ? 'bg-white border-2 border-white shadow-lg shadow-white/25'
+                                                                : 'bg-white/15 border border-white/30 hover:bg-white/25'
                                                                 }`}>
-                                                                <span className={`font-bold text-xs sm:text-sm ${isSelected && selectedSide === 'yes' ? 'text-white' : 'text-cyan-400'
+                                                                <span className={`font-bold text-xs sm:text-sm ${isSelected && selectedSide === 'yes' ? 'text-white' : 'text-white'
                                                                     }`}>
                                                                     Yes {yesPrice !== null ? `${yesPrice}¢` : '—'}
                                                                 </span>
@@ -577,7 +577,7 @@ export default function EventPage() {
                             {!showAllMarkets && activeMarkets.length > 4 && (
                                 <button
                                     onClick={() => setShowAllMarkets(true)}
-                                    className="w-full p-3 bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-xl text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-2 border-dashed border-[var(--border-color)] hover:border-cyan-500/30"
+                                    className="w-full p-3 bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-xl text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-2 border-dashed border-[var(--border-color)] hover:border-white/30"
                                 >
                                     Show {activeMarkets.length - 4} More Markets
                                 </button>
@@ -655,8 +655,8 @@ export default function EventPage() {
                             <button
                                 onClick={() => setSelectedSide('yes')}
                                 className={`flex-1 py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200 ${selectedSide === 'yes'
-                                        ? 'bg-gradient-to-r from-cyan-500 to-cyan-400 text-white shadow-lg shadow-cyan-500/30 scale-[1.02]'
-                                        : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20'
+                                        ? 'bg-gradient-to-r from-white to-white text-white shadow-lg shadow-white/30 scale-[1.02]'
+                                        : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
                                     }`}
                             >
                                 Yes {selectedMarket.yesAsk ? `${Math.round(parseFloat(selectedMarket.yesAsk) * 100)}¢` : '—'}
@@ -686,7 +686,7 @@ export default function EventPage() {
                             />
                         </div>
 
-                        <div className="flex items-center justify-between mb-3 px-2 py-1.5 bg-green-500/5 rounded-xl border border-green-500/10">
+                        <div className="flex items-center justify-between mb-3   px-2 py-1.5 bg-green-500/5 rounded-xl border border-green-500/10">
                             {(() => {
                                 const price = selectedSide === 'yes'
                                     ? (selectedMarket.yesAsk ? parseFloat(selectedMarket.yesAsk) : null)
@@ -709,7 +709,7 @@ export default function EventPage() {
                         <button
                             onClick={handleMobileTrade}
                             disabled={mobileTradeLoading || !mobileAmount || parseFloat(mobileAmount) <= 0}
-                            className="w-full py-3 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed transition-all duration-200 font-medium text-base shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:scale-[1.01] active:scale-[0.99]"
+                            className="w-full py-3 bg-gradient-to-r from-white to-gray-400 hover:from-white hover:to-gray-300 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed transition-all duration-200 font-medium text-base shadow-lg shadow-white/20 hover:shadow-white/30 hover:scale-[1.01] active:scale-[0.99]"
                         >
                             {mobileTradeLoading ? 'Placing Order...' : authenticated ? 'Place Order' : 'Sign In to Trade'}
                         </button>
@@ -719,7 +719,7 @@ export default function EventPage() {
                                     ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                                     : mobileTradeStatus.includes('❌')
                                         ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                        : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                        : 'bg-white/10 text-white border border-white/20'
                                 }`}>
                                 {mobileTradeStatus}
                             </p>

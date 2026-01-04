@@ -2,6 +2,7 @@
 
 import { useLogin, usePrivy } from '@privy-io/react-auth';
 import { useState, useEffect } from 'react';
+import { useTheme } from './ThemeProvider';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface LoginModalProps {
 
 export default function LoginModal({ isOpen, onClose, onSuccess, message }: LoginModalProps) {
   const { ready, authenticated } = usePrivy();
+  const { theme } = useTheme();
   const { login } = useLogin({
     onComplete: ({ user, isNewUser, wasAlreadyAuthenticated }) => {
       console.log('Login completed', { user, isNewUser, wasAlreadyAuthenticated });
@@ -89,10 +91,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess, message }: Logi
             </svg>
           </button>
 
-          {/* Logo */}
-          <div className="flex justify-center mb-4">
-            <img src="/logo.png" alt="Logo" className="h-16 w-auto object-contain" />
-          </div>
+          {/* Logo hidden */}
 
           {/* Message */}
           {message ? (
@@ -107,7 +106,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess, message }: Logi
 
           {!ready && (
             <div className="flex justify-center py-8">
-              <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
             </div>
           )}
 

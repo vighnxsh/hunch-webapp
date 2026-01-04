@@ -298,7 +298,7 @@ export default function WithdrawModal({
               }}
               disabled={loading}
               className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${selectedToken === 'SOL'
-                ? 'bg-cyan-600 text-white shadow-lg'
+                ? 'bg-white text-white shadow-lg'
                 : theme === 'light'
                   ? 'text-gray-600 hover:bg-gray-100'
                   : 'text-gray-400 hover:bg-gray-800'
@@ -314,7 +314,7 @@ export default function WithdrawModal({
               }}
               disabled={loading}
               className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all ${selectedToken === 'USDC'
-                ? 'bg-cyan-600 text-white shadow-lg'
+                ? 'bg-white text-white shadow-lg'
                 : theme === 'light'
                   ? 'text-gray-600 hover:bg-gray-100'
                   : 'text-gray-400 hover:bg-gray-800'
@@ -349,7 +349,7 @@ export default function WithdrawModal({
               className={`w-full px-3 py-2.5 rounded-xl text-sm font-mono ${theme === 'light'
                 ? 'bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400'
                 : 'bg-gray-800 border border-gray-700 text-white placeholder-gray-500'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:opacity-50`}
+                } focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50`}
             />
           </div>
 
@@ -360,7 +360,7 @@ export default function WithdrawModal({
               <button
                 onClick={setMaxAmount}
                 disabled={loading || (selectedToken === 'SOL' ? !solBalance : !usdcBalance)}
-                className="text-xs text-cyan-400 hover:text-cyan-300 font-medium disabled:opacity-50"
+                className="text-xs text-white hover:text-white font-medium disabled:opacity-50"
               >
                 MAX
               </button>
@@ -377,7 +377,7 @@ export default function WithdrawModal({
                 className={`w-full px-3 py-2.5 pr-14 rounded-xl text-sm ${theme === 'light'
                   ? 'bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400'
                   : 'bg-gray-800 border border-gray-700 text-white placeholder-gray-500'
-                  } focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:opacity-50`}
+                  } focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50`}
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-tertiary)]">{selectedToken}</span>
             </div>
@@ -421,7 +421,7 @@ export default function WithdrawModal({
           <button
             onClick={handleWithdraw}
             disabled={loading || !recipientAddress.trim() || !amount}
-            className="flex-1 py-2.5 rounded-xl font-medium text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-2.5 rounded-xl font-medium text-sm bg-white hover:bg-white text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">

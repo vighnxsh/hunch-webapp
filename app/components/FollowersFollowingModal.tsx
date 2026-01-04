@@ -132,8 +132,10 @@ export default function FollowersFollowingModal({
         }
     };
 
-    const handleUserClick = (clickedUserId: string) => {
-        router.push(`/user/${clickedUserId}`);
+    const handleUserClick = (user: User) => {
+        // Use displayName (username) if available, otherwise fall back to userId
+        const username = user.displayName || user.id;
+        router.push(`/user/${encodeURIComponent(username)}`);
         onClose();
     };
 
@@ -183,7 +185,7 @@ export default function FollowersFollowingModal({
                             className="flex items-center justify-between p-3 rounded-xl bg-[var(--surface-hover)]/50 hover:bg-[var(--surface-hover)] transition-all border border-[var(--border-color)] group"
                         >
                             <div
-                                onClick={() => handleUserClick(user.id)}
+                                onClick={() => handleUserClick(user)}
                                 className="flex items-center gap-3 flex-1 cursor-pointer"
                             >
                                 <img

@@ -299,7 +299,7 @@ export default function UserPositions() {
         <>
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
             </div>
           )}
 
@@ -308,7 +308,7 @@ export default function UserPositions() {
               <p className="text-red-400 mb-4">{error}</p>
               <button
                 onClick={loadPositions}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-semibold transition-colors"
+                className="px-4 py-2 bg-white hover:bg-white text-white rounded-lg text-sm font-semibold transition-colors"
               >
                 Retry
               </button>
@@ -329,7 +329,7 @@ export default function UserPositions() {
           {positions.map((position) => (
             <div
               key={position.mint}
-              className="p-4 bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl hover:border-cyan-500/30 transition-colors"
+              className="p-4 bg-[var(--card-bg)]/30 border border-[var(--border-color)] rounded-xl hover:border-white/30 transition-colors"
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
@@ -340,7 +340,7 @@ export default function UserPositions() {
                     <span
                       className={`px-3 py-1 text-xs font-semibold rounded-lg ${
                         position.position === 'YES'
-                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                          ? 'bg-white/20 text-white border border-white/30'
                           : position.position === 'NO'
                           ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
                           : 'bg-[var(--surface-hover)] text-[var(--text-tertiary)] border border-[var(--border-color)]'
@@ -349,7 +349,7 @@ export default function UserPositions() {
                       {position.position}
                     </span>
                     {position.market?.status && (
-                      <span className="px-3 py-1 text-xs font-medium rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                      <span className="px-3 py-1 text-xs font-medium rounded-lg bg-white/20 text-white border border-white/30">
                         {position.market.status}
                       </span>
                     )}
@@ -369,7 +369,7 @@ export default function UserPositions() {
                 <button
                   onClick={() => handleRedeem(position)}
                   disabled={redeemingMint === position.mint}
-                  className="mt-3 w-full px-4 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all text-sm font-semibold"
+                  className="mt-3 w-full px-4 py-3 bg-gradient-to-r from-white to-gray-500 hover:from-white hover:to-gray-400 text-white rounded-xl disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed transition-all text-sm font-semibold"
                 >
                   {redeemingMint === position.mint ? 'Redeeming...' : 'Redeem Tokens'}
                 </button>

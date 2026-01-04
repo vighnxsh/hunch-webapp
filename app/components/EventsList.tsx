@@ -304,7 +304,7 @@ function EventCard({
                           e.stopPropagation();
                           onOpenTrade(market as Market, 'yes', event);
                         }}
-                        className="inline-flex items-center px-3 py-1 rounded-lg bg-cyan-500/10 text-cyan-300 text-md mb-2 font-semibold shadow-sm hover:bg-cyan-500/20 transition-colors"
+                        className="inline-flex items-center px-3 py-1 rounded-lg bg-white/10 text-white text-md mb-2 font-semibold shadow-sm hover:bg-white/20 transition-colors"
                       >
                         Yes
                       </button>
@@ -583,7 +583,7 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
         <p className="text-[var(--text-secondary)] text-sm mb-3">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-cyan-400 text-white text-sm font-medium rounded-xl"
+          className="px-4 py-2 bg-white text-white text-sm font-medium rounded-xl"
         >
           Retry
         </button>
@@ -622,7 +622,7 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search markets..."
-            className="w-full pl-12 pr-10 py-3 rounded-2xl bg-[var(--surface)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+            className="w-full pl-12 pr-10 py-3 rounded-2xl bg-[var(--surface)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 transition-all"
           />
           {searchQuery && (
             <button
@@ -641,21 +641,69 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
         {TOPIC_FILTERS.map((topic) => {
           const isSelected = selectedTopic === topic.id;
+          // Icon mapping for each filter
+          const getIcon = () => {
+            switch (topic.id) {
+              case 'all':
+                return (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                );
+              case 'crypto':
+                return (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                );
+              case 'politics':
+                return (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                  </svg>
+                );
+              case 'sports':
+                return (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                );
+              case 'entertainment':
+                return (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                );
+              case 'tech':
+                return (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                );
+              case 'finance':
+                return (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                );
+              default:
+                return null;
+            }
+          };
+          
           return (
             <button
               key={topic.id}
               onClick={() => setSelectedTopic(topic.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-200 flex-shrink-0 ${isSelected
-                ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
-                : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex-shrink-0 ${
+                isSelected
+                  ? 'bg-gray-200 dark:bg-gray-200 text-black dark:text-black'
+                  : 'bg-gray-800 dark:bg-gray-800 text-white dark:text-white hover:bg-slate-700 dark:hover:bg-slate-700'
+              }`}
             >
+              {getIcon()}
               <span>{topic.label}</span>
-              {isSelected && filteredEvents.length > 0 && (
-                <span className="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-full text-[10px] font-bold font-number">
-                  {filteredEvents.length}
-                </span>
-              )}
             </button>
           );
         })}
@@ -682,7 +730,7 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
                   setSelectedTopic('all');
                   setSearchQuery('');
                 }}
-                className="text-cyan-400 text-sm font-medium"
+                className="text-white text-sm font-medium"
               >
                 Clear filters →
               </button>
@@ -705,7 +753,7 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
       {hasMore && (
         <div ref={observerTarget} className="flex justify-center py-6">
           {loadingMore && (
-            <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
           )}
         </div>
       )}
@@ -732,7 +780,7 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
           <button
             onClick={() => setIsMobileSearchOpen((prev) => !prev)}
             aria-label="Toggle search"
-            className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--text-primary)] hover:text-cyan-400 transition-colors"
+            className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--text-primary)] hover:text-white transition-colors"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

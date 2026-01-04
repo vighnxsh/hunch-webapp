@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import PositionCard from './PositionCard';
+import { useTheme } from './ThemeProvider';
 import type { AggregatedPosition } from '../lib/positionService';
 
 interface UserPositionsEnhancedProps {
@@ -24,6 +25,7 @@ interface PositionStats {
 }
 
 export default function UserPositionsEnhanced({ userId, allowActions = false }: UserPositionsEnhancedProps) {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<'active' | 'previous'>('active');
   const [positions, setPositions] = useState<PositionsData>({ active: [], previous: [] });
   const [stats, setStats] = useState<PositionStats | null>(null);
@@ -81,7 +83,7 @@ export default function UserPositionsEnhanced({ userId, allowActions = false }: 
     return (
       <div className="flex items-center justify-center py-12">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-[var(--text-secondary)]">Loading positions...</p>
         </div>
       </div>
@@ -105,39 +107,45 @@ export default function UserPositionsEnhanced({ userId, allowActions = false }: 
       <div className="flex gap-2 border-b border-[var(--border-color)]">
         <button
           onClick={() => setActiveTab('active')}
-          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+          className={`px-4 py-2 md:px-6 md:py-3 text-lg md:text-xl font-medium md:font-bold transition-all duration-200 relative active:scale-95 active:opacity-80 ${
             activeTab === 'active'
-              ? 'text-cyan-400'
+              ? theme === 'light' ? 'text-black' : 'text-white'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
           }`}
         >
           ACTIVE
           {activePositions.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xl">
+            <span className={`ml-2 px-2 py-0.5 md:px-3 md:py-1 rounded-full text-xl md:text-2xl ${
+              theme === 'light' 
+                ? 'bg-black/20 text-black' 
+                : 'bg-white/20 text-white'
+            }`}>
               {activePositions.length}
             </span>
           )}
           {activeTab === 'active' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
+            <div className={`absolute bottom-0 left-0 right-0 h-0.5 md:h-1 ${
+              theme === 'light' ? 'bg-black' : 'bg-white'
+            }`} />
           )}
         </button>
         
         <button
           onClick={() => setActiveTab('previous')}
-          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+          className={`px-4 py-2 md:px-6 md:py-3 text-lg md:text-xl font-medium md:font-bold transition-all duration-200 relative active:scale-95 active:opacity-80 ${
             activeTab === 'previous'
-              ? 'text-cyan-400'
+              ? 'text-red-400'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
           }`}
         >
           PREVIOUS
           {previousPositions.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 rounded-full bg-[var(--border-color)] text-[var(--text-secondary)] text-xs">
+            <span className="ml-2 px-2 py-0.5 md:px-3 md:py-1 rounded-full bg-[var(--border-color)] text-[var(--text-secondary)] text-xs md:text-sm">
               {previousPositions.length}
             </span>
           )}
           {activeTab === 'previous' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 md:h-1 bg-red-400" />
           )}
         </button>
       </div>

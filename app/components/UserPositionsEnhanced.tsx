@@ -40,9 +40,9 @@ export default function UserPositionsEnhanced({ userId, allowActions = false }: 
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await fetch(`/api/positions?userId=${userId}&includeStats=true`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to load positions');
       }
@@ -101,42 +101,38 @@ export default function UserPositionsEnhanced({ userId, allowActions = false }: 
   return (
     <div className="space-y-4">
       {/* Stats Summary */}
-     
+
 
       {/* Tab Navigation */}
       <div className="flex gap-2 border-b border-[var(--border-color)]">
         <button
           onClick={() => setActiveTab('active')}
-          className={`px-4 py-2 md:px-6 md:py-3 text-lg md:text-xl font-medium md:font-bold transition-all duration-200 relative active:scale-95 active:opacity-80 ${
-            activeTab === 'active'
+          className={`px-4 py-2 md:px-6 md:py-3 text-lg md:text-xl font-medium md:font-bold transition-all duration-200 relative active:scale-95 active:opacity-80 ${activeTab === 'active'
               ? theme === 'light' ? 'text-black' : 'text-white'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-          }`}
+            }`}
         >
           ACTIVE
           {activePositions.length > 0 && (
-            <span className={`ml-2 px-2 py-0.5 md:px-3 md:py-1 rounded-full text-xl md:text-2xl ${
-              theme === 'light' 
-                ? 'bg-black/20 text-black' 
+            <span className={`ml-2 px-2 py-0.5 md:px-3 md:py-1 rounded-full text-xl md:text-2xl ${theme === 'light'
+                ? 'bg-black/20 text-black'
                 : 'bg-white/20 text-white'
-            }`}>
+              }`}>
               {activePositions.length}
             </span>
           )}
           {activeTab === 'active' && (
-            <div className={`absolute bottom-0 left-0 right-0 h-0.5 md:h-1 ${
-              theme === 'light' ? 'bg-black' : 'bg-white'
-            }`} />
+            <div className={`absolute bottom-0 left-0 right-0 h-0.5 md:h-1 ${theme === 'light' ? 'bg-black' : 'bg-white'
+              }`} />
           )}
         </button>
-        
+
         <button
           onClick={() => setActiveTab('previous')}
-          className={`px-4 py-2 md:px-6 md:py-3 text-lg md:text-xl font-medium md:font-bold transition-all duration-200 relative active:scale-95 active:opacity-80 ${
-            activeTab === 'previous'
+          className={`px-4 py-2 md:px-6 md:py-3 text-lg md:text-xl font-medium md:font-bold transition-all duration-200 relative active:scale-95 active:opacity-80 ${activeTab === 'previous'
               ? 'text-red-400'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-          }`}
+            }`}
         >
           PREVIOUS
           {previousPositions.length > 0 && (
@@ -155,7 +151,7 @@ export default function UserPositionsEnhanced({ userId, allowActions = false }: 
         <div className="py-12 text-center">
           <div className="text-4xl mb-3">📊</div>
           <p className="text-[var(--text-secondary)] text-sm">
-            {activeTab === 'active' 
+            {activeTab === 'active'
               ? 'No active positions yet. Start trading to see your positions here!'
               : 'No previous positions to display.'}
           </p>
@@ -167,6 +163,7 @@ export default function UserPositionsEnhanced({ userId, allowActions = false }: 
               key={`${position.marketTicker}-${position.side}-${index}`}
               position={position}
               allowActions={allowActions}
+              isPrevious={activeTab === 'previous'}
               onActionComplete={() => loadPositions()}
             />
           ))}

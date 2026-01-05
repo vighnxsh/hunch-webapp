@@ -4,19 +4,6 @@ import { withCache, cacheKeys, CACHE_TTL } from './cache';
 // This prevents exposing external API endpoints in the client bundle
 const INTERNAL_API_PREFIX = '/api/dflow';
 
-// Helper to get absolute URL for fetch (required for server-side calls)
-function getApiUrl(path: string): string {
-  // If we're on the server (no window object), use absolute URL
-  if (typeof window === 'undefined') {
-    // In development, use localhost; in production, use VERCEL_URL or custom domain
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-    return `${baseUrl}${path}`;
-  }
-  // On client, relative URLs work fine
-  return path;
-}
-
 export interface Market {
   ticker: string;
   title: string;
@@ -99,7 +86,7 @@ export async function fetchMarkets(limit: number = 200): Promise<Market[]> {
     cacheKeys.markets(limit),
     async () => {
       const response = await fetch(
-        getApiUrl(`${INTERNAL_API_PREFIX}/events?limit=${limit}&withNestedMarkets=true`),
+        `${INTERNAL_API_PREFIX}/events?limit=${limit}&withNestedMarkets=true`,
         {
           method: "GET",
           headers: {
@@ -171,7 +158,7 @@ async function fetchEventsUncached(
   }
 
   const response = await fetch(
-    getApiUrl(`${INTERNAL_API_PREFIX}/events?${queryParams.toString()}`),
+    `${INTERNAL_API_PREFIX}/events?${queryParams.toString()}`,
     {
       method: "GET",
       headers: {
@@ -195,7 +182,7 @@ export async function fetchEventDetails(eventTicker: string): Promise<EventDetai
     cacheKeys.eventDetails(eventTicker),
     async () => {
       const response = await fetch(
-        getApiUrl(`${INTERNAL_API_PREFIX}/event/${encodeURIComponent(eventTicker)}`),
+        `${INTERNAL_API_PREFIX}/event/${encodeURIComponent(eventTicker)}`,
         {
           method: "GET",
           headers: {
@@ -241,7 +228,7 @@ export interface SeriesResponse {
 export async function fetchTagsByCategories(): Promise<TagsByCategories> {
   try {
     const response = await fetch(
-      getApiUrl(`${INTERNAL_API_PREFIX}/tags`),
+      `${INTERNAL_API_PREFIX}/tags`,
       {
         method: "GET",
         headers: {
@@ -280,7 +267,7 @@ export async function fetchSeries(params?: {
     }
 
     // TODO: Create /api/dflow/series route if needed
-    const url = getApiUrl(`${INTERNAL_API_PREFIX}/series${queryParams.toString() ? `?${queryParams.toString()}` : ''}`);
+    const url = `${INTERNAL_API_PREFIX}/series${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -327,7 +314,7 @@ export async function fetchEventsBySeries(
     }
 
     const response = await fetch(
-      getApiUrl(`${INTERNAL_API_PREFIX}/events?${queryParams.toString()}`),
+      `${INTERNAL_API_PREFIX}/events?${queryParams.toString()}`,
       {
         method: "GET",
         headers: {
@@ -356,7 +343,7 @@ export async function filterOutcomeMints(addresses: string[]): Promise<string[]>
     console.log('filterOutcomeMints - Request:', JSON.stringify({ addresses }, null, 2));
 
     const response = await fetch(
-      getApiUrl(`${INTERNAL_API_PREFIX}/filter-outcome-mints`),
+      `${INTERNAL_API_PREFIX}/filter-outcome-mints`,
       {
         method: "POST",
         headers: {
@@ -388,7 +375,7 @@ export async function fetchMarketByMint(mintAddress: string): Promise<Market> {
   try {
     // TODO: Create /api/dflow/market-by-mint route if needed
     const response = await fetch(
-      getApiUrl(`${INTERNAL_API_PREFIX}/market-by-mint/${mintAddress}`),
+      `${INTERNAL_API_PREFIX}/market-by-mint/${mintAddress}`,
       {
         method: "GET",
         headers: {
@@ -417,7 +404,7 @@ export async function fetchMarketsBatch(mints: string[]): Promise<Market[]> {
 
     // Use batch-by-mint route which accepts mints array
     const response = await fetch(
-      getApiUrl(`/api/markets/batch-by-mint`),
+      `/api/markets/batch-by-mint`,
       {
         method: "POST",
         headers: {
@@ -450,7 +437,7 @@ export async function fetchMarketDetails(ticker: string): Promise<Market> {
     cacheKeys.marketDetails(ticker),
     async () => {
       const response = await fetch(
-        getApiUrl(`${INTERNAL_API_PREFIX}/market/${encodeURIComponent(ticker)}`),
+        `${INTERNAL_API_PREFIX}/market/${encodeURIComponent(ticker)}`,
         {
           method: "GET",
           headers: {
@@ -504,7 +491,7 @@ export async function fetchEventCandlesticks(
   try {
     // Note: This uses event candlesticks endpoint - may need separate API route
     const response = await fetch(
-      getApiUrl(`${INTERNAL_API_PREFIX}/event/${encodeURIComponent(eventTicker)}/candlesticks?${queryParams.toString()}`),
+      `${INTERNAL_API_PREFIX}/event/${encodeURIComponent(eventTicker)}/candlesticks?${queryParams.toString()}`,
       {
         method: "GET",
         headers: {
@@ -589,7 +576,7 @@ export async function fetchCandlesticksByMint(
   if (options?.periodInterval) queryParams.append("periodInterval", options.periodInterval.toString());
 
   try {
-    const url = getApiUrl(`${INTERNAL_API_PREFIX}/candlesticks/${mintAddress}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`);
+    const url = `${INTERNAL_API_PREFIX}/candlesticks/${mintAddress}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await fetch(url, {
       method: "GET",
       headers: {

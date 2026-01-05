@@ -35,7 +35,7 @@ export default function SuggestedProfiles() {
         const response = await fetch(url);
         if (response.ok) {
           const users = await response.json();
-          
+
           // If user is logged in, filter out already followed users
           if (currentUserId) {
             try {
@@ -43,17 +43,17 @@ export default function SuggestedProfiles() {
               if (followingRes.ok) {
                 const following = await followingRes.json();
                 const followingIds = new Set(following.map((f: any) => f.following.id));
-                
+
                 // Filter out users that are already being followed, then take top 3
                 const notFollowingUsers = users
                   .filter((user: SuggestedUser) => !followingIds.has(user.id))
                   .slice(0, 3);
-                
+
                 setSuggestedUsers(notFollowingUsers);
-                
+
                 // Set follow states (should all be false since we filtered)
                 const states = new Map<string, boolean>();
-                notFollowingUsers.forEach((user) => {
+                notFollowingUsers.forEach((user: SuggestedUser) => {
                   states.set(user.id, false);
                 });
                 setFollowingStates(states);
@@ -190,11 +190,10 @@ export default function SuggestedProfiles() {
                   }}
                 >
                   <div
-                    className={`px-4 py-2 font-black text-sm text-black ${
-                      theme === 'dark'
+                    className={`px-4 py-2 font-black text-sm text-black ${theme === 'dark'
                         ? 'bg-yellow-300 hover:bg-yellow-400'
                         : 'bg-yellow-300 hover:bg-yellow-400'
-                    } shadow-lg`}
+                      } shadow-lg`}
                     style={{
                       clipPath: 'polygon(8% 0%, 100% 0%, 100% 100%, 8% 100%, 0% 50%)',
                       boxShadow: '0 4px 12px rgba(255,217,61,0.4)',

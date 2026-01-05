@@ -1,5 +1,6 @@
 import { prisma } from './db';
-import { fetchMarketDetails, fetchEventDetails, type Market, type EventDetails } from './api';
+import { type Market, type EventDetails } from './api';
+import { fetchMarketDetailsServer, fetchEventDetailsServer, filterOutcomeMintsServer, fetchMarketsBatchServer } from './dflowServer';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 
@@ -91,10 +92,9 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
     return { active: [], previous: [] };
   }
 
-  // Filter to prediction-market outcome mints
-  // NOTE: We import dynamically to avoid circular deps if any bundler edge occurs.
-  const { filterOutcomeMints, fetchMarketsBatch } = await import('./api');
-  const outcomeMints = await filterOutcomeMints(userTokens.map((t) => t.mint));
+  // Filter to prediction-market outcome mints using server-side function
+  // This avoids the relative URL issue that occurs when calling from API routes
+  const outcomeMints = await filterOutcomeMintsServer(userTokens.map((t) => t.mint));
 
   if (!outcomeMints || outcomeMints.length === 0) {
     return { active: [], previous: [] };
@@ -105,7 +105,7 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
     return { active: [], previous: [] };
   }
 
-  const markets = await fetchMarketsBatch(outcomeMints);
+  const markets = await fetchMarketsBatchServer(outcomeMints);
 
   // Build mint -> market mapping (yesMint/noMint/marketLedger)
   const marketByMint = new Map<string, Market>();
@@ -177,10 +177,10 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
         try {
           // Check if we already have the market in our batch
           let market = markets.find(m => m.ticker === trade.marketTicker);
-          
-          // If not, fetch it individually
+
+          // If not, fetch it individually using server-side function
           if (!market) {
-            market = await fetchMarketDetails(trade.marketTicker);
+            market = await fetchMarketDetailsServer(trade.marketTicker);
           }
 
           if (market) {
@@ -218,7 +218,7 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
   await Promise.all(
     eventTickers.map(async (eventTicker) => {
       try {
-        const ev = await fetchEventDetails(eventTicker);
+        const ev = await fetchEventDetailsServer(eventTicker);
         if (ev.imageUrl) eventImagesMap.set(eventTicker, ev.imageUrl);
       } catch (e) {
         console.error(`Failed to fetch event image for ${eventTicker}:`, e);
@@ -263,7 +263,7 @@ function getCurrentMarketPrice(market: Market, side: 'yes' | 'no'): number | nul
     if (market.noBid) return parseFloat(market.noBid);
     if (market.noAsk) return parseFloat(market.noAsk);
   }
-  
+
   return null;
 }
 
@@ -307,7 +307,7 @@ function separateByMarketStatus(positions: AggregatedPosition[]): PositionsBySta
     }
 
     const status = position.market.status?.toLowerCase();
-    
+
     // Active markets: 'active', 'open', 'trading'
     if (status === 'active' || status === 'open' || status === 'trading') {
       active.push(position);
@@ -342,8 +342,8 @@ export function calculatePositionPL(
 
   const currentValue = totalTokenAmount * currentPrice;
   const profitLoss = currentValue - totalUsdcAmount;
-  const profitLossPercentage = totalUsdcAmount > 0 
-    ? (profitLoss / totalUsdcAmount) * 100 
+  const profitLossPercentage = totalUsdcAmount > 0
+    ? (profitLoss / totalUsdcAmount) * 100
     : null;
 
   return {

@@ -12,10 +12,11 @@ import { fetchMarketByMint } from '../lib/api';
 interface PositionCardProps {
   position: AggregatedPosition;
   allowActions?: boolean;
+  isPrevious?: boolean;
   onActionComplete?: () => void;
 }
 
-export default function PositionCard({ position, allowActions = false, onActionComplete }: PositionCardProps) {
+export default function PositionCard({ position, allowActions = false, isPrevious = false, onActionComplete }: PositionCardProps) {
   const router = useRouter();
   const { wallets } = useWallets();
   const { signTransaction } = useSignTransaction();
@@ -73,8 +74,8 @@ export default function PositionCard({ position, allowActions = false, onActionC
   };
 
   const eventTitle = position.market?.title || formatMarketTitle('', position.marketTicker);
-  const marketSubtitle = position.side === 'yes' 
-    ? position.market?.yesSubTitle 
+  const marketSubtitle = position.side === 'yes'
+    ? position.market?.yesSubTitle
     : position.market?.noSubTitle;
 
   const getOutcomeMintForSide = (): string | null => {
@@ -241,22 +242,57 @@ export default function PositionCard({ position, allowActions = false, onActionC
     }
   };
 
-  const canShowActions = allowActions && !!position.market;
+  // Don't show actions for previous positions (already sold or closed markets)
+  const canShowActions = allowActions && !!position.market && !isPrevious;
   const marketStatus = (position.market?.status || '').toLowerCase();
   const shouldOfferRedeem = marketStatus === 'determined' || marketStatus === 'finalized';
 
-  // Get border color based on P&L
+  // Get the outcome result for previous positions
+  const getOutcomeResult = () => {
+    if (!isPrevious) return null;
+    const market = position.market;
+    if (!market) return 'Closed';
+
+    const result = (market as any).result?.toLowerCase();
+    if (result === 'yes' || result === 'no') {
+      const userWon = result === position.side;
+      return userWon ? 'Won' : 'Lost';
+    }
+
+    // Position was sold (zero balance) or market closed
+    if (position.totalTokenAmount === 0) {
+      return 'Sold';
+    }
+
+    return 'Closed';
+  };
+
+  const outcomeResult = getOutcomeResult();
+
+  // Get border color based on P&L and whether it's previous
   const getBorderColorClass = () => {
+    if (isPrevious) {
+      // Muted styling for previous positions
+      return 'border-[var(--border-color)]/50';
+    }
     if (position.profitLoss === null) return 'border-[var(--border-color)]';
     if (position.profitLoss > 0) return 'border-green-500/30 hover:border-green-500/50';
     if (position.profitLoss < 0) return 'border-red-500/30 hover:border-red-500/50';
     return 'border-[var(--border-color)]';
   };
 
+  // Get the outcome badge color for previous positions
+  const getOutcomeBadgeClass = () => {
+    if (outcomeResult === 'Won') return 'bg-green-500/20 text-green-400 border-green-500/30';
+    if (outcomeResult === 'Lost') return 'bg-red-500/20 text-red-400 border-red-500/30';
+    if (outcomeResult === 'Sold') return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+    return 'bg-[var(--surface-hover)] text-[var(--text-tertiary)] border-[var(--border-color)]';
+  };
+
   return (
     <div
       onClick={handleClick}
-      className={`p-4 rounded-xl bg-[var(--card-bg)] border ${getBorderColorClass()} hover:shadow-lg transition-all cursor-pointer group`}
+      className={`p-4 rounded-xl bg-[var(--card-bg)] border ${getBorderColorClass()} hover:shadow-lg transition-all cursor-pointer group ${isPrevious ? 'opacity-75 hover:opacity-90' : ''}`}
     >
       <div className="flex items-start gap-3">
         {/* Event Image */}
@@ -341,7 +377,7 @@ export default function PositionCard({ position, allowActions = false, onActionC
             )}
           </div>
 
-          {/* Actions (only on own profile) */}
+          {/* Actions (only on own profile for active positions) */}
           {canShowActions && (
             <div className="mt-3 flex flex-col gap-2">
               {actionError && (
@@ -370,6 +406,21 @@ export default function PositionCard({ position, allowActions = false, onActionC
               </div>
             </div>
           )}
+
+          {/* Outcome badge for previous positions (instead of action buttons) */}
+          {isPrevious && outcomeResult && (
+            <div className="mt-3 pt-3 border-t border-[var(--border-color)]/30">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[var(--text-tertiary)]">Outcome</span>
+                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold border ${getOutcomeBadgeClass()}`}>
+                  {outcomeResult === 'Won' && '🏆 '}
+                  {outcomeResult === 'Lost' && '❌ '}
+                  {outcomeResult === 'Sold' && '💰 '}
+                  {outcomeResult}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -378,11 +429,10 @@ export default function PositionCard({ position, allowActions = false, onActionC
         <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[var(--text-secondary)]">Market Status</span>
-            <span className={`font-medium ${
-              position.market.status === 'active' || position.market.status === 'open'
+            <span className={`font-medium ${position.market.status === 'active' || position.market.status === 'open'
                 ? 'text-green-400'
                 : 'text-[var(--text-secondary)]'
-            }`}>
+              }`}>
               {position.market.status.charAt(0).toUpperCase() + position.market.status.slice(1)}
             </span>
           </div>

@@ -1,15 +1,16 @@
 'use client';
 
 import * as React from 'react';
-import useEmblaCarousel, { type EmblaOptionsType, type EmblaCarouselType } from 'embla-carousel-react';
+import useEmblaCarousel from 'embla-carousel-react';
+import type { EmblaOptionsType, EmblaCarouselType, EmblaPluginType } from 'embla-carousel';
 import { cn } from '@/lib/utils';
 
 type CarouselApi = EmblaCarouselType;
 type CarouselOptions = EmblaOptionsType;
-type CarouselPlugin = (embla: EmblaCarouselType) => void;
+type CarouselPlugin = EmblaPluginType;
 
-const CarouselContext = React.createContext<{ api: CarouselApi | null }>({
-  api: null,
+const CarouselContext = React.createContext<{ api: CarouselApi | undefined }>({
+  api: undefined,
 });
 
 function useCarousel() {

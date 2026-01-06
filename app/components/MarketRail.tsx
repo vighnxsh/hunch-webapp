@@ -4,10 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchEvents, Event, Market } from '../lib/api';
 import { useCatSafe } from '../contexts/CatContext';
-import TradeMarket from './TradeMarket';
 import EventMotionGraph from './EventMotionGraph';
 import OrderModal from './OrderModal';
-import { EmblaCarouselType } from 'embla-carousel-react';
+import { EmblaCarouselType } from 'embla-carousel';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from './ui/carousel';
 
 // Format helpers
@@ -419,10 +418,10 @@ export default function MarketRail() {
     return (
         <div className="mb-6">
             {/* Section header */}
-           
+
 
             {/* Carousel rail (shadcn/embla) */}
-          
+
             <Carousel
                 opts={{ align: 'start', loop: markets.length > 1 }}
                 setApi={setEmblaApi}

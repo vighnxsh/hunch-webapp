@@ -441,7 +441,7 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
                         onClick={handleTradeClick}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className=" bg-yellow-300 px-5 py-2.5 border-black border-2  font-extrabold text-xl rounded-lg"
+                        className=" bg-yellow-300 px-5 py-2.5 text-black border-black border-2  font-extrabold text-xl rounded-lg"
                        
                     >
                         Trade

@@ -184,29 +184,21 @@ export default function SuggestedProfiles() {
                 <button
                   onClick={(e) => handleFollowClick(e, user.id)}
                   disabled={isLoading}
-                  className="absolute top-0 right-0 z-10 transform rotate-12 transition-transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    clipPath: 'polygon(8% 0%, 100% 0%, 100% 100%, 8% 100%, 0% 50%)',
-                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    theme === 'dark'
+                      ? 'bg-yellow-300 hover:yellow-400 text-black border border-[var(--border-color)]'
+                      : 'bg-yellow-300 hover:bg-yellow-400 text-black'
+                  }`}
                 >
-                  <div
-                    className={`px-4 py-2 font-black text-sm text-black ${theme === 'dark'
-                        ? 'bg-yellow-300 hover:bg-yellow-400'
-                        : 'bg-yellow-300 hover:bg-yellow-400'
-                      } shadow-lg`}
-                    style={{
-                      clipPath: 'polygon(8% 0%, 100% 0%, 100% 100%, 8% 100%, 0% 50%)',
-                      boxShadow: '0 4px 12px rgba(255,217,61,0.4)',
-                    }}
-                  >
-                    {isLoading ? (
-                      <span className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin inline-block" />
-                    ) : isFollowing ? (
-                      'Unfollow'
-                    ) : (
-                      'Follow'
-                    )}
-                  </div>
+                  {isLoading ? (
+                    <span className={`w-3 h-3 border-2 border-t-transparent rounded-full animate-spin inline-block ${
+                      theme === 'dark' ? 'border-[var(--text-primary)]' : 'border-black'
+                    }`} />
+                  ) : isFollowing ? (
+                    'Unfollow'
+                  ) : (
+                    'Follow'
+                  )}
                 </button>
               )}
             </div>

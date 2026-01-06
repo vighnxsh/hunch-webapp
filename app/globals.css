@@ -86,7 +86,7 @@
   --glow-magenta: rgba(232, 121, 249, 0.08);
   --glow-cyan-strong: rgba(103, 232, 249, 0.15);
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --background: #000000;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -145,6 +145,11 @@
   --scrollbar-track: rgba(0, 0, 0, 0.05);
   --scrollbar-thumb: rgba(8, 145, 178, 0.3);
   --scrollbar-thumb-hover: rgba(8, 145, 178, 0.5);
+}
+
+[data-theme="dark"] {
+  --background: #000000;
+  --foreground: #FFFFFF;
 }
 
 @theme inline {
@@ -213,11 +218,14 @@ html {
   -moz-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  background-color: var(--background);
 }
 
 body {
   font-family: var(--font-inter);
   letter-spacing: -0.011em;
+  background-color: var(--background);
+  color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

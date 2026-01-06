@@ -7,6 +7,7 @@ import UserTrades from './UserTrades';
 import UserPositionsEnhanced from './UserPositionsEnhanced';
 import { useTheme } from './ThemeProvider';
 import FollowersFollowingModal from './FollowersFollowingModal';
+import CopySettingsModal from './CopySettingsModal';
 import { useAppData } from '../contexts/AppDataContext';
 import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
@@ -39,6 +40,8 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
     const [checkingFollow, setCheckingFollow] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [modalType, setModalType] = useState<'followers' | 'following'>('followers');
+    const [copyModalOpen, setCopyModalOpen] = useState(false);
+    const [hasCopySettings, setHasCopySettings] = useState(false);
     const [solBalance, setSolBalance] = useState<number | null>(null);
     const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
     const [solPrice, setSolPrice] = useState<number | null>(null);
@@ -101,6 +104,28 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
             checkFollowStatus();
         }
     }, [currentUserId, userId, profile]);
+
+    // Check if current user has copy settings for this profile
+    useEffect(() => {
+        const checkCopySettings = async () => {
+            if (!currentUserId || currentUserId === userId || !isFollowing) {
+                setHasCopySettings(false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/copy-settings?followerId=${currentUserId}&leaderId=${userId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setHasCopySettings(!!data && data.enabled);
+                }
+            } catch (error) {
+                console.error('Error checking copy settings:', error);
+            }
+        };
+
+        checkCopySettings();
+    }, [currentUserId, userId, isFollowing]);
 
     const handleFollow = async () => {
         if (!currentUserId || currentUserId === userId || followLoading) return;
@@ -261,11 +286,11 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                 <div className="mb-6 pb-6 border-b border-[var(--border-color)]">
                     <div className="flex items-start gap-4">
                         {/* Minimal Avatar */}
-                            <img
+                        <img
                             src={profile.avatarUrl || '/default.png'}
-                                alt={displayName}
-                                className="w-16 h-16 rounded-full border-2 border-white/30"
-                            />
+                            alt={displayName}
+                            className="w-16 h-16 rounded-full border-2 border-white/30"
+                        />
 
                         <div className="flex-1">
                             <div className="flex items-start justify-between">
@@ -278,22 +303,41 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                     </p>
                                 </div>
 
-                                {/* Follow Button */}
+                                {/* Follow Button + Copy Trade Button */}
                                 {!isOwnProfile && currentUserId && (
-                                    <button
-                                        onClick={handleFollow}
-                                        disabled={followLoading || checkingFollow}
-                                        className={`px-5 py-2 text-sm font-semibold rounded-xl transition-all duration-200 ${isFollowing
-                                            ? 'bg-[var(--surface-hover)] hover:bg-red-500/10 hover:text-red-400 text-[var(--text-secondary)] border border-[var(--border-color)]'
-                                            : 'bg-gradient-to-r from-white to-gray-400 hover:from-white hover:to-gray-300 text-white shadow-lg shadow-white/25'
-                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                    >
-                                        {followLoading || checkingFollow ? (
-                                            <span className="flex items-center gap-2">
-                                                <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                            </span>
-                                        ) : isFollowing ? 'Unfollow' : 'Follow'}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={handleFollow}
+                                            disabled={followLoading || checkingFollow}
+                                            className={`px-5 py-2 text-sm font-semibold rounded-xl transition-all duration-200 ${isFollowing
+                                                ? 'bg-[var(--surface-hover)] hover:bg-red-500/10 hover:text-red-400 text-[var(--text-secondary)] border border-[var(--border-color)]'
+                                                : 'bg-[var(--text-primary)] hover:opacity-90 text-[var(--card-bg)] shadow-lg'
+                                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        >
+                                            {followLoading || checkingFollow ? (
+                                                <span className="flex items-center gap-2">
+                                                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                                </span>
+                                            ) : isFollowing ? 'Unfollow' : 'Follow'}
+                                        </button>
+
+                                        {/* Copy Trade Button - Only shown when following */}
+                                        {isFollowing && (
+                                            <button
+                                                onClick={() => setCopyModalOpen(true)}
+                                                className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200 flex items-center gap-2 ${hasCopySettings
+                                                        ? 'bg-[var(--text-primary)] text-[var(--card-bg)] shadow-lg'
+                                                        : 'bg-[var(--surface-hover)] hover:bg-[var(--text-primary)]/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)]'
+                                                    }`}
+                                                title={hasCopySettings ? 'Copy trading enabled' : 'Set up copy trading'}
+                                            >
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                                </svg>
+                                                {hasCopySettings ? 'Copying' : 'Copy'}
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
 
@@ -426,6 +470,24 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                 type={modalType}
                 currentUserId={currentUserId}
             />
+
+            {/* Copy Settings Modal */}
+            {profile && (
+                <CopySettingsModal
+                    isOpen={copyModalOpen}
+                    onClose={() => setCopyModalOpen(false)}
+                    followerId={currentUserId || ''}
+                    leaderId={userId}
+                    leaderName={displayName}
+                    onSave={() => {
+                        // Refresh copy settings status
+                        fetch(`/api/copy-settings?followerId=${currentUserId}&leaderId=${userId}`)
+                            .then(res => res.json())
+                            .then(data => setHasCopySettings(!!data && data.enabled))
+                            .catch(console.error);
+                    }}
+                />
+            )}
         </div>
     );
 }

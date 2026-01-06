@@ -108,7 +108,7 @@ export async function followUser(followerId: string, followingId: string) {
     // If transaction fails (e.g., timeout), fallback to sequential operations
     if (transactionError.code === 'P2028' || transactionError.message?.includes('transaction')) {
       console.warn('Transaction failed, using sequential operations:', transactionError.message);
-      
+
       try {
         // Create follow relationship
         const followRecord = await prisma.follow.create({
@@ -149,7 +149,7 @@ export async function followUser(followerId: string, followingId: string) {
         // If sequential also fails, try to clean up
         await prisma.follow.deleteMany({
           where: { followerId, followingId },
-        }).catch(() => {});
+        }).catch(() => { });
         throw sequentialError;
       }
     } else {
@@ -177,10 +177,19 @@ export async function unfollowUser(followerId: string, followingId: string) {
 
         // Only decrement counts if a relationship was actually deleted
         if (deleteResult.count > 0) {
+          console.log(`Deleting copy settings for follower: ${followerId}, leader: ${followingId}`);
           await Promise.all([
             tx.$executeRaw`UPDATE "User" SET "followingCount" = GREATEST("followingCount" - 1, 0) WHERE id = ${followerId}`,
             tx.$executeRaw`UPDATE "User" SET "followerCount" = GREATEST("followerCount" - 1, 0) WHERE id = ${followingId}`,
+            // Delete copy settings when unfollowing
+            tx.copySettings.deleteMany({
+              where: {
+                followerId,
+                leaderId: followingId,
+              },
+            }),
           ]);
+          console.log(`Copy settings deletion completed for follower: ${followerId}, leader: ${followingId}`);
         }
 
         return deleteResult;
@@ -198,7 +207,7 @@ export async function unfollowUser(followerId: string, followingId: string) {
     // If transaction fails (e.g., timeout), fallback to sequential operations
     if (transactionError.code === 'P2028' || transactionError.message?.includes('transaction')) {
       console.warn('Transaction failed, using sequential operations:', transactionError.message);
-      
+
       try {
         // Delete follow relationship
         const deleteResult = await prisma.follow.deleteMany({
@@ -210,10 +219,19 @@ export async function unfollowUser(followerId: string, followingId: string) {
 
         // Only decrement counts if a relationship was actually deleted
         if (deleteResult.count > 0) {
+          console.log(`[Sequential] Deleting copy settings for follower: ${followerId}, leader: ${followingId}`);
           await Promise.all([
             prisma.$executeRaw`UPDATE "User" SET "followingCount" = GREATEST("followingCount" - 1, 0) WHERE id = ${followerId}`,
             prisma.$executeRaw`UPDATE "User" SET "followerCount" = GREATEST("followerCount" - 1, 0) WHERE id = ${followingId}`,
+            // Delete copy settings when unfollowing
+            prisma.copySettings.deleteMany({
+              where: {
+                followerId,
+                leaderId: followingId,
+              },
+            }),
           ]);
+          console.log(`[Sequential] Copy settings deletion completed for follower: ${followerId}, leader: ${followingId}`);
         }
 
         console.log(`Unfollow successful (sequential): ${followerId} -> ${followingId}, deleted: ${deleteResult.count}`);
@@ -236,7 +254,7 @@ export async function isFollowing(followerId: string, followingId: string): Prom
   // Try cache first
   const cacheKey = CacheKeys.follows(followerId);
   const cached = await redis.get<string[]>(cacheKey);
-  
+
   if (cached) {
     return cached.includes(followingId);
   }
@@ -261,7 +279,7 @@ export async function getFollowingIds(userId: string): Promise<string[]> {
   // Try cache first
   const cacheKey = CacheKeys.follows(userId);
   const cached = await redis.get<string[]>(cacheKey);
-  
+
   if (cached) {
     return cached;
   }
@@ -364,25 +382,25 @@ async function invalidateFollowCaches(followerId: string, followingId: string) {
   await Promise.all([
     // Invalidate follower's follow list cache
     redis.del(CacheKeys.follows(followerId)),
-    
+
     // Invalidate follower's feed cache
     redis.del(CacheKeys.feed(followerId)),
-    
+
     // Invalidate following user's followers cache
     redis.del(CacheKeys.followers(followingId)),
-    
+
     // Invalidate user profile caches
     redis.del(CacheKeys.user(followerId)),
     redis.del(CacheKeys.user(followingId)),
-    
+
     // Invalidate count caches (use CacheKeys helper for consistency)
     redis.del(CacheKeys.counts(followerId)),
     redis.del(CacheKeys.counts(followingId)),
-    
+
     // Also invalidate the following list cache for the user being followed
     redis.del(CacheKeys.following(followingId)),
   ]);
-  
+
   console.log(`Cache invalidated for follow: ${followerId} -> ${followingId}`);
 }
 

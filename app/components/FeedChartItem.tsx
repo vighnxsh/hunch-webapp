@@ -105,7 +105,7 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
     const [hoveredPrice, setHoveredPrice] = useState<number | null>(null);
     const [isMobile, setIsMobile] = useState(false);
     const [showTradeDrawer, setShowTradeDrawer] = useState(false);
-    
+
     // Stable callback for price changes
     const handlePriceChange = useCallback((price: number | null) => {
         setHoveredPrice(price);
@@ -248,7 +248,7 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
     };
 
     const pnl = calculatePnL(hoveredPrice);
-    
+
     // Determine chart color based on PnL
     const chartColor = pnl.percent < 0 ? '#EF4444' : '#22C55E'; // Red if negative, green if positive
 
@@ -311,11 +311,10 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
                     <div className="flex-1 min-w-0">
                         <button
                             onClick={handleUserClick}
-                            className={`cursor-pointer ${
-                                quote && quote.trim().length > 0
+                            className={`cursor-pointer ${quote && quote.trim().length > 0
                                     ? 'font-semibold text-[var(--text-secondary)] text-sm'
                                     : 'font-bold text-[var(--text-primary)] text-lg'
-                            }`}
+                                }`}
                             style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
                         >
                             {displayName}
@@ -334,107 +333,107 @@ export default function FeedChartItem({ trade, marketTicker, quote }: FeedChartI
                 <div
                     className="rounded-3xl border-2 border-[var(--border-color)] bg-[var(--card-bg)] overflow-visible relative pt-6"
                     style={{
-                        boxShadow: theme === 'dark' 
-                            ? '0 4px 24px rgba(0,0,0,0.4)' 
+                        boxShadow: theme === 'dark'
+                            ? '0 4px 24px rgba(0,0,0,0.4)'
                             : '0 4px 24px rgba(0,0,0,0.1)',
                     }}
                 >
-                {/* Ticket-style Amount Tag - Top Right Corner - Sticker Overlay */}
-                <div 
-                    className="absolute -top-2 -right-2 z-20 pointer-events-none"
-                    style={{ transform: 'rotate(12deg) scale(1.3)' }}
-                >
-                    <div 
-                        className="vast-shadow-regular relative px-5 py-3 font-black text-lg sm:text-xl text-[#0a0a0a]"
+                    {/* Ticket-style Amount Tag - Top Right Corner - Sticker Overlay */}
+                    <div
+                        className="absolute -top-2 -right-2 z-20 pointer-events-none"
+                        style={{ transform: 'rotate(12deg) scale(1.3)' }}
+                    >
+                        <div
+                            className="vast-shadow-regular relative px-5 py-3 font-black text-lg sm:text-xl text-[#0a0a0a]"
+                            style={{
+                                background: 'linear-gradient(135deg, #FFE566 0%, #FFD93D 50%, #F4C430 100%)',
+                                clipPath: 'polygon(8% 0%, 100% 0%, 100% 100%, 8% 100%, 0% 50%)',
+                                boxShadow: '0 4px 12px rgba(255,217,61,0.4), 0 2px 8px rgba(0,0,0,0.2)',
+                            }}
+                        >
+                            {formatCurrency(trade.amount)}
+                        </div>
+                    </div>
+
+                    {/* Time Posted - Top Right */}
+                    <div className="absolute top-4 right-4 z-10 pr-12 sm:pr-4">
+                        <span className="text-xs text-[var(--text-tertiary)] font-medium">
+                            {formatTimeAgo(trade.createdAt)} ago
+                        </span>
+                    </div>
+
+                    {/* Position Label - YES/NO on Market */}
+                    <div className="px-4 pb-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                                className={`luckiest-guy-regular font-black text-3xl sm:text-5xl ${trade.side === 'yes' ? 'bg-clip-text bg-gradient-to-r from-lime-500 to-green-400 text-transparent' : 'bg-clip-text bg-gradient-to-r from-red-500 to-pink-500 text-transparent'}`}
+                            >
+                                {trade.side.toUpperCase()}
+                            </span>
+                            <span className="text-[var(--text-tertiary)] text-lg font-medium">on</span>
+                            <div
+                                className="px-3 py-1.5 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-color)]"
+                                style={{ maxWidth: 'calc(100% - 100px)' }}
+                            >
+                                <span className="text-[var(--text-primary)] text-sm font-semibold truncate block">
+                                    {predictionLabel}
+                                </span>
+                                <span className="text-[var(--text-secondary)] text-xs truncate block">
+                                    {eventTitle}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Chart Area */}
+                    <div
+                        onClick={handleClick}
+                        className="mx-2 sm:mx-4 rounded-2xl overflow-hidden cursor-pointer relative"
                         style={{
-                            background: 'linear-gradient(135deg, #FFE566 0%, #FFD93D 50%, #F4C430 100%)',
-                            clipPath: 'polygon(8% 0%, 100% 0%, 100% 100%, 8% 100%, 0% 50%)',
-                            boxShadow: '0 4px 12px rgba(255,217,61,0.4), 0 2px 8px rgba(0,0,0,0.2)',
+                            background: pnl.percent < 0
+                                ? theme === 'dark'
+                                    ? 'linear-gradient(180deg, transparent 0%, rgba(239,68,68,0.08) 100%)'
+                                    : 'linear-gradient(180deg, transparent 0%, rgba(239,68,68,0.04) 100%)'
+                                : theme === 'dark'
+                                    ? 'linear-gradient(180deg, transparent 0%, rgba(34,197,94,0.08) 100%)'
+                                    : 'linear-gradient(180deg, transparent 0%, rgba(34,197,94,0.04) 100%)',
                         }}
                     >
-                        {formatCurrency(trade.amount)}
-                    </div>
-                </div>
-
-                {/* Time Posted - Top Right */}
-                <div className="absolute top-4 right-4 z-10 pr-12 sm:pr-4">
-                    <span className="text-xs text-[var(--text-tertiary)] font-medium">
-                        {formatTimeAgo(trade.createdAt)} ago
-                    </span>
-                </div>
-
-                {/* Position Label - YES/NO on Market */}
-                <div className="px-4 pb-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <span 
-                            className={`luckiest-guy-regular font-black text-3xl sm:text-5xl ${trade.side === 'yes' ? 'bg-clip-text bg-gradient-to-r from-lime-500 to-green-400 text-transparent' : 'bg-clip-text bg-gradient-to-r from-red-500 to-pink-500 text-transparent'}`}
-                        >
-                            {trade.side.toUpperCase()}
-                        </span>
-                        <span className="text-[var(--text-tertiary)] text-lg font-medium">on</span>
-                        <div 
-                            className="px-3 py-1.5 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-color)]"
-                            style={{ maxWidth: 'calc(100% - 100px)' }}
-                        >
-                            <span className="text-[var(--text-primary)] text-sm font-semibold truncate block">
-                                {predictionLabel}
-                            </span>
-                            <span className="text-[var(--text-secondary)] text-xs truncate block">
-                                {eventTitle}
-                            </span>
+                        {/* Chart */}
+                        <div className="pt-2 h-[100px] sm:h-[130px]">
+                            <SocialPriceChart
+                                candlesticks={candlesticks}
+                                trades={[trade]}
+                                height={130}
+                                lineColor={chartColor}
+                                onHoverPriceChange={handlePriceChange}
+                            />
                         </div>
                     </div>
-                </div>
 
-                {/* Chart Area */}
-                <div
-                    onClick={handleClick}
-                    className="mx-2 sm:mx-4 rounded-2xl overflow-hidden cursor-pointer relative"
-                    style={{
-                        background: pnl.percent < 0
-                            ? theme === 'dark' 
-                                ? 'linear-gradient(180deg, transparent 0%, rgba(239,68,68,0.08) 100%)'
-                                : 'linear-gradient(180deg, transparent 0%, rgba(239,68,68,0.04) 100%)'
-                            : theme === 'dark' 
-                                ? 'linear-gradient(180deg, transparent 0%, rgba(34,197,94,0.08) 100%)'
-                                : 'linear-gradient(180deg, transparent 0%, rgba(34,197,94,0.04) 100%)',
-                    }}
-                >
-                    {/* Chart */}
-                    <div className="pt-2 h-[100px] sm:h-[130px]">
-                        <SocialPriceChart
-                            candlesticks={candlesticks}
-                            trades={[trade]}
-                            height={130}
-                            lineColor={chartColor}
-                            onHoverPriceChange={handlePriceChange}
-                        />
-                    </div>
-                </div>
+                    {/* Footer - Total Value, PnL & APE IN Button */}
+                    <div className="p-4 pt-4 flex items-end justify-between">
+                        {/* Stats */}
+                        <div className="flex items-center gap-4">
+                            {/* Total Value */}
+                            <div>
+                                <p className="text-[var(--text-tertiary)] text-xs font-medium uppercase tracking-wide">Total Value</p>
+                                <p className="text-[var(--text-primary)] text-xl font-black" style={{ fontFamily: 'system-ui' }}>
+                                    {/* ${pnl.value.toFixed(0)} */} $82.4
+                                </p>
+                            </div>
 
-                {/* Footer - Total Value, PnL & APE IN Button */}
-                <div className="p-4 pt-4 flex items-end justify-between">
-                    {/* Stats */}
-                    <div className="flex items-center gap-4">
-                        {/* Total Value */}
-                        <div>
-                            <p className="text-[var(--text-tertiary)] text-xs font-medium uppercase tracking-wide">Total Value</p>
-                            <p className="text-[var(--text-primary)] text-xl font-black" style={{ fontFamily: 'system-ui' }}>
-                                {/* ${pnl.value.toFixed(0)} */} $82.4
-                            </p>
+                            {/* Divider */}
+                            <div className="w-px h-10 bg-[var(--border-color)]" />
+
+                            {/* PnL */}
+                            <div>
+                                <p className="text-[var(--text-tertiary)] text-xs font-medium uppercase tracking-wide">PnL</p>
+                                <p className={`text-xl font-black ${pnl.percent >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`} style={{ fontFamily: 'system-ui' }}>
+                                    {pnl.percent >= 0 ? '+' : ''}{pnl.percent.toFixed(1)}%
+                                </p>
+                            </div>
                         </div>
-                        
-                        {/* Divider */}
-                        <div className="w-px h-10 bg-[var(--border-color)]" />
-                        
-                        {/* PnL */}
-                        <div>
-                            <p className="text-[var(--text-tertiary)] text-xs font-medium uppercase tracking-wide">PnL</p>
-                            <p className={`text-xl font-black ${pnl.percent >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`} style={{ fontFamily: 'system-ui' }}>
-                                {pnl.percent >= 0 ? '+' : ''}{pnl.percent.toFixed(1)}%
-                            </p>
-                        </div>
-                    </div>
 
                     {/* APE IN Button */}
                     <motion.button

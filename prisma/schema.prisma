@@ -19,6 +19,10 @@ model User {
   followers      Follow[] @relation("Follower")
   following      Follow[] @relation("Following")
   trades         Trade[]
+  
+  // Copy trading relations
+  copySettingsAsFollower  CopySettings[] @relation("CopyFollower")
+  copySettingsAsLeader    CopySettings[] @relation("CopyLeader")
 
   @@index([privyId])
   @@index([walletAddress])
@@ -58,3 +62,49 @@ model Follow {
   @@index([followerId])
   @@index([followingId])
 }
+
+model CopySettings {
+  id              String    @id @default(uuid())
+  
+  followerId      String    // user who copies
+  leaderId        String    // user being copied
+  
+  amountPerTrade  Float     // fixed amount per copied trade
+  maxTotalAmount  Float     // total cap from this leader
+  usedAmount      Float     @default(0) // how much already used
+  
+  enabled         Boolean   @default(true)
+  expiresAt       DateTime? // optional safety expiry
+  
+  delegationSignature String? // wallet signature authorizing Hunch to trade on behalf
+  signedMessage   String?   // the message that was signed
+  signedAt        DateTime? // when the signature was created
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  follower        User      @relation("CopyFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  leader          User      @relation("CopyLeader", fields: [leaderId], references: [id], onDelete: Cascade)
+  
+  @@unique([followerId, leaderId]) // One active config per follower-leader pair
+  @@index([followerId])
+  @@index([leaderId])
+}
+
+model CopyLog {
+  id            String   @id @default(cuid())
+  leaderTradeId String
+  followerId    String
+  copyTradeId   String?  // ID of the created follower trade (null if skipped/failed)
+  copyAmount    Float?   // Actual amount copied
+  status        String   // "pending", "success", "skipped", "failed"
+  skipReason    String?  // Reason if skipped (e.g., "limit_exceeded", "disabled")
+  error         String?  // Error message if failed
+  createdAt     DateTime @default(now())
+  
+  @@unique([leaderTradeId, followerId]) // Idempotency: one copy attempt per leader trade per follower
+  @@index([leaderTradeId])
+  @@index([followerId])
+  @@index([status])
+}
+

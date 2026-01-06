@@ -11,7 +11,7 @@ import { USE_DEMO_DATA, DEMO_EVENTS } from '../lib/demoData';
 
 // Topic filters with gradient colors
 const TOPIC_FILTERS = [
-  { id: 'all', label: 'All', keywords: [], color: 'cyan' },
+  { id: 'all', label: 'All', keywords: [], color: 'yellow' },
   { id: 'crypto', label: 'Crypto', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'], color: 'orange' },
   { id: 'politics', label: 'Politics', keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'], color: 'blue' },
   { id: 'sports', label: 'Sports', keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'], color: 'green' },
@@ -186,7 +186,7 @@ function EventCard({
                       <>
                         <button
                           onClick={(e) => handleMarketButtonClick(e, market, 'yes', key)}
-                          className="font-semibold px-3 py-1.5 text-sm rounded-full bg-gradient-to-r from-[#5EEAD4] to-[#67E8F9] text-[#0D0D0F] hover:shadow-[0_0_16px_var(--glow-cyan)] transition-all"
+                          className="font-semibold px-3 py-1.5 text-sm rounded-full bg-gradient-to-r from-[#facc15] to-[#fbbf24] text-[#0D0D0F] hover:shadow-[0_0_16px_var(--glow-cyan)] transition-all"
                         >
                           Yes
                         </button>
@@ -696,10 +696,10 @@ export default function EventsList({ renderBelowFilters }: { renderBelowFilters?
             <button
               key={topic.id}
               onClick={() => setSelectedTopic(topic.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex-shrink-0 ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-md font-medium transition-all duration-200 flex-shrink-0 ${
                 isSelected
-                  ? 'bg-gray-200 dark:bg-gray-200 text-black dark:text-black'
-                  : 'bg-gray-800 dark:bg-gray-800 text-white dark:text-white hover:bg-slate-700 dark:hover:bg-slate-700'
+                  ? 'bg-yellow-300 dark:bg-gray-200 text-black text-lg dark:text-black'
+                  : 'bg-black dark:bg-white text-white dark:text-white hover:bg-gray-500/20 dark:hover:bg-slate-700'
               }`}
             >
               {getIcon()}

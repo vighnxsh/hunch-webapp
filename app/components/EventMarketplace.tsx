@@ -45,12 +45,18 @@ function EventCard({ event, onClick }: EventCardProps) {
     ).length;
 
     return (
+     
+     
+     
         <div
             onClick={onClick}
             className="group relative flex-shrink-0 w-[280px] sm:w-[300px] bg-gradient-to-b from-[var(--surface)] to-[var(--surface-hover)]/50 border border-[var(--border-color)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-[var(--accent)]/30 card-hover-lift tail-flick-shadow"
         >
             {/* Event Image */}
-            <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-white/20 to-gray-400/20">
+         
+         
+         
+            <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-white/20 to-gray-400/20">
                 {event.imageUrl ? (
                     <img
                         src={event.imageUrl}
@@ -66,6 +72,7 @@ function EventCard({ event, onClick }: EventCardProps) {
                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface)] via-transparent to-transparent" />
 
                 {/* Volume badge */}
+               
                 <div className="absolute top-3 right-3 px-2.5 py-1 bg-black/60 backdrop-blur-sm rounded-full">
                     <span className="text-xs font-semibold text-white">
                         {formatVolume(event.volume ?? event.volume24h ?? event.openInterest)}
@@ -187,7 +194,7 @@ export default function EventMarketplace() {
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 mx-4">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

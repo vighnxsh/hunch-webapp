@@ -521,7 +521,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
               <button
                 onClick={() => setSide('yes')}
                 className={`flex-1 px-4 py-3 rounded-full font-semibold transition-all duration-200 ${side === 'yes'
-                  ? 'bg-gradient-to-r from-[#5EEAD4] to-[#67E8F9] text-[#0D0D0F] shadow-[0_0_20px_var(--glow-cyan)]'
+                  ? 'bg-gradient-to-r from-[#facc15] to-[#fbbf24] text-[#0D0D0F] shadow-[0_0_20px_var(--glow-cyan)]'
                   : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--input-bg)]'
                   }`}
               >

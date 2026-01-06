@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchEvents, Event, Market } from '../lib/api';
 import { useCatSafe } from '../contexts/CatContext';
 import TradeMarket from './TradeMarket';
 import EventMotionGraph from './EventMotionGraph';
 import OrderModal from './OrderModal';
+import { EmblaCarouselType } from 'embla-carousel-react';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from './ui/carousel';
 
 // Format helpers
 const formatPercent = (value?: string | number) => {
@@ -96,53 +97,7 @@ function MarketRailCard({
         })
         .slice(0, 2);
 
-    // Generate observational signal based on market behavior
-    // Uses subtle cat-themed language for a calm, observational tone
-    const generateSignal = (): string => {
-        // Use deterministic values from event data for consistent signals
-        const titleLen = (event.title || '').length;
-
-        // Create a hash-like value from event ticker for variety
-        const tickerSum = (event.ticker || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-        const signalIndex = (titleLen + tickerSum) % 10;
-
-        // Calculate a small number for signals that need one
-        const smallNum = Math.max(3, (tickerSum % 8) + 2);
-
-        // Cat-themed, observational signals
-        const signals = [
-            '🐾 Activity picked up after the move',
-            '🐾 Most interest came later',
-            '🐾 Early participation was limited',
-            '🐾 Late entries increased quickly',
-            '🐾 Quiet until recent movement',
-            '🐾 Some followed after odds shifted',
-            '🐾 Activity clustered in a short window',
-            '🐾 Few acted before the change',
-            `🐾 ${smallNum} entered early`,
-            '🐾 Gradual interest before movement',
-        ];
-
-        return signals[signalIndex];
-    };
-
-    const signalText = generateSignal();
-
-    // Button colors for the two markets
-    const buttonStyles = [
-        {
-            bg: 'bg-gradient-to-br from-[#5EEAD4]/15 via-[#67E8F9]/10 to-[#5EEAD4]/5',
-            border: 'border-[var(--accent)]/30 hover:border-[var(--accent)]/60',
-            glow: 'hover:shadow-[0_0_30px_-5px_var(--glow-cyan)]',
-            text: 'text-[var(--accent)]',
-        },
-        {
-            bg: 'bg-gradient-to-br from-[#E879F9]/15 via-[#F0ABFC]/10 to-[#E879F9]/5',
-            border: 'border-[var(--accent-fuchsia)]/30 hover:border-[var(--accent-fuchsia)]/60',
-            glow: 'hover:shadow-[0_0_30px_-5px_var(--glow-magenta)]',
-            text: 'text-[var(--accent-fuchsia)]',
-        },
-    ];
+    const [hoverValues, setHoverValues] = useState<Record<string, number> | null>(null);
 
     const handleCardClick = (e: React.MouseEvent) => {
         // Prevent navigation if clicking on buttons
@@ -161,6 +116,16 @@ function MarketRailCard({
             return market.title.length > 25 ? market.title.slice(0, 22) + '...' : market.title;
         }
         return 'Market';
+    };
+
+    const formatDisplayPercent = (value?: number | string) => {
+        if (value === undefined || value === null) return '—';
+        const num = typeof value === 'string' ? parseFloat(value) : value;
+        if (Number.isNaN(num)) return '—';
+        // If the value looks like a percentage already (e.g., 23), show as-is
+        if (Math.abs(num) > 1.5) return `${Math.round(num)}%`;
+        // Otherwise treat as probability (0-1)
+        return `${Math.round(num * 100)}%`;
     };
 
     return (
@@ -199,7 +164,7 @@ function MarketRailCard({
 
                         {/* Title section */}
                         <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-[var(--text-primary)] text-base md:text-lg leading-tight line-clamp-2 tracking-tight">
+                            <h3 className="font-bold text-[var(--text-primary)] text-base md:text-2xl leading-tight tracking-tight break-words">
                                 {event.title || 'Untitled Event'}
                             </h3>
                             {/* Event Subtitle - hide on mobile to save space */}
@@ -211,73 +176,67 @@ function MarketRailCard({
                         </div>
                     </div>
 
-                    {/* Badges Row */}
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <div className="px-2 py-0.5 bg-gradient-to-r from-[var(--accent)]/10 to-[var(--accent)]/5 rounded-lg border border-[var(--accent)]/20">
-                            <span className="text-[9px] font-bold text-[var(--accent)]">{volume} Vol</span>
+                    {/* Top markets summary under header (non-button rows) */}
+                    {top2Markets.length > 0 && (
+                        <div className="mb-2 space-y-1">
+                            {top2Markets.map((m: Market, idx: number) => {
+                                const hovered = hoverValues?.[m.ticker];
+                                const percent = hovered !== undefined ? formatDisplayPercent(hovered) : formatPercent(m.yesBid);
+                                const label = getMarketLabel(m);
+                                // Match graph line colors: first yellow, second magenta
+                                const accentColor = idx === 0 ? '#facc15' : '#d946ef';
+
+                                return (
+                                    <div
+                                        key={m.ticker}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTrade(m);
+                                        }}
+                                        className="flex items-baseline justify-between pr-3 md:pr-5 text-sm md:text-base cursor-pointer transition-colors"
+                                        style={{ color: accentColor }}
+                                    >
+                                        <span className="truncate font-medium">
+                                            {label}
+                                        </span>
+                                        <span className="ml-2 font-semibold font-number text-base md:text-lg">
+                                            {percent}
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </div>
+                    )}
+
+                    {/* Time / outcomes badges under summary */}
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
                         {timeLeft && (
                             <div className="px-2 py-0.5 bg-[var(--surface)] rounded-lg border border-[var(--border-color)]">
-                                <span className="text-[9px] font-semibold text-[var(--text-secondary)]">{timeLeft}</span>
+                                <span className="text-[9px] font-semibold text-[var(--text-secondary)]">
+                                    {timeLeft}
+                                </span>
                             </div>
                         )}
-                        {/* Market count badge */}
-                        {(event.markets?.length || 0) > 1 && (
+                        {/* {(event.markets?.length || 0) > 1 && (
                             <div className="px-2 py-0.5 bg-[var(--surface)] rounded-lg border border-[var(--border-color)]">
                                 <span className="text-[9px] font-semibold text-[var(--text-tertiary)]">
                                     {event.markets?.length} outcomes
                                 </span>
                             </div>
-                        )}
+                        )} */}
                     </div>
 
-                    {/* Signal Context - hide on mobile to save space */}
-                    <motion.p
-                        key={event.ticker}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.5, ease: 'easeOut' }}
-                        className="hidden md:block text-xs text-[var(--text-secondary)] leading-relaxed mb-auto font-medium italic"
-                    >
-                        {signalText}
-                    </motion.p>
-
-                    {/* Top Markets as Trade Buttons */}
-                    <div className="mt-auto">
-                        <div className="flex flex-row gap-2">
-                            {top2Markets.map((m: Market, idx: number) => {
-                                const style = buttonStyles[idx % buttonStyles.length];
-                                const percent = formatPercent(m.yesBid);
-                                const label = getMarketLabel(m);
-
-                                return (
-                                    <button
-                                        key={m.ticker}
-                                        onClick={(e) => { e.stopPropagation(); onTrade(m); }}
-                                        className={`
-                                            flex-1 group relative overflow-hidden rounded-xl 
-                                            ${style.bg} border ${style.border} 
-                                            p-2.5 md:p-3 transition-all duration-300 
-                                            ${style.glow} hover:scale-[1.02] active:scale-[0.98]
-                                            min-h-[60px] md:min-h-[70px]
-                                        `}
-                                    >
-                                        <div className="flex flex-col items-center justify-center gap-1">
-                                            <span className={`text-[10px] md:text-[11px] font-semibold ${style.text} line-clamp-1 text-center`}>
-                                                {label}
-                                            </span>
-                                            <span className={`text-lg md:text-xl font-extrabold ${style.text} font-number`}>
-                                                {percent}
-                                            </span>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                            {top2Markets.length === 0 && (
-                                <div className="text-xs text-[var(--text-tertiary)] text-center py-2 flex-1">
-                                    No active markets
-                                </div>
-                            )}
+                    {/* Volume moved to bottom */}
+                    <div className="mt-auto pt-1">
+                        <div className="flex items-center justify-between text-[10px] md:text-xs">
+                            <span className="uppercase tracking-wide text-white">
+                                Volume
+                            </span>
+                            <div className="px-2 py-0.5 rounded-lg bg-[var(--surface)] ">
+                                <span className="text-[17px] pr-50 font-semibold text-white">
+                                    {volume}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -287,8 +246,9 @@ function MarketRailCard({
                     <div className="absolute inset-0 bg-gradient-to-l from-[var(--card-bg)]/10 to-transparent pointer-events-none" />
                     <EventMotionGraph
                         eventTicker={event.ticker}
-                        markets={event.markets || []}
+                        markets={top2Markets}
                         className="w-full h-full"
+                        onHoverValues={(vals) => setHoverValues(vals)}
                     />
                 </div>
             </div>
@@ -332,9 +292,7 @@ export default function MarketRail() {
     const [tradeModalOpen, setTradeModalOpen] = useState(false);
     const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
     const catContext = useCatSafe();
-
-    const containerRef = useRef<HTMLDivElement>(null);
-    const x = useMotionValue(0);
+    const [emblaApi, setEmblaApi] = useState<EmblaCarouselType | null>(null);
 
     // Fetch unique events with their top market, sorted by volume and closing date
     useEffect(() => {
@@ -406,15 +364,31 @@ export default function MarketRail() {
         loadMarkets();
     }, []);
 
-    // Handle swipe
-    const handleDragEnd = useCallback((event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-        const threshold = 50;
-        if (info.offset.x > threshold && currentIndex > 0) {
-            setCurrentIndex(currentIndex - 1);
-        } else if (info.offset.x < -threshold && currentIndex < markets.length - 1) {
-            setCurrentIndex(currentIndex + 1);
+    // Sync carousel index with embla
+    useEffect(() => {
+        if (!emblaApi) return;
+        const onSelect = () => {
+            setCurrentIndex(emblaApi.selectedScrollSnap());
+        };
+        emblaApi.on('select', onSelect);
+        onSelect();
+        return () => {
+            emblaApi.off('select', onSelect);
+        };
+    }, [emblaApi]);
+
+    // Keep index in bounds when data changes
+    useEffect(() => {
+        if (currentIndex >= markets.length && markets.length > 0) {
+            setCurrentIndex(markets.length - 1);
+            emblaApi?.scrollTo(markets.length - 1);
         }
-    }, [currentIndex, markets.length]);
+    }, [currentIndex, markets.length, emblaApi]);
+
+    const handleDotSelect = useCallback((index: number) => {
+        setCurrentIndex(index);
+        emblaApi?.scrollTo(index);
+    }, [emblaApi]);
 
     // Handle trade - now accepts a Market object
     const handleTrade = (market: Market) => {
@@ -445,48 +419,39 @@ export default function MarketRail() {
     return (
         <div className="mb-6">
             {/* Section header */}
-            <div className="flex items-center gap-2 mb-3 px-1">
-                <PawIcon className="text-[var(--text-tertiary)] opacity-50" />
-                <span className="text-sm font-medium text-[var(--text-tertiary)] tracking-wide">
-                    Stirring
-                </span>
-                <div className="flex-1" />
-                <span className="text-xs text-[var(--text-tertiary)] opacity-60">
-                    {currentIndex + 1} / {markets.length}
-                </span>
-            </div>
+           
 
-            {/* Swipeable rail */}
-            <div
-                ref={containerRef}
-                className="relative overflow-hidden touch-pan-y"
+            {/* Carousel rail (shadcn/embla) */}
+          
+            <Carousel
+                opts={{ align: 'start', loop: markets.length > 1 }}
+                setApi={setEmblaApi}
+                className="relative px-6 md:px-10"
             >
-                <motion.div
-                    className="flex"
-                    drag="x"
-                    dragConstraints={{ left: 0, right: 0 }}
-                    dragElastic={0.1}
-                    onDragEnd={handleDragEnd}
-                    animate={{ x: -currentIndex * 100 + '%' }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                    style={{ x }}
-                >
+                <CarouselContent className="pt-1">
                     {markets.map(({ event }, index) => (
-                        <MarketRailCard
-                            key={event.ticker || index}
-                            event={event}
-                            isActive={index === currentIndex}
-                            onTrade={handleTrade}
-                        />
+                        <CarouselItem key={event.ticker || index} className="basis-full">
+                            <MarketRailCard
+                                event={event}
+                                isActive={index === currentIndex}
+                                onTrade={handleTrade}
+                            />
+                        </CarouselItem>
                     ))}
-                </motion.div>
-            </div>
+                </CarouselContent>
+                {markets.length > 1 && (
+                    <>
+                        <CarouselPrevious className="hidden md:flex" />
+                        <CarouselNext className="hidden md:flex" />
+                    </>
+                )}
+            </Carousel>
 
             {/* Progress dots */}
             <ProgressDots
                 total={markets.length}
                 current={currentIndex}
-                onSelect={setCurrentIndex}
+                onSelect={handleDotSelect}
             />
 
             {/* Order Modal - CatGuide Pill Choice Flow */}

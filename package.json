@@ -31,6 +31,7 @@
     "@solana/web3.js": "^1.98.4",
     "@upstash/ratelimit": "^2.0.7",
     "@upstash/redis": "^1.35.7",
+    "embla-carousel-react": "^8.1.6",
     "bs58": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

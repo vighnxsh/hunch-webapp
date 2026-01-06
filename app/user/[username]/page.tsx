@@ -61,7 +61,7 @@ export default function UserPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
                     <p className="text-[var(--text-secondary)] text-sm">Initializing...</p>
                 </div>
             </div>
@@ -73,7 +73,7 @@ export default function UserPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
                     <p className="text-[var(--text-secondary)] text-sm">Redirecting...</p>
                 </div>
             </div>
@@ -85,7 +85,7 @@ export default function UserPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
                     <p className="text-[var(--text-secondary)] text-sm">Loading profile...</p>
                 </div>
             </div>
@@ -101,7 +101,7 @@ export default function UserPage() {
                     <p className="text-[var(--text-secondary)] mb-6">{error || 'The user you are looking for does not exist.'}</p>
                     <button
                         onClick={() => router.push('/')}
-                        className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white rounded-xl font-semibold transition-all"
+                        className="px-6 py-3 bg-gradient-to-r from-yellow-600 to-teal-600 hover:from-yellow-500 hover:to-teal-500 text-white rounded-xl font-semibold transition-all"
                     >
                         Go Home
                     </button>

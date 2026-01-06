@@ -100,7 +100,7 @@ export function InstinctPillCompact({
             className={`
         px-3 py-1.5 rounded-full font-semibold text-sm transition-all
         ${side === 'yes'
-                    ? 'bg-gradient-to-r from-[#5EEAD4] to-[#67E8F9] text-[#0D0D0F] hover:shadow-[0_0_16px_var(--glow-cyan)]'
+                    ? 'bg-gradient-to-r from-[#facc15] to-[#fbbf24] text-[#0D0D0F] hover:shadow-[0_0_16px_var(--glow-cyan)]'
                     : 'bg-gradient-to-r from-[#E879F9] to-[#F0ABFC] text-[#0D0D0F] hover:shadow-[0_0_16px_var(--glow-magenta)]'
                 }
         disabled:opacity-50 disabled:cursor-not-allowed

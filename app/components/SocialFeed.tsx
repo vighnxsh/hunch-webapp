@@ -133,7 +133,7 @@ function UserSearchResultItem({
           alt={displayName}
           className="w-9 h-9 rounded-full"
         />
-        <span className="text-[var(--text-primary)] text-sm font-medium group-hover:text-cyan-400 transition-colors">
+        <span className="text-[var(--text-primary)] text-sm font-medium group-hover:text-yellow-400 transition-colors">
           {displayName}
         </span>
       </div>
@@ -142,7 +142,7 @@ function UserSearchResultItem({
         disabled={followLoading || !currentUserId || currentUserId === user.id}
         className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${isFollowing
           ? 'bg-[var(--surface-hover)] hover:bg-red-500/10 hover:text-red-400 text-[var(--text-secondary)]'
-          : 'bg-cyan-600 hover:bg-cyan-500 text-white'
+          : 'bg-yellow-600 hover:bg-yellow-500 text-white'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         {followLoading ? (
@@ -388,7 +388,7 @@ export default function SocialFeed() {
   if (!ready) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-[var(--text-secondary)] text-sm">Loading...</p>
       </div>
     );
@@ -403,7 +403,7 @@ export default function SocialFeed() {
           {/* Search Icon */}
           <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
             {searching ? (
-              <svg className="w-4 h-4 text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-yellow-400 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
@@ -498,7 +498,7 @@ export default function SocialFeed() {
 
         {loading && feedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4" />
+            <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4" />
             <p className="text-[var(--text-secondary)] text-sm">Loading feed...</p>
           </div>
         ) : feedItems.length === 0 ? (
@@ -574,7 +574,7 @@ export default function SocialFeed() {
               <button
                 onClick={() => setIsMobileSearchOpen((prev) => !prev)}
                 aria-label="Toggle search"
-                className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--text-primary)] hover:text-cyan-400 transition-colors"
+                className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--text-primary)] hover:text-yellow-400 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

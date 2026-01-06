@@ -82,9 +82,9 @@
   --scrollbar-thumb-hover: rgba(103, 232, 249, 0.4);
 
   /* Glow effects - ultra subtle (≤8% opacity) */
-  --glow-cyan: rgba(103, 232, 249, 0.08);
+  --glow-cyan: rgba(250, 204, 21, 0.12); /* amber-400-ish */
   --glow-magenta: rgba(232, 121, 249, 0.08);
-  --glow-cyan-strong: rgba(103, 232, 249, 0.15);
+  --glow-cyan-strong: rgba(250, 204, 21, 0.2);
   --radius: 0.625rem;
   --background: #000000;
   --foreground: oklch(0.145 0 0);

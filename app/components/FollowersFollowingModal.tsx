@@ -163,7 +163,7 @@ export default function FollowersFollowingModal({
     <div className="flex-1 overflow-y-auto p-6">
         {loading ? (
             <div className="flex items-center justify-center py-12">
-                <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
             </div>
         ) : users.length === 0 ? (
             <div className="text-center py-12">
@@ -191,10 +191,10 @@ export default function FollowersFollowingModal({
                                 <img
                                     src={user.avatarUrl || '/default.png'}
                                     alt={displayName}
-                                    className="w-12 h-12 rounded-full border-2 border-cyan-500/30 transition-transform group-hover:scale-105"
+                                    className="w-12 h-12 rounded-full border-2 border-yellow-500/30 transition-transform group-hover:scale-105"
                                 />
                                 <div>
-                                    <p className="text-[var(--text-primary)] font-semibold text-sm group-hover:text-cyan-400 transition-colors">
+                                    <p className="text-[var(--text-primary)] font-semibold text-sm group-hover:text-yellow-400 transition-colors">
                                         {displayName}
                                     </p>
                                     <p className="text-[var(--text-tertiary)] text-xs font-mono">
@@ -212,7 +212,7 @@ export default function FollowersFollowingModal({
                                     disabled={isFollowLoading}
                                     className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ${isFollowing
                                         ? 'bg-[var(--surface-hover)] hover:bg-red-500/10 hover:text-red-400 text-[var(--text-secondary)] border border-[var(--border-color)]'
-                                        : 'bg-gradient-to-r from-cyan-600 to-teal-500 hover:from-cyan-500 hover:to-teal-400 text-white shadow-lg shadow-cyan-500/25'
+                                        : 'bg-gradient-to-r from-yellow-600 to-teal-500 hover:from-yellow-500 hover:to-teal-400 text-white shadow-lg shadow-yellow-500/25'
                                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
                                     {isFollowLoading ? (

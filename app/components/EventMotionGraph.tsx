@@ -8,6 +8,7 @@ interface EventMotionGraphProps {
     eventTicker: string;
     markets: Market[];
     className?: string;
+    onHoverValues?: (values: Record<string, number> | null) => void;
 }
 
 interface ChartDataPoint {
@@ -87,7 +88,7 @@ const CustomLabel = (props: any) => {
     return null;
 };
 
-export default function EventMotionGraph({ eventTicker, markets, className = '' }: EventMotionGraphProps) {
+export default function EventMotionGraph({ eventTicker, markets, className = '', onHoverValues }: EventMotionGraphProps) {
     const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
     const [activeMarkets, setActiveMarkets] = useState<ActiveMarket[]>([]);
     const [loading, setLoading] = useState(true);
@@ -136,8 +137,8 @@ export default function EventMotionGraph({ eventTicker, markets, className = '' 
                 }
 
                 // 3. Process data for Recharts
-                // Colors: Vibrant, high-contrast neon-like colors
-                const colors = ['#06b6d4', '#d946ef', '#8b5cf6']; // Cyan-500, Fuchsia-500, Violet-500
+                // Colors: Vibrant, high-contrast neon-like colors (first line yellow instead of cyan)
+                const colors = ['#facc15', '#d946ef', '#8b5cf6']; // Yellow-400, Fuchsia-500, Violet-500
 
                 // Find indices of top markets
                 const marketIndices = data.market_tickers
@@ -274,7 +275,25 @@ export default function EventMotionGraph({ eventTicker, markets, className = '' 
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[var(--surface)]/10 pointer-events-none" />
 
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 10, right: 60, bottom: 5, left: 5 }}>
+                    <LineChart
+                        data={chartData}
+                        margin={{ top: 10, right: 60, bottom: 5, left: 5 }}
+                        onMouseMove={(state: any) => {
+                            const payload = state?.activePayload as any[] | undefined;
+                            if (!payload || payload.length === 0) {
+                                onHoverValues?.(null);
+                                return;
+                            }
+                            const values: Record<string, number> = {};
+                            payload.forEach((entry) => {
+                                if (entry && entry.dataKey && typeof entry.value === 'number') {
+                                    values[entry.dataKey] = entry.value;
+                                }
+                            });
+                            onHoverValues?.(values);
+                        }}
+                        onMouseLeave={() => onHoverValues?.(null)}
+                    >
                         <defs>
                             {activeMarkets.map((m, i) => (
                                 <filter key={`glow-${m.ticker}`} id={`glow-${m.ticker}`} x="-50%" y="-50%" width="200%" height="200%">

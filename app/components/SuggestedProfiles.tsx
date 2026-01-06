@@ -172,7 +172,7 @@ export default function SuggestedProfiles() {
                   className="w-10 h-10 rounded-full flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[var(--text-primary)] text-sm font-medium group-hover:text-cyan-400 transition-colors truncate">
+                  <p className="text-[var(--text-primary)] text-sm font-medium group-hover:text-yellow-400 transition-colors truncate">
                     {displayName}
                   </p>
                   <p className="text-[var(--text-tertiary)] text-xs">
@@ -184,10 +184,10 @@ export default function SuggestedProfiles() {
                 <button
                   onClick={(e) => handleFollowClick(e, user.id)}
                   disabled={isLoading}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     theme === 'dark'
-                      ? 'bg-yellow-300 hover:yellow-400 text-black border border-[var(--border-color)]'
-                      : 'bg-yellow-300 hover:bg-yellow-400 text-black'
+                      ? 'bg-gray-100 hover:bg-gray-200 text-black border border-[var(--border-color)]'
+                      : 'bg-black hover:bg-gray-800 text-white'
                   }`}
                 >
                   {isLoading ? (

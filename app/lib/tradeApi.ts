@@ -1,6 +1,17 @@
 // Internal API route prefix - all DFlow calls now go through server-side routes
 // This prevents exposing external API endpoints in the client bundle
-const INTERNAL_API_PREFIX = '/api/dflow';
+// On server-side, we need absolute URLs; on client-side, relative URLs work
+const getBaseUrl = () => {
+  // Server-side: use absolute URL
+  if (typeof window === 'undefined') {
+    // Use NEXT_PUBLIC_APP_URL if set, otherwise construct from localhost
+    return process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3000}`;
+  }
+  // Client-side: use relative URL (empty string)
+  return '';
+};
+
+const INTERNAL_API_PREFIX = `${getBaseUrl()}/api/dflow`;
 
 export interface OrderRequest {
   userPublicKey: string;

@@ -26,20 +26,24 @@ interface AppDataContextType {
   userProfile: CachedUserProfile | null;
   userCounts: UserCounts | null;
   isUserLoading: boolean;
-  
+
   // Market cache
   getMarket: (ticker: string) => Market | null;
   getMarkets: (tickers: string[]) => Map<string, Market>;
   cacheMarket: (market: Market) => void;
   cacheMarkets: (markets: Market[]) => void;
-  
+
   // User operations
   refreshUser: (force?: boolean) => Promise<void>;
   updateUserCounts: (counts: Partial<UserCounts>) => void;
   invalidateUser: () => void;
-  
+
   // Request deduplication
   dedupedFetch: <T>(key: string, fetcher: () => Promise<T>, ttl?: number) => Promise<T>;
+
+  // Positions refresh (for trade/sell operations)
+  positionsRefreshKey: number;
+  triggerPositionsRefresh: () => void;
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -54,19 +58,22 @@ interface InFlightRequest<T> {
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const { ready, authenticated, user } = usePrivy();
-  
+
   // User state
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<CachedUserProfile | null>(null);
   const [userCounts, setUserCounts] = useState<UserCounts | null>(null);
+
+  // Positions refresh key - increment to trigger position reloads across the app
+  const [positionsRefreshKey, setPositionsRefreshKey] = useState(0);
   const [isUserLoading, setIsUserLoading] = useState(false);
-  
+
   // Market cache (ticker -> market data with timestamp)
   const marketCache = useRef<Map<string, MarketCacheEntry>>(new Map());
-  
+
   // Request deduplication cache
   const inFlightRequests = useRef<Map<string, InFlightRequest<any>>>(new Map());
-  
+
   // Sync tracking
   const hasSyncedRef = useRef(false);
   const syncInProgressRef = useRef(false);
@@ -74,7 +81,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Get wallet address
   const getWalletAddress = useCallback(() => {
     if (!user?.linkedAccounts) return null;
-    
+
     const walletAccount = user.linkedAccounts.find(
       (account) =>
         account.type === 'wallet' &&
@@ -84,7 +91,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         !account.address.startsWith('0x') &&
         account.address.length >= 32
     ) as any;
-    
+
     return walletAccount?.address as string | undefined || null;
   }, [user]);
 
@@ -93,7 +100,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const cachedUserId = getCachedUserId();
     const cachedCounts = getCachedUserCounts();
     const cachedProfile = getCachedUserProfile();
-    
+
     if (cachedUserId) setCurrentUserId(cachedUserId);
     if (cachedCounts) setUserCounts(cachedCounts);
     if (cachedProfile) setUserProfile(cachedProfile);
@@ -114,7 +121,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     // Prevent duplicate syncs
     if (syncInProgressRef.current) return;
-    
+
     // Check if sync is needed
     if (!force && !needsSync(user.id) && hasSyncedRef.current) {
       return;
@@ -134,7 +141,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (result) {
         setCurrentUserId(result.userId);
         setUserCounts(result.counts);
-        
+
         const profile: CachedUserProfile = {
           id: result.userId,
           displayName: user.twitter?.username ? `@${user.twitter.username}` : user.google?.email?.split('@')[0] || null,
@@ -174,7 +181,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       updateCachedCounts(updated);
       return updated;
     });
-    
+
     setUserProfile(prev => {
       if (!prev) return null;
       return {
@@ -191,31 +198,36 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     refreshUser(true);
   }, [refreshUser]);
 
+  // Trigger positions refresh across the app (call after trade/sell success)
+  const triggerPositionsRefresh = useCallback(() => {
+    setPositionsRefreshKey(prev => prev + 1);
+  }, []);
+
   // Market cache operations
   const getMarket = useCallback((ticker: string): Market | null => {
     const entry = marketCache.current.get(ticker);
     if (!entry) return null;
-    
+
     // Check if expired
     if (Date.now() - entry.timestamp > MARKET_CACHE_TTL) {
       marketCache.current.delete(ticker);
       return null;
     }
-    
+
     return entry.data;
   }, []);
 
   const getMarkets = useCallback((tickers: string[]): Map<string, Market> => {
     const result = new Map<string, Market>();
     const now = Date.now();
-    
+
     for (const ticker of tickers) {
       const entry = marketCache.current.get(ticker);
       if (entry && now - entry.timestamp <= MARKET_CACHE_TTL) {
         result.set(ticker, entry.data);
       }
     }
-    
+
     return result;
   }, []);
 
@@ -244,23 +256,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   ): Promise<T> => {
     const now = Date.now();
     const existing = inFlightRequests.current.get(key);
-    
+
     // Return existing request if still fresh
     if (existing && now - existing.timestamp < ttl) {
       return existing.promise;
     }
-    
+
     // Create new request
     const promise = fetcher();
     inFlightRequests.current.set(key, { promise, timestamp: now });
-    
+
     // Clean up after completion
     promise.finally(() => {
       setTimeout(() => {
         inFlightRequests.current.delete(key);
       }, ttl);
     });
-    
+
     return promise;
   }, []);
 
@@ -268,14 +280,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const cleanup = setInterval(() => {
       const now = Date.now();
-      
+
       // Clean expired market cache entries
       for (const [ticker, entry] of marketCache.current.entries()) {
         if (now - entry.timestamp > MARKET_CACHE_TTL) {
           marketCache.current.delete(ticker);
         }
       }
-      
+
       // Clean expired in-flight requests
       for (const [key, request] of inFlightRequests.current.entries()) {
         if (now - request.timestamp > REQUEST_CACHE_TTL * 2) {
@@ -283,7 +295,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         }
       }
     }, 30000); // Clean every 30 seconds
-    
+
     return () => clearInterval(cleanup);
   }, []);
 
@@ -300,6 +312,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     updateUserCounts,
     invalidateUser,
     dedupedFetch,
+    positionsRefreshKey,
+    triggerPositionsRefresh,
   };
 
   return (

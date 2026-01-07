@@ -3,6 +3,8 @@ import { Receiver } from '@upstash/qstash';
 import { PrivyClient } from '@privy-io/server-auth';
 import { prisma } from '@/app/lib/db';
 import { getCopySettings, updateUsedAmount } from '@/app/lib/copySettingsService';
+import { executeTradeServerSide } from '@/app/lib/tradeExecutionService';
+import { USDC_MINT } from '@/app/lib/tradeApi';
 
 // Initialize QStash receiver for signature verification
 const qstashReceiver = new Receiver({
@@ -13,7 +15,12 @@ const qstashReceiver = new Receiver({
 // Initialize Privy server client
 const privyClient = new PrivyClient(
     process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
-    process.env.PRIVY_APP_SECRET!
+    process.env.PRIVY_APP_SECRET!,
+    {
+        walletApi: {
+            authorizationPrivateKey: process.env.PRIVY_AUTHORIZATION_PRIVATE_KEY!
+        }
+    }
 );
 
 interface CopyExecutePayload {
@@ -152,25 +159,63 @@ export async function POST(request: NextRequest) {
         });
 
         try {
-            // 8 & 9. Build and sign transaction via Privy
-            // For now, we'll mark this as a TODO since actual trade execution
-            // requires integration with the DFlow API transaction building
+            // 8. Get the mint address for the side being copied
+            const getMintAddress = (market: any, type: 'yes' | 'no'): string | undefined => {
+                if (market.accounts && typeof market.accounts === 'object') {
+                    const usdcAccount = (market.accounts as any)[USDC_MINT];
+                    if (usdcAccount) {
+                        const mint = type === 'yes' ? usdcAccount.yesMint : usdcAccount.noMint;
+                        if (mint) return mint;
+                    }
 
-            // TODO: Implement actual trade execution:
-            // 1. Build trade transaction for follower wallet
-            // 2. Sign via Privy server SDK: await privyClient.walletApi.solana.signTransaction(...)
-            // 3. Submit transaction to Solana network
-            // 4. Get transaction signature
+                    const accountKeys = Object.keys(market.accounts);
+                    for (const key of accountKeys) {
+                        const account = (market.accounts as any)[key];
+                        if (account && typeof account === 'object') {
+                            const mint = type === 'yes' ? account.yesMint : account.noMint;
+                            if (mint) return mint;
+                        }
+                    }
+                }
 
-            console.log(`[CopyExecute] Would execute trade for follower ${followerId}:`);
+                const mint = type === 'yes' ? market.yesMint : market.noMint;
+                return mint;
+            };
+
+            // Get market details to find mint address
+            const marketResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/dflow/market/${leaderTrade.marketTicker}`);
+            if (!marketResponse.ok) {
+                throw new Error('Failed to fetch market details');
+            }
+            const marketData = await marketResponse.json();
+
+            const outputMint = getMintAddress(marketData, leaderTrade.side as 'yes' | 'no');
+            if (!outputMint) {
+                throw new Error('Unable to find market token mint address');
+            }
+
+            console.log(`[CopyExecute] Executing real trade for follower ${followerId}:`);
             console.log(`  - Market: ${leaderTrade.marketTicker}`);
             console.log(`  - Side: ${leaderTrade.side}`);
             console.log(`  - Amount: $${copyAmount}`);
             console.log(`  - Follower wallet: ${follower.walletAddress}`);
 
-            // For now, simulate success and create the trade record
-            // In production, this would be the actual transaction signature
-            const mockTransactionSig = `copy_${leaderTradeId}_${followerId}_${Date.now()}`;
+            // 9. Execute the trade using server-side signing
+            const tradeResult = await executeTradeServerSide({
+                followerPrivyId: follower.privyId,
+                followerWalletAddress: follower.walletAddress,
+                marketTicker: leaderTrade.marketTicker,
+                side: leaderTrade.side as 'yes' | 'no',
+                amount: copyAmount,
+                outputMint,
+            });
+
+            if (!tradeResult.success || !tradeResult.transactionSignature) {
+                throw new Error(tradeResult.error || 'Trade execution failed');
+            }
+
+            const transactionSig = tradeResult.transactionSignature;
+            console.log(`[CopyExecute] Trade executed successfully: ${transactionSig}`);
 
             // Create follower trade record
             const copyTrade = await prisma.trade.create({
@@ -180,8 +225,8 @@ export async function POST(request: NextRequest) {
                     eventTicker: leaderTrade.eventTicker,
                     side: leaderTrade.side,
                     amount: copyAmount.toString(),
-                    transactionSig: mockTransactionSig,
-                    isDummy: true, // Mark as copy trade placeholder until real execution
+                    transactionSig: transactionSig,
+                    isDummy: false, // Real trade!
                     entryPrice: leaderTrade.entryPrice,
                 },
             });
@@ -215,6 +260,7 @@ export async function POST(request: NextRequest) {
                 status: 'success',
                 copyTradeId: copyTrade.id,
                 copyAmount,
+                transactionSig,
             });
 
         } catch (txError: any) {

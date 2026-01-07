@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useSessionSigners } from '@privy-io/react-auth';
+import { useWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import UserTrades from './UserTrades';
 import UserPositionsEnhanced from './UserPositionsEnhanced';
@@ -32,6 +33,8 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
     const { ready, authenticated } = usePrivy();
     const { theme } = useTheme();
     const { currentUserId } = useAppData(); // Use context for current user
+    const { removeSessionSigners } = useSessionSigners();
+    const { wallets } = useWallets();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -136,6 +139,26 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
 
         try {
             if (wasFollowing) {
+                // Unfollowing - remove signer only if copy trading is enabled
+                if (hasCopySettings && wallets[0]?.address) {
+                    console.log('Copy trading is enabled, removing server as signer...');
+                    console.log('Wallet address:', wallets[0].address);
+                    try {
+                        await removeSessionSigners({
+                            address: wallets[0].address
+                        });
+                        console.log('✅ Server signer removed successfully');
+                    } catch (signerError: any) {
+                        console.error('⚠️ Failed to remove signer:', signerError);
+                        console.error('Error details:', signerError.message);
+                        // Continue with unfollow even if signer removal fails
+                    }
+                } else {
+                    console.log('No copy trading enabled, skipping signer removal');
+                }
+
+                // Unfollow user (this also deletes copy settings in the backend)
+                console.log('Proceeding with unfollow...');
                 await fetch('/api/follow', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
@@ -145,6 +168,8 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                     }),
                 });
                 setProfile(prev => prev ? { ...prev, followerCount: Math.max(0, prev.followerCount - 1) } : prev);
+                setHasCopySettings(false); // Reset copy settings state
+                console.log('✅ Unfollow completed');
             } else {
                 await fetch('/api/follow', {
                     method: 'POST',
@@ -326,8 +351,8 @@ export default function UserProfileView({ userId }: UserProfileViewProps) {
                                             <button
                                                 onClick={() => setCopyModalOpen(true)}
                                                 className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200 flex items-center gap-2 ${hasCopySettings
-                                                        ? 'bg-[var(--text-primary)] text-[var(--card-bg)] shadow-lg'
-                                                        : 'bg-[var(--surface-hover)] hover:bg-[var(--text-primary)]/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)]'
+                                                    ? 'bg-[var(--text-primary)] text-[var(--card-bg)] shadow-lg'
+                                                    : 'bg-[var(--surface-hover)] hover:bg-[var(--text-primary)]/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)]'
                                                     }`}
                                                 title={hasCopySettings ? 'Copy trading enabled' : 'Set up copy trading'}
                                             >

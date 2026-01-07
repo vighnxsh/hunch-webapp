@@ -34,9 +34,9 @@ export function PrivyAuthProvider({ children }: PrivyAuthProviderProps) {
           </div>
           <p className="text-gray-500 text-sm mt-4">
             Get your App ID from{' '}
-            <a 
-              href="https://dashboard.privy.io" 
-              target="_blank" 
+            <a
+              href="https://dashboard.privy.io"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-white hover:text-white underline"
             >

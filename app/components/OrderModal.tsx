@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { usePrivy } from '@privy-io/react-auth';
-import { useWallets, useSignTransaction } from '@privy-io/react-auth/solana';
+import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { Connection, VersionedTransaction } from '@solana/web3.js';
 import { Market, Event } from '../lib/api';
 import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
@@ -169,15 +169,15 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
     // Auth & wallet hooks
     const { ready, authenticated, user } = usePrivy();
     const { wallets } = useWallets();
-    const { signTransaction } = useSignTransaction();
-    const { currentUserId } = useAppData();
+    const { signAndSendTransaction } = useSignAndSendTransaction();
+    const { currentUserId, triggerPositionsRefresh } = useAppData();
     const { requireAuth } = useAuth();
 
-    // Connection for sending transactions
-    const connection = new Connection(
+    // Connection for sending transactions - use useMemo to avoid recreating
+    const connection = useRef(new Connection(
         process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com',
         'confirmed'
-    );
+    )).current;
 
     // Modal state - simplified, no phases
     const [selectedSide, setSelectedSide] = useState<'yes' | 'no' | null>(null);
@@ -298,60 +298,28 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
 
             const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
 
-            const signResult = await signTransaction({
+            setStatus('Signing and sending transaction...');
+
+            // Use Privy's signAndSendTransaction which handles signing, sending, and confirmation
+            const result = await signAndSendTransaction({
                 transaction: transactionBytes,
                 wallet: solanaWallet,
             });
 
-            if (!signResult?.signedTransaction) {
-                throw new Error('No signed transaction received');
+            if (!result?.signature) {
+                throw new Error('No signature received from transaction');
             }
 
-            const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
-                ? signResult.signedTransaction
-                : new Uint8Array(signResult.signedTransaction);
-
-            setStatus('Sending transaction...');
-
-            const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
-            const signature = await connection.sendTransaction(signedTransaction, {
-                skipPreflight: true,
-                maxRetries: 3,
-            });
-
-            setStatus('Transaction submitted! Confirming...');
-
-            // Wait for confirmation
-            const maxAttempts = 30;
-            let attempts = 0;
-            let confirmationStatus;
-
-            while (attempts < maxAttempts) {
-                const statusResult = await connection.getSignatureStatuses([signature]);
-                confirmationStatus = statusResult.value[0];
-
-                if (confirmationStatus?.err) {
-                    throw new Error(`Transaction failed: ${JSON.stringify(confirmationStatus.err)}`);
-                }
-
-                if (confirmationStatus &&
-                    (confirmationStatus.confirmationStatus === 'confirmed' ||
-                        confirmationStatus.confirmationStatus === 'finalized')) {
-                    break;
-                }
-
-                await new Promise((resolve) => setTimeout(resolve, 1000));
-                attempts++;
-            }
-
-            if (attempts >= maxAttempts) {
-                throw new Error('Transaction confirmation timeout');
-            }
-
-            if (!confirmationStatus ||
-                (confirmationStatus.confirmationStatus !== 'confirmed' &&
-                    confirmationStatus.confirmationStatus !== 'finalized')) {
-                throw new Error('Transaction not confirmed');
+            // Convert signature to string format (base58)
+            let signatureString: string;
+            if (typeof result.signature === 'string') {
+                signatureString = result.signature;
+            } else if (result.signature instanceof Uint8Array) {
+                const bs58Module = await import('bs58');
+                const bs58 = bs58Module.default || bs58Module;
+                signatureString = bs58.encode(result.signature);
+            } else {
+                throw new Error('Invalid signature format');
             }
 
             setStatus('Transaction confirmed!');
@@ -360,19 +328,19 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                 throw new Error('User not synced. Please refresh and try again.');
             }
 
-            // Handle async execution mode
+            // Handle async execution mode - reduced polling time
             if (orderResponse.executionMode === 'async') {
                 setStatus('⏳ Order is processing...');
-                const maxAsyncAttempts = 45;
+                const maxAsyncAttempts = 20;
                 let asyncAttempts = 0;
                 while (asyncAttempts < maxAsyncAttempts) {
-                    const st = await getOrderStatus(signature);
+                    const st = await getOrderStatus(signatureString);
                     if (st.status === 'closed') break;
                     if (st.status === 'failed') {
                         throw new Error('Trade execution failed');
                     }
                     asyncAttempts++;
-                    await new Promise((r) => setTimeout(r, 2000));
+                    await new Promise((r) => setTimeout(r, 1500));
                 }
                 if (asyncAttempts >= maxAsyncAttempts) {
                     throw new Error('Trade still processing. Please check again.');
@@ -405,7 +373,7 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                 eventTicker: market.eventTicker || null,
                 side: selectedSide,
                 amount: amountInSmallestUnit,
-                transactionSig: signature,
+                transactionSig: signatureString,
                 entryPrice: entryPrice?.toString() || null,
             };
 
@@ -452,6 +420,9 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
             setPendingTradePayload(null);
             setAmount('');
             setStatus(finalQuote ? '✅ Trade shared!' : '✅ Trade saved!');
+
+            // Trigger global positions refresh
+            triggerPositionsRefresh();
 
             setTimeout(() => {
                 onClose();

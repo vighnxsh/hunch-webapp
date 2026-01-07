@@ -22,7 +22,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const { signTransaction } = useSignTransaction();
-  const { currentUserId } = useAppData(); // Get userId from context
+  const { currentUserId, triggerPositionsRefresh } = useAppData(); // Get userId from context
 
   // Create Solana connection for sending transactions
   const connection = new Connection(
@@ -468,6 +468,9 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       setPendingTradePayload(null);
       setAmount('');
       setStatus(finalQuote ? '✅ Trade shared successfully!' : '✅ Trade saved successfully!');
+
+      // Trigger global positions refresh
+      triggerPositionsRefresh();
 
       // Clear status after 3 seconds
       setTimeout(() => {

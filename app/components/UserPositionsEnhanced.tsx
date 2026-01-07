@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import PositionCard from './PositionCard';
 import { useTheme } from './ThemeProvider';
+import { useAppData } from '../contexts/AppDataContext';
 import type { AggregatedPosition } from '../lib/positionService';
 
 interface UserPositionsEnhancedProps {
@@ -26,6 +27,7 @@ interface PositionStats {
 
 export default function UserPositionsEnhanced({ userId, allowActions = false }: UserPositionsEnhancedProps) {
   const { theme } = useTheme();
+  const { positionsRefreshKey } = useAppData();
   const [activeTab, setActiveTab] = useState<'active' | 'previous'>('active');
   const [positions, setPositions] = useState<PositionsData>({ active: [], previous: [] });
   const [stats, setStats] = useState<PositionStats | null>(null);
@@ -34,7 +36,7 @@ export default function UserPositionsEnhanced({ userId, allowActions = false }: 
 
   useEffect(() => {
     loadPositions();
-  }, [userId]);
+  }, [userId, positionsRefreshKey]);
 
   const loadPositions = async () => {
     try {
@@ -108,15 +110,15 @@ export default function UserPositionsEnhanced({ userId, allowActions = false }: 
         <button
           onClick={() => setActiveTab('active')}
           className={`px-4 py-2 md:px-6 md:py-3 text-lg md:text-xl font-medium md:font-bold transition-all duration-200 relative active:scale-95 active:opacity-80 ${activeTab === 'active'
-              ? theme === 'light' ? 'text-black' : 'text-white'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            ? theme === 'light' ? 'text-black' : 'text-white'
+            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
         >
           ACTIVE
           {activePositions.length > 0 && (
             <span className={`ml-2 px-2 py-0.5 md:px-3 md:py-1 rounded-full text-xl md:text-2xl ${theme === 'light'
-                ? 'bg-black/20 text-black'
-                : 'bg-white/20 text-white'
+              ? 'bg-black/20 text-black'
+              : 'bg-white/20 text-white'
               }`}>
               {activePositions.length}
             </span>
@@ -130,8 +132,8 @@ export default function UserPositionsEnhanced({ userId, allowActions = false }: 
         <button
           onClick={() => setActiveTab('previous')}
           className={`px-4 py-2 md:px-6 md:py-3 text-lg md:text-xl font-medium md:font-bold transition-all duration-200 relative active:scale-95 active:opacity-80 ${activeTab === 'previous'
-              ? 'text-red-400'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            ? 'text-red-400'
+            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
         >
           PREVIOUS

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useSessionSigners } from '@privy-io/react-auth';
 import { useWallets, useSignMessage } from '@privy-io/react-auth/solana';
 import bs58 from 'bs58';
 
@@ -35,6 +35,7 @@ export default function CopySettingsModal({
     const { user } = usePrivy();
     const { wallets } = useWallets();
     const { signMessage } = useSignMessage();
+    const { addSessionSigners, removeSessionSigners } = useSessionSigners();
     const [amountPerTrade, setAmountPerTrade] = useState<string>('');
     const [maxTotalAmount, setMaxTotalAmount] = useState<string>('');
     const [enabled, setEnabled] = useState(true);
@@ -155,7 +156,35 @@ Follower ID: ${followerId}`;
             // Convert signature to base58 string for storage
             const signature = bs58.encode(signatureUint8Array);
 
-            console.log('Signature obtained, saving settings...');
+            console.log('Signature obtained, adding server as signer...');
+
+            // Use the selected wallet address (already validated above)
+            // The selectedWallet is the Solana wallet from useWallets hook
+            const walletAddress = selectedWallet.address;
+
+            if (!walletAddress) {
+                throw new Error('Wallet address not found');
+            }
+
+            console.log(`Adding signer for wallet: ${walletAddress}`);
+
+            // Add server's key quorum as a signer to user's wallet
+            // This enables server-side transaction signing for copy trading
+            try {
+                await addSessionSigners({
+                    address: walletAddress,
+                    signers: [{
+                        signerId: process.env.NEXT_PUBLIC_KEY_QUORUM_ID!,
+                        policyIds: [] // Full permissions (no restrictions)
+                    }]
+                });
+                console.log('Server added as signer successfully');
+            } catch (signerError: any) {
+                console.error('Failed to add signer:', signerError);
+                throw new Error(`Failed to authorize server: ${signerError.message}`);
+            }
+
+            console.log('Saving settings to database...');
 
             // Save settings with signature
             const response = await fetch('/api/copy-settings', {
@@ -191,7 +220,27 @@ Follower ID: ${followerId}`;
     const handleDelete = async () => {
         if (!existingSettings) return;
         setLoading(true);
+        setError(null);
         try {
+            // Get the wallet address to remove signer
+            const selectedWallet = wallets[0];
+            if (selectedWallet?.address) {
+                console.log('Removing server as signer...');
+                try {
+                    // Remove all session signers from the wallet
+                    // This revokes the server's permission to sign transactions
+                    await removeSessionSigners({
+                        address: selectedWallet.address
+                    });
+                    console.log('Server signer removed successfully');
+                } catch (signerError: any) {
+                    console.error('Failed to remove signer:', signerError);
+                    // Continue with deletion even if signer removal fails
+                    // The user might have already removed it manually
+                }
+            }
+
+            // Delete copy settings from database
             await fetch('/api/copy-settings', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
@@ -200,6 +249,7 @@ Follower ID: ${followerId}`;
             onSave?.();
             onClose();
         } catch (error: any) {
+            console.error('Delete error:', error);
             setError(error.message || 'Failed to delete');
         } finally {
             setLoading(false);

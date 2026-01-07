@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { useWallets, useSignTransaction } from '@privy-io/react-auth/solana';
+import { useState, useRef } from 'react';
+import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
 import { Connection, VersionedTransaction } from '@solana/web3.js';
 import type { AggregatedPosition } from '../lib/positionService';
 import { formatMarketTitle } from '../lib/marketUtils';
 import { requestOrder, getOrderStatus, USDC_MINT } from '../lib/tradeApi';
 import { fetchMarketByMint } from '../lib/api';
+import { useAppData } from '../contexts/AppDataContext';
 
 interface PositionCardProps {
   position: AggregatedPosition;
@@ -19,17 +20,19 @@ interface PositionCardProps {
 export default function PositionCard({ position, allowActions = false, isPrevious = false, onActionComplete }: PositionCardProps) {
   const router = useRouter();
   const { wallets } = useWallets();
-  const { signTransaction } = useSignTransaction();
+  const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { triggerPositionsRefresh } = useAppData();
   const [actionLoading, setActionLoading] = useState<'sell' | 'redeem' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const solanaWallet = wallets[0];
   const walletAddress = solanaWallet?.address;
 
-  const connection = new Connection(
+  // Use useRef to avoid recreating connection on every render
+  const connection = useRef(new Connection(
     process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com',
     'confirmed'
-  );
+  )).current;
 
   const handleClick = () => {
     // Redirect to event page if eventTicker exists, otherwise to market page
@@ -169,28 +172,39 @@ export default function PositionCard({ position, allowActions = false, isPreviou
     if (!txBase64) throw new Error('No transaction in order response');
 
     const txBytes = new Uint8Array(Buffer.from(txBase64, 'base64'));
-    const signResult = await signTransaction({ transaction: txBytes, wallet: solanaWallet });
-    if (!signResult?.signedTransaction) throw new Error('No signed transaction received');
 
-    const signedBytes =
-      signResult.signedTransaction instanceof Uint8Array
-        ? signResult.signedTransaction
-        : new Uint8Array(signResult.signedTransaction);
+    // Use Privy's signAndSendTransaction which handles signing, sending, and confirmation
+    const result = await signAndSendTransaction({
+      transaction: txBytes,
+      wallet: solanaWallet,
+    });
 
-    const signedTx = VersionedTransaction.deserialize(signedBytes);
-    const signature = await connection.sendTransaction(signedTx, { skipPreflight: true, maxRetries: 3 });
+    if (!result?.signature) {
+      throw new Error('No signature received from transaction');
+    }
 
-    // sync: wait for chain confirmation; async: also wait order-status closed
-    await connection.confirmTransaction(signature, 'confirmed');
+    // Convert signature to string format (base58)
+    let signatureString: string;
+    if (typeof result.signature === 'string') {
+      signatureString = result.signature;
+    } else if (result.signature instanceof Uint8Array) {
+      const bs58Module = await import('bs58');
+      const bs58 = bs58Module.default || bs58Module;
+      signatureString = bs58.encode(result.signature);
+    } else {
+      throw new Error('Invalid signature format');
+    }
+
+    // For async orders, wait for DFlow order status
     if (order.executionMode === 'async') {
-      const maxAttempts = 45;
+      const maxAttempts = 20;
       let attempts = 0;
       while (attempts < maxAttempts) {
-        const st = await getOrderStatus(signature);
+        const st = await getOrderStatus(signatureString);
         if (st.status === 'closed') break;
         if (st.status === 'failed') throw new Error('Execution failed');
         attempts++;
-        await new Promise((r) => setTimeout(r, 2000));
+        await new Promise((r) => setTimeout(r, 1500));
       }
       if (attempts >= maxAttempts) throw new Error('Still processing. Please check again shortly.');
     }
@@ -209,6 +223,7 @@ export default function PositionCard({ position, allowActions = false, isPreviou
       if (!amountRaw || amountRaw === '0') throw new Error('Position size is 0');
 
       await executeOrder({ inputMint: outcomeMint, outputMint: USDC_MINT, amountRaw });
+      triggerPositionsRefresh(); // Trigger global refresh
       onActionComplete?.();
     } catch (err: any) {
       setActionError(err.message || 'Sell failed');
@@ -234,6 +249,7 @@ export default function PositionCard({ position, allowActions = false, isPreviou
       if (!amountRaw || amountRaw === '0') throw new Error('Position size is 0');
 
       await executeOrder({ inputMint: outcomeMint, outputMint: elig.settlementMint, amountRaw });
+      triggerPositionsRefresh(); // Trigger global refresh
       onActionComplete?.();
     } catch (err: any) {
       setActionError(err.message || 'Redeem failed');
@@ -292,24 +308,23 @@ export default function PositionCard({ position, allowActions = false, isPreviou
   return (
     <div
       onClick={handleClick}
-      className={`p-4 rounded-xl bg-[var(--card-bg)] border ${getBorderColorClass()} hover:shadow-lg transition-all cursor-pointer group ${isPrevious ? 'opacity-75 hover:opacity-90' : ''}`}
+      className={`p-3 rounded-xl bg-[var(--card-bg)] border ${getBorderColorClass()} hover:shadow-lg transition-all cursor-pointer group ${isPrevious ? 'opacity-75 hover:opacity-90' : ''}`}
     >
       <div className="flex items-start gap-3">
         {/* Event Image */}
-        <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-gradient-to-br from-white/20 to-gray-400/20 border border-[var(--border-color)]">
+        <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-white/20 to-gray-400/20 border border-[var(--border-color)]">
           {position.eventImageUrl ? (
             <img
               src={position.eventImageUrl}
               alt={eventTitle}
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
               onError={(e) => {
-                // Fallback to icon if image fails to load
                 e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-2xl">📊</div>';
+                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-lg">📊</div>';
               }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-2xl">
+            <div className="w-full h-full flex items-center justify-center text-lg">
               📊
             </div>
           )}
@@ -317,127 +332,95 @@ export default function PositionCard({ position, allowActions = false, isPreviou
 
         {/* Position Details */}
         <div className="flex-1 min-w-0">
-          {/* Event Title */}
-          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1 truncate group-hover:text-white transition-colors">
-            {eventTitle}
-          </h3>
+          {/* Header Row: Title + Action Button */}
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate group-hover:text-white transition-colors flex-1">
+              {eventTitle}
+            </h3>
 
-          {/* Market Subtitle */}
-          {marketSubtitle && (
-            <p className="text-xs text-[var(--text-secondary)] mb-2 line-clamp-2">
-              {marketSubtitle}
-            </p>
-          )}
+            {/* Compact Action Button in Header */}
+            {canShowActions && (
+              <button
+                onClick={shouldOfferRedeem ? handleRedeem : handleSell}
+                disabled={actionLoading !== null}
+                className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${shouldOfferRedeem
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-400 hover:to-yellow-400'
+                  : 'bg-white/90 text-black hover:bg-white'
+                  }`}
+              >
+                {actionLoading === 'sell' || actionLoading === 'redeem'
+                  ? '...'
+                  : shouldOfferRedeem ? 'Redeem' : 'Sell'}
+              </button>
+            )}
 
-          {/* Position Side Badge */}
+            {/* Outcome Badge for Previous Positions */}
+            {isPrevious && outcomeResult && (
+              <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getOutcomeBadgeClass()}`}>
+                {outcomeResult === 'Won' && '🏆'}
+                {outcomeResult === 'Lost' && '❌'}
+                {outcomeResult === 'Sold' && '💰'}
+                {outcomeResult}
+              </span>
+            )}
+          </div>
+
+          {/* Side Badge + Trade Count */}
           <div className="flex items-center gap-2 mb-2">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${getSideBadgeClass()}`}>
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getSideBadgeClass()}`}>
               {position.side.toUpperCase()}
             </span>
-            <span className="text-xs text-[var(--text-secondary)]">
+            <span className="text-[10px] text-[var(--text-tertiary)]">
               {position.tradeCount} trade{position.tradeCount !== 1 ? 's' : ''}
             </span>
           </div>
 
-          {/* Current Valuation and P&L */}
-          <div className="space-y-2">
-            {/* Current Value */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-[var(--text-secondary)]">Current Value</span>
-              <span className="text-base font-bold text-[var(--text-primary)]">
-                {formatCurrency(position.currentValue)}
-              </span>
+          {/* Compact Stats Row */}
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-3">
+              {/* Current Value */}
+              <div>
+                <span className="text-[10px] text-[var(--text-tertiary)] block">Value</span>
+                <span className="font-semibold text-[var(--text-primary)]">
+                  {formatCurrency(position.currentValue)}
+                </span>
+              </div>
+
+              {/* P&L */}
+              {position.profitLoss !== null && (
+                <div>
+                  <span className="text-[10px] text-[var(--text-tertiary)] block">P&L</span>
+                  <span className={`font-semibold ${getPLColorClass()}`}>
+                    {position.profitLoss >= 0 ? '+' : ''}{formatCurrency(position.profitLoss)}
+                    {position.profitLossPercentage !== null && (
+                      <span className="ml-1 text-[10px] opacity-80">
+                        ({formatPercentage(position.profitLossPercentage)})
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Profit/Loss with Percentage */}
-            {position.profitLoss !== null && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[var(--text-secondary)]">Profit/Loss</span>
-                <div className="flex items-center gap-2">
-                  <span className={`text-base font-bold ${getPLColorClass()}`}>
-                    {position.profitLoss >= 0 ? '↑' : '↓'} {formatCurrency(Math.abs(position.profitLoss))}
-                  </span>
-                  {position.profitLossPercentage !== null && (
-                    <span className={`text-sm font-semibold ${getPLColorClass()}`}>
-                      ({formatPercentage(position.profitLossPercentage)})
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Current Price (small, subtle) */}
+            {/* Current Price (subtle, right-aligned) */}
             {position.currentPrice !== null && (
-              <div className="flex items-center justify-between pt-1 border-t border-[var(--border-color)]/50">
-                <span className="text-xs text-[var(--text-secondary)]">Current Price</span>
-                <span className="text-xs text-[var(--text-secondary)]">
+              <div className="text-right">
+                <span className="text-[10px] text-[var(--text-tertiary)] block">Price</span>
+                <span className="text-[var(--text-secondary)]">
                   {formatCurrency(position.currentPrice)}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Actions (only on own profile for active positions) */}
-          {canShowActions && (
-            <div className="mt-3 flex flex-col gap-2">
-              {actionError && (
-                <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                  {actionError}
-                </div>
-              )}
-              <div className="flex gap-2">
-                {shouldOfferRedeem ? (
-                  <button
-                    onClick={handleRedeem}
-                    disabled={actionLoading !== null}
-                    className="flex-1 px-3 py-2 rounded-lg bg-white hover:bg-white text-white text-xs font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {actionLoading === 'redeem' ? 'Redeeming…' : 'Redeem'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSell}
-                    disabled={actionLoading !== null}
-                    className="flex-1 px-3 py-2 rounded-lg bg-white/90 hover:bg-white text-black text-xs font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {actionLoading === 'sell' ? 'Selling…' : 'Sell'}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Outcome badge for previous positions (instead of action buttons) */}
-          {isPrevious && outcomeResult && (
-            <div className="mt-3 pt-3 border-t border-[var(--border-color)]/30">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[var(--text-tertiary)]">Outcome</span>
-                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold border ${getOutcomeBadgeClass()}`}>
-                  {outcomeResult === 'Won' && '🏆 '}
-                  {outcomeResult === 'Lost' && '❌ '}
-                  {outcomeResult === 'Sold' && '💰 '}
-                  {outcomeResult}
-                </span>
-              </div>
+          {/* Error Display */}
+          {actionError && (
+            <div className="mt-2 text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 rounded px-2 py-1">
+              {actionError}
             </div>
           )}
         </div>
       </div>
-
-      {/* Market Status Indicator */}
-      {position.market?.status && (
-        <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-[var(--text-secondary)]">Market Status</span>
-            <span className={`font-medium ${position.market.status === 'active' || position.market.status === 'open'
-                ? 'text-green-400'
-                : 'text-[var(--text-secondary)]'
-              }`}>
-              {position.market.status.charAt(0).toUpperCase() + position.market.status.slice(1)}
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

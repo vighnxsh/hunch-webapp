@@ -32,13 +32,13 @@ const TEST_CONFIG = {
     followerWalletAddress: 'EeCCx1Brk1Pzp4MyBiARBReftZMvxNzH8xQDRAWF82Bj',
 
     // Trade details - use a market that you know works
-    marketTicker: 'KXMAYORNYCPARTY-25-JWAL',
-    eventTicker: 'KXMAYORNYCPARTY-25',
+    marketTicker: 'KXSB-26-SF',
+    eventTicker: 'KXSB-26',
     side: 'yes' as const,
     amount: 0.3, // In dollars
 
     // YES token mint for this market (get from DFlow market API)
-    outputMint: 'BT3ikcARvUNiSXiTWR2waGE5QMwJZmJgyGoG5tk5mvSz',
+    outputMint: '2LCzhj3ntmjxt4nACg45QvYv2WvwpvBKrfDWZui64q2h',
 };
 
 async function main() {

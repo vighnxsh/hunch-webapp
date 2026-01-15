@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthContext';
 import { useEffect, useState, useLayoutEffect } from 'react';
+import { normalizeTwitterAvatarUrl } from '@/lib/utils';
 
 export default function BottomNavbar() {
   const { ready, authenticated, user } = usePrivy();
@@ -89,7 +90,7 @@ export default function BottomNavbar() {
   const getUserAvatar = () => {
     if (!user) return null;
     //@ts-ignore 
-    return user.twitter?.profilePictureUrl || user.google?.picture || null;
+    return normalizeTwitterAvatarUrl(user.twitter?.profilePictureUrl) || user.google?.picture || null;
   };
 
   const avatar = getUserAvatar();
@@ -124,7 +125,7 @@ export default function BottomNavbar() {
         {/* Social Feed Link */}
         <Link
           href="/social"
-          className={`p-3 mx-5 rounded-full transition-all duration-200 ${
+          className={`p-3 rounded-full transition-all duration-200 ${
             isActive('/social')
               ? 'bg-[var(--text-primary)] text-[var(--background)]'
               : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
@@ -141,6 +142,30 @@ export default function BottomNavbar() {
               strokeLinecap="round"
               strokeLinejoin="round"
               d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
+        </Link>
+
+        {/* News Link */}
+        <Link
+          href="/news"
+          className={`p-3 rounded-full transition-all duration-200 ${
+            isActive('/news')
+              ? 'bg-[var(--text-primary)] text-[var(--background)]'
+              : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
             />
           </svg>
         </Link>

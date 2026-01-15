@@ -7,7 +7,7 @@ import 'server-only';
 const METADATA_API_BASE_URL =
     process.env.DFLOW_METADATA_API_URL ??
     process.env.NEXT_PUBLIC_PM_METADATA_API_BASE_URL ??
-    "https://a.prediction-markets-api.dflow.net";
+    "https://dev-prediction-markets-api.dflow.net";
 
 const TRADE_API_BASE_URL =
     process.env.DFLOW_TRADE_API_URL ??
@@ -85,6 +85,20 @@ export interface Event {
 export interface EventsResponse {
     events: Event[];
     cursor?: string;
+    [key: string]: any;
+}
+
+export interface Series {
+    ticker: string;
+    title: string;
+    category?: string;
+    tags?: string[];
+    frequency?: string;
+    [key: string]: any;
+}
+
+export interface SeriesResponse {
+    series: Series[];
     [key: string]: any;
 }
 
@@ -178,19 +192,45 @@ export async function fetchEventsServer(
         queryParams.append("cursor", options.cursor);
     }
 
-    const response = await fetch(
-        `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`,
-        {
+    const url = `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`;
+    console.log(`[dflowServer] Fetching events from: ${url}`);
+    
+    let response;
+    try {
+        response = await fetch(url, {
             method: "GET",
             headers: getHeaders(),
             cache: 'no-store',
+            // Add timeout to prevent hanging
+            signal: AbortSignal.timeout(30000), // 30 second timeout
+        });
+    } catch (fetchError: any) {
+        const errorMessage = fetchError?.message || 'Unknown fetch error';
+        const errorName = fetchError?.name || 'FetchError';
+        console.error(`[dflowServer] Network error fetching events:`, {
+            error: errorMessage,
+            name: errorName,
+            url,
+            hasApiKey: !!DFLOW_API_KEY,
+            apiBaseUrl: METADATA_API_BASE_URL,
+        });
+        
+        // Provide more helpful error messages
+        if (errorName === 'AbortError' || errorMessage.includes('timeout')) {
+            throw new Error(`DFlow API request timed out. The API at ${METADATA_API_BASE_URL} may be slow or unreachable.`);
+        } else if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('ENOTFOUND')) {
+            throw new Error(`Cannot connect to DFlow API at ${METADATA_API_BASE_URL}. Check your network connection and API endpoint.`);
+        } else {
+            throw new Error(`Network error fetching events from DFlow API: ${errorMessage}. URL: ${url}`);
         }
-    );
+    }
 
     if (!response.ok) {
         const errorText = await response.text();
         console.error(`[dflowServer] Events API Error (${response.status}):`, errorText);
-        throw new Error(`Failed to fetch events: ${response.status} ${response.statusText}`);
+        console.error(`[dflowServer] Request URL: ${url}`);
+        console.error(`[dflowServer] Query params:`, queryParams.toString());
+        throw new Error(`Failed to fetch events: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     return await response.json();
@@ -200,19 +240,45 @@ export async function fetchEventsServer(
  * Fetch event details from DFlow API (server-only)
  */
 export async function fetchEventDetailsServer(eventTicker: string): Promise<EventDetails> {
-    const response = await fetch(
-        `${METADATA_API_BASE_URL}/api/v1/event/${encodeURIComponent(eventTicker)}?withNestedMarkets=true`,
-        {
+    const url = `${METADATA_API_BASE_URL}/api/v1/event/${encodeURIComponent(eventTicker)}?withNestedMarkets=true`;
+    console.log(`[dflowServer] Fetching event details for: ${eventTicker}`);
+    
+    let response;
+    try {
+        response = await fetch(url, {
             method: "GET",
             headers: getHeaders(),
             cache: 'no-store',
+            // Add timeout to prevent hanging
+            signal: AbortSignal.timeout(30000), // 30 second timeout
+        });
+    } catch (fetchError: any) {
+        const errorMessage = fetchError?.message || 'Unknown fetch error';
+        const errorName = fetchError?.name || 'FetchError';
+        console.error(`[dflowServer] Network error fetching event details:`, {
+            error: errorMessage,
+            name: errorName,
+            ticker: eventTicker,
+            url,
+            hasApiKey: !!DFLOW_API_KEY,
+            apiBaseUrl: METADATA_API_BASE_URL,
+        });
+        
+        // Provide more helpful error messages
+        if (errorName === 'AbortError' || errorMessage.includes('timeout')) {
+            throw new Error(`DFlow API request timed out for event ${eventTicker}. The API at ${METADATA_API_BASE_URL} may be slow or unreachable.`);
+        } else if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('ENOTFOUND')) {
+            throw new Error(`Cannot connect to DFlow API at ${METADATA_API_BASE_URL} for event ${eventTicker}. Check your network connection and API endpoint.`);
+        } else {
+            throw new Error(`Network error fetching event details for ${eventTicker}: ${errorMessage}. URL: ${url}`);
         }
-    );
+    }
 
     if (!response.ok) {
         const errorText = await response.text();
         console.error(`[dflowServer] Event Details API Error (${response.status}):`, errorText);
-        throw new Error(`Failed to fetch event details: ${response.status} ${response.statusText}`);
+        console.error(`[dflowServer] Request URL: ${url}`);
+        throw new Error(`Failed to fetch event details: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     return await response.json();
@@ -385,6 +451,88 @@ export async function fetchTagsByCategoriesServer(): Promise<Record<string, stri
 
     const data = await response.json();
     return data.tagsByCategories || {};
+}
+
+/**
+ * Fetch series from DFlow API (server-only)
+ */
+export async function fetchSeriesServer(params?: {
+    category?: string;
+    tags?: string;
+}): Promise<Series[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.category) {
+        queryParams.append("category", params.category);
+    }
+    if (params?.tags) {
+        queryParams.append("tags", params.tags);
+    }
+
+    const response = await fetch(
+        `${METADATA_API_BASE_URL}/api/v1/series${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+        {
+            method: "GET",
+            headers: getHeaders(),
+            cache: 'no-store',
+        }
+    );
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[dflowServer] Series API Error (${response.status}):`, errorText);
+        throw new Error(`Failed to fetch series: ${response.status} ${response.statusText}`);
+    }
+
+    const data: SeriesResponse = await response.json();
+    return data.series || [];
+}
+
+/**
+ * Fetch events by series tickers from DFlow API (server-only)
+ */
+export async function fetchEventsBySeriesServer(
+    seriesTickers: string | string[],
+    options?: {
+        withNestedMarkets?: boolean;
+        status?: string;
+        limit?: number;
+    }
+): Promise<Event[]> {
+    const queryParams = new URLSearchParams();
+    const tickers = Array.isArray(seriesTickers) ? seriesTickers.join(",") : seriesTickers;
+    queryParams.append("seriesTickers", tickers);
+
+    if (options?.withNestedMarkets) {
+        queryParams.append("withNestedMarkets", "true");
+    }
+    if (options?.status) {
+        queryParams.append("status", options.status);
+    }
+    if (options?.limit) {
+        queryParams.append("limit", options.limit.toString());
+    } else {
+        queryParams.append("limit", "500"); // Default limit
+    }
+
+    const response = await fetch(
+        `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`,
+        {
+            method: "GET",
+            headers: getHeaders(),
+            cache: 'no-store',
+        }
+    );
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[dflowServer] Events by Series API Error (${response.status}):`, errorText);
+        console.error(`[dflowServer] Request URL: ${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`);
+        console.error(`[dflowServer] Series tickers count: ${Array.isArray(seriesTickers) ? seriesTickers.length : 1}`);
+        throw new Error(`Failed to fetch events by series: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const data: EventsResponse = await response.json();
+    return data.events || [];
 }
 
 /**

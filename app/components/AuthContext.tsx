@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import LoginModal from './LoginModal';
 
@@ -24,9 +24,25 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { authenticated } = usePrivy();
+  const { authenticated, user, ready } = usePrivy();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState<string | undefined>();
+
+  // Console log Privy user data when authenticated
+  useEffect(() => {
+    if (ready && authenticated && user) {
+      console.log('=== Privy Authentication Data ===');
+      console.log('User object:', user);
+      console.log('User ID:', user.id);
+      console.log('Email:', user.email);
+      console.log('Linked Accounts:', user.linkedAccounts);
+      console.log('Twitter:', user.twitter);
+      console.log('Google:', user.google);
+      console.log('Wallet:', user.wallet);
+      console.log('Full user object (JSON):', JSON.stringify(user, null, 2));
+      console.log('================================');
+    }
+  }, [ready, authenticated, user]);
 
   const showLoginModal = useCallback((message?: string) => {
     setModalMessage(message);

@@ -562,6 +562,56 @@ export interface CandlesticksByMintResponse {
 /**
  * Fetch candlestick data by mint address for social price charts
  */
+/**
+ * Fetch top events by category (highest volume events from each category)
+ */
+export async function fetchTopEventsByCategory(params?: {
+  status?: string;
+  useVolume24h?: boolean;
+  limit?: number;
+  perCategory?: number;
+}): Promise<{
+  categories: Record<string, Array<Event & { volume: number; category: string }>>;
+  count: number;
+  perCategory: number;
+}> {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.status) {
+      queryParams.append('status', params.status);
+    }
+    if (params?.useVolume24h) {
+      queryParams.append('useVolume24h', 'true');
+    }
+    if (params?.limit) {
+      queryParams.append('limit', params.limit.toString());
+    }
+    if (params?.perCategory) {
+      queryParams.append('perCategory', params.perCategory.toString());
+    }
+
+    const response = await fetch(
+      `/api/events/top-by-category${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch top events by category: ${response.statusText} - ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching top events by category:', error);
+    throw error;
+  }
+}
+
 export async function fetchCandlesticksByMint(
   mintAddress: string,
   options?: {

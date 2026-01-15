@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
         if (tags) queryParams.append('tags', tags);
 
         // Note: Series endpoint - proxying to DFlow
-        const url = `${process.env.DFLOW_METADATA_API_URL ?? 'https://a.prediction-markets-api.dflow.net'}/api/v1/series${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+        const url = `${process.env.DFLOW_METADATA_API_URL ?? 'https://dev-prediction-markets-api.dflow.net'}/api/v1/series${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
         const response = await fetch(url, {
             method: 'GET',

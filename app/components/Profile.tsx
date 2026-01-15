@@ -13,6 +13,7 @@ import { useTheme } from './ThemeProvider';
 import FollowersFollowingModal from './FollowersFollowingModal';
 import { useAppData } from '../contexts/AppDataContext';
 import { fetchUserCounts } from '../lib/authSync';
+import { normalizeTwitterAvatarUrl } from '@/lib/utils';
 
 export default function Profile() {
   const { ready, authenticated, user } = usePrivy();
@@ -298,7 +299,7 @@ export default function Profile() {
 
   const getUserAvatar = () => {
     if (user?.twitter?.profilePictureUrl) {
-      return user.twitter.profilePictureUrl;
+      return normalizeTwitterAvatarUrl(user.twitter.profilePictureUrl) || '/default.png';
     }
     return '/default.png';
   };

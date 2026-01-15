@@ -14,6 +14,7 @@ import {
   UserCounts,
   CachedUserProfile,
 } from '../lib/authSync';
+import { normalizeTwitterAvatarUrl } from '@/lib/utils';
 
 interface MarketCacheEntry {
   data: Market;
@@ -131,11 +132,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setIsUserLoading(true);
 
     try {
+      const normalizedAvatarUrl = normalizeTwitterAvatarUrl(user.twitter?.profilePictureUrl);
       const result = await syncUserOnLogin(
         user.id,
         walletAddress,
         user.twitter?.username ? `@${user.twitter.username}` : user.google?.email?.split('@')[0] || null,
-        user.twitter?.profilePictureUrl || null
+        normalizedAvatarUrl
       );
 
       if (result) {
@@ -145,7 +147,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         const profile: CachedUserProfile = {
           id: result.userId,
           displayName: user.twitter?.username ? `@${user.twitter.username}` : user.google?.email?.split('@')[0] || null,
-          avatarUrl: user.twitter?.profilePictureUrl || null,
+          avatarUrl: normalizedAvatarUrl,
           walletAddress,
           followerCount: result.counts.followerCount,
           followingCount: result.counts.followingCount,

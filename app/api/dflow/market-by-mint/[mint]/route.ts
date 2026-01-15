@@ -18,7 +18,7 @@ export async function GET(
         // Note: The DFlow API uses /api/v1/market/by-mint/{mint}
         // We need to add this to dflowServer.ts
         const response = await fetch(
-            `${process.env.DFLOW_METADATA_API_URL ?? 'https://a.prediction-markets-api.dflow.net'}/api/v1/market/by-mint/${mint}`,
+            `${process.env.DFLOW_METADATA_API_URL ?? 'https://dev-prediction-markets-api.dflow.net'}/api/v1/market/by-mint/${mint}`,
             {
                 method: 'GET',
                 headers: {

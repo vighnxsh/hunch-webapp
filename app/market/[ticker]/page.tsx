@@ -4,6 +4,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import { fetchMarkets, Market } from '@/app/lib/api';
 import { parseMarketTicker, formatMarketTitle } from '@/app/lib/marketUtils';
+import RelatedNewsSection from '@/app/components/RelatedNewsSection';
 
 // Lazy load heavy components
 const TradeMarket = lazy(() => import('@/app/components/TradeMarket'));
@@ -137,6 +138,9 @@ export default function MarketPage() {
               </Suspense>
             </div>
           )}
+
+          {/* Related News Section */}
+          <RelatedNewsSection marketTicker={market.ticker} limit={5} />
         </div>
       </main>
     </div>

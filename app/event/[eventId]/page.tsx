@@ -9,8 +9,10 @@ import { fetchEventDetails, fetchMarketDetails, EventDetails, Market } from '../
 import TradeMarket from '../../components/TradeMarket';
 import ShareBlink from '../../components/ShareBlink';
 import EventDetailChart from '../../components/EventDetailChart';
+import RelatedNewsSection from '../../components/RelatedNewsSection';
 import { useAuth } from '../../components/AuthContext';
 import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../../lib/tradeApi';
+import { normalizeTwitterAvatarUrl } from '@/lib/utils';
 
 export default function EventPage() {
     const params = useParams();
@@ -312,6 +314,7 @@ export default function EventPage() {
             setMobileTradeStatus('Transaction confirmed! Storing trade...');
 
             // Sync user
+            const normalizedAvatarUrl = normalizeTwitterAvatarUrl(user.twitter?.profilePictureUrl);
             const syncResponse = await fetch('/api/users/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -321,7 +324,7 @@ export default function EventPage() {
                     displayName: user.twitter?.username
                         ? `@${user.twitter.username}`
                         : user.google?.email?.split('@')[0] || null,
-                    avatarUrl: user.twitter?.profilePictureUrl || null,
+                    avatarUrl: normalizedAvatarUrl,
                 }),
             });
 
@@ -628,6 +631,9 @@ export default function EventPage() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Related News Section */}
+                        <RelatedNewsSection eventTicker={eventId} limit={5} />
                     </div>
                 </div>
             </main>

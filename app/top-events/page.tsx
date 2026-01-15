@@ -102,7 +102,7 @@ function CategoryEventCard({
   );
 }
 
-export default function HomePage() {
+export default function TopEventsPage() {
   const router = useRouter();
   const [topEvents, setTopEvents] = useState<Record<string, Array<Event & { volume: number; category: string }>>>({});
   const [loading, setLoading] = useState(true);
@@ -186,8 +186,8 @@ export default function HomePage() {
 
   const categories = Object.keys(topEvents);
   const sortedCategories = categories.sort((a, b) => {
-    const volumeA = topEvents[a].volume || 0;
-    const volumeB = topEvents[b].volume || 0;
+    const volumeA = topEvents[a]?.[0]?.volume || 0;
+    const volumeB = topEvents[b]?.[0]?.volume || 0;
     return volumeB - volumeA;
   });
 
@@ -247,3 +247,4 @@ export default function HomePage() {
     </div>
   );
 }
+

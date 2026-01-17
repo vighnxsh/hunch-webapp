@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchTopEventsByCategory, Event } from '../lib/api';
+import EventNewsCard from '../components/EventNewsCard';
 
 const formatVolume = (value?: number) => {
   if (!value || Number.isNaN(value)) return '$—';
@@ -45,56 +46,75 @@ function CategoryEventCard({
   const categoryColor = CATEGORY_COLORS[category] || 'from-gray-500/20 to-gray-600/20';
 
   return (
-    <div
-      onClick={onClick}
-      className="group relative flex flex-col gap-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-3xl p-4 cursor-pointer transition-all duration-300 card-hover-lift tail-flick-shadow"
-    >
-      {/* Category Badge */}
-      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r ${categoryColor} border border-[var(--card-border)] w-fit`}>
-        <span className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wide">
-          {categoryLabel}
-        </span>
+    <div className="relative">
+      {/* Background News Card Layer */}
+      <div className="absolute inset-0 translate-y-2 scale-[0.98] opacity-60 pointer-events-none">
+        <div className="h-full bg-gradient-to-br from-[var(--accent)]/10 to-[var(--accent-light)]/5 border border-[var(--accent)]/20 rounded-3xl backdrop-blur-sm" />
       </div>
 
-      {/* Header (image + title) */}
-      <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent-light)]/20 flex-shrink-0">
-          {event.imageUrl ? (
-            <img
-              src={event.imageUrl}
-              alt={event.title}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xl">
-              📊
+      {/* Main Event Card */}
+      <div className="relative bg-[var(--card-bg)] border border-[var(--card-border)] rounded-3xl shadow-lg overflow-hidden">
+        {/* News Card at Top */}
+        <div className="px-4 pt-4">
+          <EventNewsCard eventTicker={event.ticker} />
+        </div>
+
+        {/* Event Content */}
+        <div className="p-4 pt-3 flex flex-col gap-3">
+          {/* Category Badge */}
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r ${categoryColor} border border-[var(--card-border)] w-fit`}>
+            <span className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wide">
+              {categoryLabel}
+            </span>
+          </div>
+
+          {/* Header (image + title) */}
+          <div
+            onClick={onClick}
+            className="flex items-start gap-3 cursor-pointer group/header"
+          >
+            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent-light)]/20 flex-shrink-0">
+              {event.imageUrl ? (
+                <img
+                  src={event.imageUrl}
+                  alt={event.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xl">
+                  📊
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-[var(--text-primary)] leading-snug text-xl sm:text-xl group-hover:text-[var(--accent)] transition-colors line-clamp-2">
-            {event.title || 'Untitled Event'}
-          </h3>
-          {event.subtitle && (
-            <p className="text-sm text-[var(--text-secondary)] mt-1 line-clamp-1">
-              {event.subtitle}
-            </p>
-          )}
-        </div>
-      </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-[var(--text-primary)] leading-snug text-xl sm:text-xl group-hover/header:text-[var(--accent)] transition-colors line-clamp-2">
+                {event.title || 'Untitled Event'}
+              </h3>
+              {event.subtitle && (
+                <p className="text-sm text-[var(--text-secondary)] mt-1 line-clamp-1">
+                  {event.subtitle}
+                </p>
+              )}
+            </div>
+          </div>
 
-      {/* Volume */}
-      <div className="flex items-center justify-between pt-2 border-t border-[var(--card-border)]">
-        <div className="flex flex-col">
-          <span className="text-xs text-[var(--text-tertiary)]">Volume</span>
-          <span className="text-lg font-bold text-[var(--text-primary)]">
-            {formatVolume(event.volume)}
-          </span>
-        </div>
-        <div className="text-right">
-          <span className="text-xs text-[var(--text-tertiary)]">{rank ? 'Rank' : 'Top Event'}</span>
-          <div className="text-sm font-medium text-[var(--accent)]">
-            {rank ? `#${rank}` : 'View →'}
+          {/* Volume */}
+          <div
+            onClick={onClick}
+            className="flex items-center justify-between pt-2 border-t border-[var(--card-border)] cursor-pointer group/footer"
+          >
+            <div className="flex flex-col">
+              <span className="text-xs text-[var(--text-tertiary)]">Volume</span>
+              <span className="text-lg font-bold text-[var(--text-primary)]">
+                {formatVolume(event.volume)}
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-xs text-[var(--text-tertiary)]">{rank ? 'Rank' : 'Top Event'}</span>
+              <div className="text-sm font-medium text-[var(--accent)] group-hover/footer:underline">
+                {rank ? `#${rank}` : 'View →'}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -186,8 +206,8 @@ export default function HomePage() {
 
   const categories = Object.keys(topEvents);
   const sortedCategories = categories.sort((a, b) => {
-    const volumeA = topEvents[a].volume || 0;
-    const volumeB = topEvents[b].volume || 0;
+    const volumeA = topEvents[a].reduce((sum, event) => sum + (event.volume || 0), 0);
+    const volumeB = topEvents[b].reduce((sum, event) => sum + (event.volume || 0), 0);
     return volumeB - volumeA;
   });
 

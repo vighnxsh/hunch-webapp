@@ -337,7 +337,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
         marketTicker: market.ticker,
         eventTicker: market.eventTicker || null,
         side: side,
-        amount: amountInSmallestUnit, // Store in smallest unit
+        amount: amount, // Store in dollars (user input)
         transactionSig: signatureString,
         // Store only entryPrice as requested (quote-implied), omit executed sizes.
         entryPrice: entryPrice !== null ? entryPrice.toString() : null,

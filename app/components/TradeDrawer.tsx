@@ -259,7 +259,7 @@ export default function TradeDrawer({ isOpen, onClose, market, event, initialSid
                 marketTicker: market.ticker,
                 eventTicker: market.eventTicker || null,
                 side: initialSide,
-                amount: amountInSmallestUnit,
+                amount: amount, // Store in dollars (user input)
                 transactionSig: signature,
                 entryPrice: entryPrice?.toString() || null,
             };

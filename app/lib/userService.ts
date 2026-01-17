@@ -349,11 +349,11 @@ export async function getUserByWalletAddress(walletAddress: string): Promise<Use
  */
 export async function getUserByDisplayName(displayName: string): Promise<UserProfile | null> {
   const user = await prisma.user.findFirst({
-    where: { 
-      displayName: { 
-        equals: displayName, 
-        mode: 'insensitive' 
-      } 
+    where: {
+      displayName: {
+        equals: displayName,
+        mode: 'insensitive'
+      }
     },
     select: {
       id: true,
@@ -459,7 +459,7 @@ export async function getTopTraders(limit: number = 10, excludeUserId?: string):
 
   // Sort by trade count descending and take top N
   const sortedUsers = users
-    .sort((a, b) => b._count.trades - a._count.trades)
+    .sort((a: typeof users[number], b: typeof users[number]) => b._count.trades - a._count.trades)
     .slice(0, limit);
 
   return sortedUsers as UserProfile[];

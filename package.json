@@ -16,6 +16,8 @@
     "backfill:trades": "npx tsx scripts/backfill-trade-execution-details.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.37.0",
+    "@google/generative-ai": "^0.21.0",
     "@langchain/openai": "^1.2.1",
     "@prisma/adapter-pg": "^7.1.0",
     "@prisma/client": "^7.1.0",

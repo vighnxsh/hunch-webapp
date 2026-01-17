@@ -1,8 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { fetchTopEventsByCategory, Event } from './lib/api';
+import { fetchEvents, fetchTagsByCategories, Event, TagsByCategories, Market } from './lib/api';
+import OrderModal from './components/OrderModal';
+
+// Topic filters with gradient colors
+const TOPIC_FILTERS = [
+  { id: 'all', label: 'All', keywords: [], color: 'yellow' },
+  { id: 'crypto', label: 'Crypto', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'], color: 'orange' },
+  { id: 'politics', label: 'Politics', keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'], color: 'blue' },
+  { id: 'sports', label: 'Sports', keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'], color: 'green' },
+  { id: 'entertainment', label: 'Fun', keywords: ['movie', 'film', 'music', 'celebrity', 'awards', 'oscar', 'grammy', 'emmy', 'tv show', 'streaming', 'netflix', 'disney', 'spotify', 'concert', 'album', 'box office', 'actor', 'actress', 'singer', 'rapper'], color: 'pink' },
+  { id: 'tech', label: 'Tech', keywords: ['ai ', ' ai', 'artificial intelligence', 'openai', 'chatgpt', 'gpt-', 'llm', 'machine learning', 'robotics', 'autonomous', 'iphone', 'android', 'software', 'app launch', 'product launch', 'tech company', 'silicon valley', 'semiconductor', 'chip', 'nvidia'], color: 'indigo' },
+  { id: 'finance', label: 'Finance', keywords: ['stock', 'fed ', 'federal reserve', 'interest rate', 'inflation', 'gdp', 'recession', 'economy', 'wall street', 's&p 500', 'nasdaq', 'dow jones', 'treasury', 'bond', 'yield', 'earnings', 'quarterly'], color: 'teal' },
+];
+
+const EVENTS_PER_PAGE = 20;
+
+// Format helpers for the card UI
+const formatPercent = (value?: string | number) => {
+  if (value === undefined || value === null) return '—';
+  const numeric = typeof value === 'string' ? parseFloat(value) : value;
+  if (Number.isNaN(numeric)) return '—';
+  return `${Math.round(numeric * 100)}%`;
+};
 
 const formatVolume = (value?: number) => {
   if (!value || Number.isNaN(value)) return '$—';
@@ -12,51 +35,67 @@ const formatVolume = (value?: number) => {
   }).format(value)}`;
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  crypto: 'Crypto',
-  politics: 'Politics',
-  sports: 'Sports',
-  entertainment: 'Entertainment',
-  tech: 'Tech',
-  finance: 'Finance',
-};
-
-const CATEGORY_COLORS: Record<string, string> = {
-  crypto: 'from-orange-500/20 to-orange-600/20',
-  politics: 'from-blue-500/20 to-blue-600/20',
-  sports: 'from-green-500/20 to-green-600/20',
-  entertainment: 'from-pink-500/20 to-pink-600/20',
-  tech: 'from-indigo-500/20 to-indigo-600/20',
-  finance: 'from-teal-500/20 to-teal-600/20',
-};
-
-function CategoryEventCard({
-  category,
+// Event Card Component with layout matching the provided design
+function EventCard({
   event,
   onClick,
-  rank,
+  onOpenTrade,
+  isMobile,
 }: {
-  category: string;
-  event: Event & { volume: number; category: string };
+  event: Event;
   onClick: () => void;
-  rank?: number;
+  onOpenTrade: (market: Market, side: 'yes' | 'no', event: Event) => void;
+  isMobile: boolean;
 }) {
-  const categoryLabel = CATEGORY_LABELS[category] || category;
-  const categoryColor = CATEGORY_COLORS[category] || 'from-gray-500/20 to-gray-600/20';
+  const [expandedMarket, setExpandedMarket] = useState<string | null>(null);
+
+  // Filter active markets and sort by chance (yesBid) descending, then take top 2
+  const hotMarkets = (event.markets || [])
+    .filter((m: any) =>
+      m.status !== 'finalized' &&
+      m.status !== 'resolved' &&
+      m.status !== 'closed'
+    )
+    .sort((a: any, b: any) => {
+      const aChance = a.yesBid ? parseFloat(a.yesBid) : 0;
+      const bChance = b.yesBid ? parseFloat(b.yesBid) : 0;
+      return bChance - aChance; // Descending order - highest chance first
+    })
+    .slice(0, 2);
+
+  // Calculate potential return for a $100 investment
+  const calculateReturn = (price: string | undefined, investment: number = 100): number | null => {
+    if (!price) return null;
+    const priceNum = parseFloat(price);
+    if (priceNum <= 0 || Number.isNaN(priceNum)) return null;
+    return investment / priceNum;
+  };
+
+  const handleMarketButtonClick = (
+    e: React.MouseEvent,
+    market: any,
+    side: 'yes' | 'no',
+    key: string
+  ) => {
+    e.stopPropagation(); // Prevent card click
+
+    // On mobile: skip in-card popup and open bottom drawer directly
+    if (isMobile) {
+      onOpenTrade(market as Market, side, event);
+      return;
+    }
+
+    // On larger screens: toggle in-card popup
+    setExpandedMarket(expandedMarket === key ? null : key);
+  };
 
   return (
     <div
+      id={`event-${event.ticker}`}
       onClick={onClick}
       className="group relative flex flex-col gap-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-3xl p-4 cursor-pointer transition-all duration-300 card-hover-lift tail-flick-shadow"
     >
-      {/* Category Badge */}
-      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r ${categoryColor} border border-[var(--card-border)] w-fit`}>
-        <span className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wide">
-          {categoryLabel}
-        </span>
-      </div>
-
-      {/* Header (image + title) */}
+      {/* Header (image + title) – always visible */}
       <div className="flex items-start gap-3">
         <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent-light)]/20 flex-shrink-0">
           {event.imageUrl ? (
@@ -75,66 +114,321 @@ function CategoryEventCard({
           <h3 className="font-semibold text-[var(--text-primary)] leading-snug text-xl sm:text-xl group-hover:text-[var(--accent)] transition-colors line-clamp-2">
             {event.title || 'Untitled Event'}
           </h3>
-          {event.subtitle && (
-            <p className="text-sm text-[var(--text-secondary)] mt-1 line-clamp-1">
-              {event.subtitle}
-            </p>
-          )}
         </div>
       </div>
 
-      {/* Volume */}
-      <div className="flex items-center justify-between pt-2 border-t border-[var(--card-border)]">
-        <div className="flex flex-col">
-          <span className="text-xs text-[var(--text-tertiary)]">Volume</span>
-          <span className="text-lg font-bold text-[var(--text-primary)]">
-            {formatVolume(event.volume)}
-          </span>
-        </div>
-        <div className="text-right">
-          <span className="text-xs text-[var(--text-tertiary)]">{rank ? 'Rank' : 'Top Event'}</span>
-          <div className="text-sm font-medium text-[var(--accent)]">
-            {rank ? `#${rank}` : 'View →'}
+      {/* Markets + footer – fade when a market is expanded */}
+      <div
+        className={
+          expandedMarket ?
+            'opacity-0 pointer-events-none transition-opacity duration-200' :
+            'opacity-100 transition-opacity duration-200'
+        }
+      >
+        {/* Hot Markets */}
+        {hotMarkets.length > 0 && (
+          <div className="space-y-2">
+            {hotMarkets.map((market: any) => {
+              const yesChance = market.yesBid ? parseFloat(market.yesBid) : 0;
+              const noChance = 1 - yesChance;
+              const yesReturn = calculateReturn(market.yesBid);
+              const noReturn = calculateReturn(market.noBid);
+              const key = `${event.ticker}-${market.ticker}`;
+
+              return (
+                <div
+                  key={market.ticker}
+                  className="bg-[var(--surface)] rounded-2xl p-3 space-y-2"
+                >
+                  <p className="text-sm text-[var(--text-secondary)] line-clamp-2">
+                    {market.question}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={(e) => handleMarketButtonClick(e, market, 'yes', key)}
+                      className="flex-1 bg-gradient-to-r from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30 border border-green-500/30 rounded-xl px-3 py-2 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[var(--text-tertiary)]">Yes</span>
+                        <span className="text-sm font-bold text-green-400">
+                          {formatPercent(yesChance)}
+                        </span>
+                      </div>
+                      {yesReturn && (
+                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
+                          ${yesReturn.toFixed(0)} return
+                        </div>
+                      )}
+                    </button>
+                    <button
+                      onClick={(e) => handleMarketButtonClick(e, market, 'no', key)}
+                      className="flex-1 bg-gradient-to-r from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30 border border-red-500/30 rounded-xl px-3 py-2 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[var(--text-tertiary)]">No</span>
+                        <span className="text-sm font-bold text-red-400">
+                          {formatPercent(noChance)}
+                        </span>
+                      </div>
+                      {noReturn && (
+                        <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
+                          ${noReturn.toFixed(0)} return
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Footer with volume and markets count */}
+        <div className="flex items-center justify-between pt-2 mt-2 border-t border-[var(--card-border)]">
+          <div className="flex flex-col">
+            <span className="text-xs text-[var(--text-tertiary)]">Volume</span>
+            <span className="text-sm font-bold text-[var(--text-primary)]">
+              {formatVolume(event.volume)}
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="text-xs text-[var(--text-tertiary)]">Markets</span>
+            <div className="text-sm font-medium text-[var(--accent)]">
+              {event.markets?.length || 0}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Expanded Market Popup (desktop only) */}
+      <AnimatePresence>
+        {expandedMarket && !isMobile && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 bg-[var(--card-bg)] border-2 border-[var(--accent)] rounded-3xl p-4 z-10 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const market = hotMarkets.find((m: any) => `${event.ticker}-${m.ticker}` === expandedMarket);
+              if (!market) return null;
+
+              return (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedMarket(null);
+                    }}
+                    className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-[var(--surface)] hover:bg-[var(--card-border)] transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+
+                  <div className="flex-1 flex flex-col justify-center gap-4">
+                    <div>
+                      <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-1 line-clamp-2">
+                        {market.question}
+                      </h4>
+                      <p className="text-xs text-[var(--text-tertiary)]">
+                        {event.title}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenTrade(market as Market, 'yes', event);
+                          setExpandedMarket(null);
+                        }}
+                        className="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-xl px-4 py-3 transition-all"
+                      >
+                        <div className="text-white font-semibold">Yes</div>
+                        <div className="text-white/80 text-sm">
+                          {formatPercent(market.yesBid)}
+                        </div>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenTrade(market as Market, 'no', event);
+                          setExpandedMarket(null);
+                        }}
+                        className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-xl px-4 py-3 transition-all"
+                      >
+                        <div className="text-white font-semibold">No</div>
+                        <div className="text-white/80 text-sm">
+                          {formatPercent(market.noBid ? 1 - parseFloat(market.noBid) : 0)}
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
+
 export default function Home() {
   const router = useRouter();
-  const [topEvents, setTopEvents] = useState<Record<string, Array<Event & { volume: number; category: string }>>>({});
+  const [events, setEvents] = useState<Event[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [perCategory, setPerCategory] = useState(3);
+  const [selectedTopic, setSelectedTopic] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const [apiCategories, setApiCategories] = useState<TagsByCategories>({});
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [hasMore, setHasMore] = useState(true);
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const [tradeModalMarket, setTradeModalMarket] = useState<Market | null>(null);
+  const [tradeModalSide, setTradeModalSide] = useState<'yes' | 'no'>('yes');
+  const [tradeModalEvent, setTradeModalEvent] = useState<Event | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
+  // Detect mobile viewport to control popup vs bottom drawer behaviour
   useEffect(() => {
-    const loadTopEvents = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await fetchTopEventsByCategory({
-          limit: 100,
-          perCategory: 3,
-        });
-        setTopEvents(data.categories);
-        if (data.perCategory) {
-          setPerCategory(data.perCategory);
-        }
-      } catch (err: any) {
-        setError(err.message || 'Failed to load top events');
-        console.error('Error loading top events:', err);
-      } finally {
-        setLoading(false);
+    const updateIsMobile = () => {
+      if (typeof window !== 'undefined') {
+        setIsMobile(window.innerWidth < 640); // Tailwind 'sm' breakpoint
       }
     };
 
-    loadTopEvents();
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
   }, []);
+
+  // Focus mobile search input when opening
+  useEffect(() => {
+    if (isMobileSearchOpen && mobileSearchInputRef.current) {
+      mobileSearchInputRef.current.focus();
+    }
+  }, [isMobileSearchOpen]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categories = await fetchTagsByCategories();
+        setApiCategories(categories);
+      } catch (err) {
+        console.error('Failed to load categories:', err);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadEvents(true);
+  }, []);
+
+  const loadEvents = async (reset = false) => {
+    try {
+      if (reset) {
+        setLoading(true);
+        setError(null);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const data = await fetchEvents(EVENTS_PER_PAGE, {
+        cursor: reset ? undefined : cursor,
+        withNestedMarkets: true,
+        status: 'active',
+      });
+
+      if (reset) {
+        setEvents(data.events || []);
+      } else {
+        setEvents((prev) => [...prev, ...(data.events || [])]);
+      }
+
+      setCursor(data.cursor);
+      setHasMore(!!data.cursor);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load events');
+      console.error('Error loading events:', err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadEvents(false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, cursor]);
+
+  // Filter events based on selected topic and search query
+  useEffect(() => {
+    let filtered = events;
+
+    // Apply topic filter
+    if (selectedTopic !== 'all') {
+      const topicFilter = TOPIC_FILTERS.find((t) => t.id === selectedTopic);
+      if (topicFilter) {
+        filtered = filtered.filter((event) => {
+          const searchText = `${event.title} ${event.subtitle || ''} ${event.description || ''}`.toLowerCase();
+          return topicFilter.keywords.some((keyword) => searchText.includes(keyword.toLowerCase()));
+        });
+      }
+    }
+
+    // Apply search query filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((event) => {
+        const searchText = `${event.title} ${event.subtitle || ''} ${event.description || ''}`.toLowerCase();
+        return searchText.includes(query);
+      });
+    }
+
+    // Sort by volume (highest first)
+    filtered = filtered.sort((a, b) => (b.volume || 0) - (a.volume || 0));
+
+    setFilteredEvents(filtered);
+  }, [events, selectedTopic, searchQuery]);
 
   const handleEventClick = (eventTicker: string) => {
     router.push(`/event/${encodeURIComponent(eventTicker)}`);
+  };
+
+  const handleOpenTradeModal = (market: Market, side: 'yes' | 'no', event: Event) => {
+    setTradeModalMarket(market);
+    setTradeModalSide(side);
+    setTradeModalEvent(event);
+  };
+
+  const handleCloseTradeModal = () => {
+    setTradeModalMarket(null);
+    setTradeModalEvent(null);
   };
 
   // Loading state
@@ -144,15 +438,15 @@ export default function Home() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
-              Top Events by Category
+              Explore Events
             </h1>
             <p className="text-[var(--text-secondary)]">
-              Highest volume events across different categories
+              Loading prediction markets...
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="h-48 bg-[var(--surface)] rounded-3xl animate-pulse" />
+              <div key={i} className="h-64 bg-[var(--surface)] rounded-3xl animate-pulse" />
             ))}
           </div>
         </main>
@@ -173,7 +467,7 @@ export default function Home() {
             </div>
             <p className="text-[var(--text-secondary)] text-lg mb-4">{error}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => loadEvents(true)}
               className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity"
             >
               Try Again
@@ -184,66 +478,175 @@ export default function Home() {
     );
   }
 
-  const categories = Object.keys(topEvents);
-  const sortedCategories = categories.sort((a, b) => {
-    const volumeA = topEvents[a].volume || 0;
-    const volumeB = topEvents[b].volume || 0;
-    return volumeB - volumeA;
-  });
-
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
-            Top Events by Category
+            Explore Events
           </h1>
           <p className="text-[var(--text-secondary)]">
-            Highest volume events across {categories.length} categories (top {perCategory} each)
+            Discover and trade on prediction markets
           </p>
         </div>
 
-        {/* Events Grid */}
-        {sortedCategories.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <div className="w-16 h-16 mb-4 rounded-full bg-[var(--surface)] flex items-center justify-center">
-              <svg className="w-8 h-8 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        {/* Desktop: Search + Topic Filters in one row */}
+        <div className="hidden sm:flex items-center gap-3 mb-6">
+          {/* Search Bar */}
+          <div className="relative flex-1 max-w-md">
+            <input
+              type="text"
+              placeholder="Search events..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2.5 pl-10 bg-[var(--surface)] border border-[var(--card-border)] rounded-2xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            />
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-tertiary)]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+
+          {/* Topic Pills */}
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            {TOPIC_FILTERS.map((topic) => (
+              <button
+                key={topic.id}
+                onClick={() => setSelectedTopic(topic.id)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedTopic === topic.id
+                  ? 'bg-[var(--accent)] text-white shadow-lg'
+                  : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                  }`}
+              >
+                {topic.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Mobile: Search Icon + Topic Pills */}
+        <div className="sm:hidden mb-6 space-y-3">
+          {/* Search Toggle + Topic Pills Row */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+              className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full transition-colors ${isMobileSearchOpen
+                ? 'bg-[var(--accent)] text-white'
+                : 'bg-[var(--surface)] text-[var(--text-tertiary)]'
+                }`}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
+              {TOPIC_FILTERS.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => setSelectedTopic(topic.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedTopic === topic.id
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'bg-[var(--surface)] text-[var(--text-secondary)]'
+                    }`}
+                >
+                  {topic.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Mobile Search Input (expandable) */}
+          {isMobileSearchOpen && (
+            <div className="relative">
+              <input
+                ref={mobileSearchInputRef}
+                type="text"
+                placeholder="Search events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2.5 pl-10 bg-[var(--surface)] border border-[var(--card-border)] rounded-2xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-tertiary)]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <p className="text-[var(--text-secondary)] text-lg">No events found</p>
+          )}
+        </div>
+
+        {/* Events Grid - 1 col mobile, 2 cols tablet, 3 cols desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredEvents.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-16">
+              <div className="w-16 h-16 mb-4 rounded-full bg-[var(--surface)] flex items-center justify-center">
+                <svg className="w-8 h-8 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <p className="text-[var(--text-secondary)] text-sm mb-3">
+                {searchQuery ? `No markets found for "${searchQuery}"` : 'No events found'}
+              </p>
+              {(selectedTopic !== 'all' || searchQuery) && (
+                <button
+                  onClick={() => {
+                    setSelectedTopic('all');
+                    setSearchQuery('');
+                  }}
+                  className="text-[var(--accent)] text-sm font-medium hover:underline"
+                >
+                  Clear filters →
+                </button>
+              )}
+            </div>
+          ) : (
+            filteredEvents.map((event, index) => (
+              <EventCard
+                key={event.ticker || index}
+                event={event}
+                onClick={() => handleEventClick(event.ticker)}
+                onOpenTrade={handleOpenTradeModal}
+                isMobile={isMobile}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Infinite scroll trigger */}
+        {hasMore && (
+          <div ref={observerTarget} className="flex justify-center py-6">
+            {loadingMore && (
+              <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+            )}
           </div>
-        ) : (
-          <div className="space-y-8">
-            {sortedCategories.map((category) => {
-              const events = topEvents[category] || [];
-              const categoryLabel = CATEGORY_LABELS[category] || category;
-              return (
-                <section key={category} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-semibold text-[var(--text-primary)]">{categoryLabel}</h2>
-                      <p className="text-[var(--text-secondary)]">Top {events.length} events by volume</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {events.map((event, index) => (
-                      <CategoryEventCard
-                        key={`${category}-${event.ticker}-${index}`}
-                        category={category}
-                        event={event}
-                        rank={index + 1}
-                        onClick={() => handleEventClick(event.ticker)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
+        )}
+
+        {/* End indicator */}
+        {!hasMore && events.length > 0 && (
+          <div className="text-center py-6 text-[var(--text-tertiary)] text-sm">
+            You've reached the end
           </div>
         )}
       </main>
+
+      {/* Trade Modal */}
+      {tradeModalMarket && tradeModalEvent && (
+        <OrderModal
+          isOpen={true}
+          onClose={handleCloseTradeModal}
+          market={tradeModalMarket}
+          event={tradeModalEvent}
+        />
+      )}
     </div>
   );
 }

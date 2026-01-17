@@ -66,6 +66,22 @@ export interface Event {
   [key: string]: any; // For other fields that might exist
 }
 
+export interface EventEvidence {
+  id: string;
+  eventTicker: string;
+  marketTicker: string;
+  marketQuestion: string;
+  evidenceSentence: string;
+  highlightScore: number;
+  classification: string;
+  headline?: string | null;
+  explanation?: string | null;
+  sourceUrl: string;
+  sourceTitle?: string | null;
+  sourcePublishedAt?: string | null;
+  createdAt: string;
+}
+
 export interface EventsResponse {
   events: Event[];
   cursor?: string; // Cursor for pagination
@@ -610,6 +626,30 @@ export async function fetchTopEventsByCategory(params?: {
     console.error('Error fetching top events by category:', error);
     throw error;
   }
+}
+
+export async function fetchEventEvidenceByTickers(
+  eventTickers: string[]
+): Promise<EventEvidence[]> {
+  if (!eventTickers.length) return [];
+
+  const params = new URLSearchParams();
+  params.append('eventTickers', eventTickers.join(','));
+
+  const response = await fetch(`/api/events/evidence?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch event evidence: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data.evidence || [];
 }
 
 export async function fetchCandlesticksByMint(

@@ -108,45 +108,6 @@ model CopyLog {
   @@index([status])
 }
 
-model NewsArticle {
-  id          String   @id @default(cuid())
-  title       String
-  content     String   @db.Text
-  url         String   @unique
-  source      String
-  publishedAt DateTime
-  imageUrl    String?
-  author      String?
-  category    String?
-  description String?  @db.Text
-  embedding   Unsupported("vector(1536)")? // pgvector embedding for semantic search
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  matches     NewsMarketMatch[]
-  
-  @@index([publishedAt])
-  @@index([source])
-  @@index([category])
-  @@index([createdAt])
-}
-
-model NewsMarketMatch {
-  id            String      @id @default(cuid())
-  newsArticleId String
-  eventTicker   String?
-  marketTicker  String?
-  relevanceScore Float      // Cosine similarity score (0-1)
-  matchedAt     DateTime    @default(now())
-  newsArticle   NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
-  
-  @@index([newsArticleId])
-  @@index([eventTicker])
-  @@index([marketTicker])
-  @@index([relevanceScore])
-  @@index([matchedAt])
-}
-
 model IndexedEvent {
   id        String   @id @default(cuid())
   ticker    String   @unique
@@ -156,3 +117,21 @@ model IndexedEvent {
   @@index([ticker])
 }
 
+model EventEvidence {
+  id                String   @id @default(cuid())
+  eventTicker       String
+  marketTicker      String
+  marketQuestion    String
+  evidenceSentence  String
+  highlightScore    Float
+  classification    String
+  headline          String?
+  explanation       String?
+  sourceUrls        String[] // Array of up to 3 URLs
+  sourceTitles      String[] // Array of source titles
+  createdAt         DateTime @default(now())
+
+  @@index([eventTicker])
+  @@index([marketTicker])
+  @@index([createdAt])
+}

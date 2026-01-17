@@ -9,7 +9,6 @@ import { fetchEventDetails, fetchMarketDetails, EventDetails, Market } from '../
 import TradeMarket from '../../components/TradeMarket';
 import ShareBlink from '../../components/ShareBlink';
 import EventDetailChart from '../../components/EventDetailChart';
-import RelatedNewsSection from '../../components/RelatedNewsSection';
 import { useAuth } from '../../components/AuthContext';
 import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../../lib/tradeApi';
 import { normalizeTwitterAvatarUrl } from '@/lib/utils';
@@ -51,6 +50,10 @@ export default function EventPage() {
                 const details = await fetchEventDetails(eventId);
                 setEventDetails(details);
                 console.debug('Event imageUrl:', details?.imageUrl);
+                console.debug('Markets received:', {
+                    count: details?.markets?.length || 0,
+                    statuses: details?.markets?.map((m: any) => m.status) || [],
+                });
 
                 // Fetch detailed info for each market
                 if (details.markets && details.markets.length > 0) {
@@ -340,7 +343,7 @@ export default function EventPage() {
                     marketTicker: selectedMarket.ticker,
                     eventTicker: selectedMarket.eventTicker || null,
                     side: selectedSide,
-                    amount: amountInSmallestUnit, // Store in smallest unit
+                    amount: mobileAmount, // Store in dollars (user input)
                     transactionSig: signatureString,
                 }),
             });
@@ -631,9 +634,6 @@ export default function EventPage() {
                                 </div>
                             )}
                         </div>
-
-                        {/* Related News Section */}
-                        <RelatedNewsSection eventTicker={eventId} limit={5} />
                     </div>
                 </div>
             </main>
@@ -661,8 +661,8 @@ export default function EventPage() {
                             <button
                                 onClick={() => setSelectedSide('yes')}
                                 className={`flex-1 py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200 ${selectedSide === 'yes'
-                                        ? 'bg-gradient-to-r from-white to-white text-white shadow-lg shadow-white/30 scale-[1.02]'
-                                        : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                                    ? 'bg-gradient-to-r from-white to-white text-white shadow-lg shadow-white/30 scale-[1.02]'
+                                    : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
                                     }`}
                             >
                                 Yes {selectedMarket.yesAsk ? `${Math.round(parseFloat(selectedMarket.yesAsk) * 100)}¢` : '—'}
@@ -670,8 +670,8 @@ export default function EventPage() {
                             <button
                                 onClick={() => setSelectedSide('no')}
                                 className={`flex-1 py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200 ${selectedSide === 'no'
-                                        ? 'bg-gradient-to-r from-pink-500 to-pink-400 text-white shadow-lg shadow-pink-500/30 scale-[1.02]'
-                                        : 'bg-pink-500/10 text-pink-400 border border-pink-500/20 hover:bg-pink-500/20'
+                                    ? 'bg-gradient-to-r from-pink-500 to-pink-400 text-white shadow-lg shadow-pink-500/30 scale-[1.02]'
+                                    : 'bg-pink-500/10 text-pink-400 border border-pink-500/20 hover:bg-pink-500/20'
                                     }`}
                             >
                                 No {selectedMarket.noAsk ? `${Math.round(parseFloat(selectedMarket.noAsk) * 100)}¢` : '—'}
@@ -722,10 +722,10 @@ export default function EventPage() {
 
                         {mobileTradeStatus && (
                             <p className={`mt-3 text-xs px-3 py-2 rounded-xl text-center font-medium ${mobileTradeStatus.includes('✅')
-                                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                    : mobileTradeStatus.includes('❌')
-                                        ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                        : 'bg-white/10 text-white border border-white/20'
+                                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                : mobileTradeStatus.includes('❌')
+                                    ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                    : 'bg-white/10 text-white border border-white/20'
                                 }`}>
                                 {mobileTradeStatus}
                             </p>

@@ -8,7 +8,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const DEFAULT_EXA_TYPE = 'auto';
 const DEFAULT_EXA_NUM_RESULTS = 5;
-const DEFAULT_HIGHLIGHT_THRESHOLD = 0.25;
+const DEFAULT_HIGHLIGHT_THRESHOLD = 0.12;
 const DEFAULT_GEMINI_MAX_TOKENS = 256;
 
 const CLASSIFICATIONS = new Set([
@@ -70,6 +70,7 @@ export interface PipelineEventResult {
   geminiCalls: number;
   exaSuccess: boolean;
   exaError?: string;
+  logs?: string[];
 }
 
 function getNumberEnv(value: string | undefined, fallback: number): number {
@@ -150,6 +151,8 @@ export function getTopHighlights(
 ): HighlightEvidence[] {
   const allHighlights: HighlightEvidence[] = [];
 
+  console.log(`[exaPipeline] Processing ${results.length} Exa results for highlights`);
+
   for (const result of results) {
     const highlights = result.highlights ?? [];
     const scores = result.highlightScores ?? [];
@@ -158,12 +161,17 @@ export function getTopHighlights(
     for (let i = 0; i < pairCount; i += 1) {
       const score = scores[i];
       const sentence = highlights[i];
-      
+
+      if (typeof score !== 'number') continue;
+
+      if (score < HIGHLIGHT_THRESHOLD) {
+        console.log(`[exaPipeline] Discarding highlight: Score ${score} < ${HIGHLIGHT_THRESHOLD}. "${sentence.substring(0, 50)}..."`);
+        continue;
+      }
+
       if (
-        typeof score !== 'number' ||
         typeof sentence !== 'string' ||
-        !sentence.trim() ||
-        score < HIGHLIGHT_THRESHOLD
+        !sentence.trim()
       ) {
         continue;
       }
@@ -179,7 +187,9 @@ export function getTopHighlights(
   }
 
   // Sort by score descending and return top N
-  return allHighlights.sort((a, b) => b.score - a.score).slice(0, limit);
+  const sorted = allHighlights.sort((a, b) => b.score - a.score).slice(0, limit);
+  console.log(`[exaPipeline] Found ${sorted.length} valid highlights after filtering`);
+  return sorted;
 }
 
 export function buildGeminiPrompt(
@@ -254,12 +264,12 @@ export function validateLLMOutput(raw: string): {
 } {
   try {
     const parsed = JSON.parse(raw);
-    
+
     // Log thinking for debugging (optional)
     if (parsed?.thinking) {
       console.log('[exaPipeline] Gemini thinking:', parsed.thinking.substring(0, 200));
     }
-    
+
     const classification = typeof parsed?.classification === 'string'
       ? parsed.classification.toUpperCase()
       : 'NONE';
@@ -306,6 +316,14 @@ export async function runPipelineForEvent(
 ): Promise<PipelineEventResult> {
   const eventTicker = event.ticker;
   const markets = event.markets ?? [];
+  const logs: string[] = [];
+
+  const log = (msg: string, data?: any) => {
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+    const line = `[${timestamp}] ${msg} ${data ? JSON.stringify(data) : ''}`;
+    console.log(line);
+    logs.push(line);
+  };
 
   if (!event.title || markets.length === 0) {
     return {
@@ -315,6 +333,7 @@ export async function runPipelineForEvent(
       geminiCalls: 0,
       exaSuccess: false,
       exaError: 'Missing event title or markets',
+      logs,
     };
   }
 
@@ -332,16 +351,12 @@ export async function runPipelineForEvent(
 
   try {
     exaResponse = await fetchExaForEvent(event.title, highlightQuery);
-    console.log('[exaPipeline] Exa call success', {
-      eventTicker,
-      latencyMs: Date.now() - startedAt,
+    log('Exa call success', {
       resultCount: exaResponse.results?.length ?? 0,
+      latencyMs: Date.now() - startedAt,
     });
   } catch (error: any) {
-    console.error('[exaPipeline] Exa call failed', {
-      eventTicker,
-      error: error?.message || error,
-    });
+    log('Exa call failed', error?.message);
     return {
       eventTicker,
       outputs: [],
@@ -349,29 +364,64 @@ export async function runPipelineForEvent(
       geminiCalls: 0,
       exaSuccess: false,
       exaError: error?.message || 'Exa call failed',
+      logs,
     };
   }
 
-  const topHighlights = getTopHighlights(exaResponse.results ?? [], 3);
+  // Determine top highlights with logging
+  const resultHighlights = exaResponse.results ?? [];
+  const validHighlights: HighlightEvidence[] = [];
+
+  log(`Processing ${resultHighlights.length} Exa results for highlights`);
+
+  for (const result of resultHighlights) {
+    const highlights = result.highlights ?? [];
+    const scores = result.highlightScores ?? [];
+    const pairCount = Math.min(highlights.length, scores.length);
+
+    for (let i = 0; i < pairCount; i += 1) {
+      const score = scores[i];
+      const sentence = highlights[i];
+
+      if (typeof score !== 'number') continue;
+
+      if (score < HIGHLIGHT_THRESHOLD) {
+        // Log only first 3 failures to avoid spam
+        if (logs.length < 20) {
+          log(`Discarding highlight: Score ${score.toFixed(3)} < ${HIGHLIGHT_THRESHOLD}`, { sentence: sentence.substring(0, 30) + '...' });
+        }
+        continue;
+      }
+
+      if (typeof sentence !== 'string' || !sentence.trim()) continue;
+
+      validHighlights.push({
+        sentence: sentence.trim(),
+        score,
+        source: result.title || 'Unknown Source',
+        url: result.url,
+        publishedDate: result.publishedDate ?? null,
+      });
+    }
+  }
+
+  const topHighlights = validHighlights.sort((a, b) => b.score - a.score).slice(0, 3);
+
   if (topHighlights.length === 0) {
-    console.log('[exaPipeline] No highlights passed threshold', {
-      eventTicker,
-      resultCount: exaResponse.results?.length ?? 0,
-      threshold: HIGHLIGHT_THRESHOLD,
-    });
+    log('No highlights passed threshold', { threshold: HIGHLIGHT_THRESHOLD });
     return {
       eventTicker,
       outputs: [],
       exaCalls: 1,
       geminiCalls: 0,
       exaSuccess: true,
+      logs,
     };
   }
 
-  console.log('[exaPipeline] Sending top 3 highlights to Gemini', {
-    eventTicker,
-    highlightCount: topHighlights.length,
-    scores: topHighlights.map(h => h.score),
+  log('Sending top highlights to Gemini', {
+    count: topHighlights.length,
+    scores: topHighlights.map(h => h.score.toFixed(3)),
   });
 
   // Use event title as the "question" for Gemini
@@ -385,16 +435,12 @@ export async function runPipelineForEvent(
     const raw = await callGemini(prompt);
     llmOutput = validateLLMOutput(raw);
     geminiCalls = 1;
-    console.log('[exaPipeline] Gemini call success', {
-      eventTicker,
+    log('Gemini call success', {
       classification: llmOutput.classification,
       headline: llmOutput.headline,
     });
   } catch (error: any) {
-    console.error('[exaPipeline] Gemini call failed', {
-      eventTicker,
-      error: error?.message || error,
-    });
+    log('Gemini call failed', error?.message);
     llmOutput = { classification: 'NONE', headline: null, explanation: null };
   }
 
@@ -416,5 +462,6 @@ export async function runPipelineForEvent(
     exaCalls: 1,
     geminiCalls,
     exaSuccess: true,
+    logs,
   };
 }

@@ -1,21 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { fetchEvents, fetchTagsByCategories, Event, TagsByCategories, Market } from './lib/api';
+import {
+  fetchEvents,
+  Event,
+  Market,
+} from './lib/api';
+import { isEventActive } from './lib/eventUtils';
 import OrderModal from './components/OrderModal';
-
-// Topic filters with gradient colors
-const TOPIC_FILTERS = [
-  { id: 'all', label: 'All', keywords: [], color: 'yellow' },
-  { id: 'crypto', label: 'Crypto', keywords: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'], color: 'orange' },
-  { id: 'politics', label: 'Politics', keywords: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'], color: 'blue' },
-  { id: 'sports', label: 'Sports', keywords: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl', 'world series', 'finals', 'mvp', 'team', 'player'], color: 'green' },
-  { id: 'entertainment', label: 'Fun', keywords: ['movie', 'film', 'music', 'celebrity', 'awards', 'oscar', 'grammy', 'emmy', 'tv show', 'streaming', 'netflix', 'disney', 'spotify', 'concert', 'album', 'box office', 'actor', 'actress', 'singer', 'rapper'], color: 'pink' },
-  { id: 'tech', label: 'Tech', keywords: ['ai ', ' ai', 'artificial intelligence', 'openai', 'chatgpt', 'gpt-', 'llm', 'machine learning', 'robotics', 'autonomous', 'iphone', 'android', 'software', 'app launch', 'product launch', 'tech company', 'silicon valley', 'semiconductor', 'chip', 'nvidia'], color: 'indigo' },
-  { id: 'finance', label: 'Finance', keywords: ['stock', 'fed ', 'federal reserve', 'interest rate', 'inflation', 'gdp', 'recession', 'economy', 'wall street', 's&p 500', 'nasdaq', 'dow jones', 'treasury', 'bond', 'yield', 'earnings', 'quarterly'], color: 'teal' },
-];
 
 const EVENTS_PER_PAGE = 20;
 
@@ -282,15 +276,10 @@ function EventCard({
 export default function Home() {
   const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTopic, setSelectedTopic] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const [apiCategories, setApiCategories] = useState<TagsByCategories>({});
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(true);
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -310,25 +299,6 @@ export default function Home() {
     updateIsMobile();
     window.addEventListener('resize', updateIsMobile);
     return () => window.removeEventListener('resize', updateIsMobile);
-  }, []);
-
-  // Focus mobile search input when opening
-  useEffect(() => {
-    if (isMobileSearchOpen && mobileSearchInputRef.current) {
-      mobileSearchInputRef.current.focus();
-    }
-  }, [isMobileSearchOpen]);
-
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const categories = await fetchTagsByCategories();
-        setApiCategories(categories);
-      } catch (err) {
-        console.error('Failed to load categories:', err);
-      }
-    };
-    loadCategories();
   }, []);
 
   // Initial load
@@ -351,10 +321,12 @@ export default function Home() {
         status: 'active',
       });
 
+      const nextEvents = (data.events || []).filter(isEventActive);
+
       if (reset) {
-        setEvents(data.events || []);
+        setEvents(nextEvents);
       } else {
-        setEvents((prev) => [...prev, ...(data.events || [])]);
+        setEvents((prev) => [...prev, ...nextEvents]);
       }
 
       setCursor(data.cursor);
@@ -386,35 +358,15 @@ export default function Home() {
     return () => observer.disconnect();
   }, [hasMore, loadingMore, cursor]);
 
-  // Filter events based on selected topic and search query
-  useEffect(() => {
-    let filtered = events;
-
-    // Apply topic filter
-    if (selectedTopic !== 'all') {
-      const topicFilter = TOPIC_FILTERS.find((t) => t.id === selectedTopic);
-      if (topicFilter) {
-        filtered = filtered.filter((event) => {
-          const searchText = `${event.title} ${event.subtitle || ''} ${event.description || ''}`.toLowerCase();
-          return topicFilter.keywords.some((keyword) => searchText.includes(keyword.toLowerCase()));
-        });
-      }
-    }
-
-    // Apply search query filter
-    if (searchQuery.trim()) {
+  // Filter events based on search query
+  const filteredEvents = events
+    .filter((event) => {
+      if (!searchQuery.trim()) return true;
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((event) => {
-        const searchText = `${event.title} ${event.subtitle || ''} ${event.description || ''}`.toLowerCase();
-        return searchText.includes(query);
-      });
-    }
-
-    // Sort by volume (highest first)
-    filtered = filtered.sort((a, b) => (b.volume || 0) - (a.volume || 0));
-
-    setFilteredEvents(filtered);
-  }, [events, selectedTopic, searchQuery]);
+      const searchText = `${event.title} ${event.subtitle || ''} ${event.description || ''}`.toLowerCase();
+      return searchText.includes(query);
+    })
+    .sort((a, b) => (b.volume || 0) - (a.volume || 0));
 
   const handleEventClick = (eventTicker: string) => {
     router.push(`/event/${encodeURIComponent(eventTicker)}`);
@@ -431,6 +383,9 @@ export default function Home() {
     setTradeModalEvent(null);
   };
 
+  const topEvents = filteredEvents.slice(0, 3);
+  const remainingEvents = filteredEvents.slice(3);
+
   // Loading state
   if (loading) {
     return (
@@ -438,10 +393,10 @@ export default function Home() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
-              Explore Events
+              Prediction Markets
             </h1>
             <p className="text-[var(--text-secondary)]">
-              Loading prediction markets...
+              Loading markets...
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -484,17 +439,16 @@ export default function Home() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
-            Explore Events
+            Prediction Markets
           </h1>
           <p className="text-[var(--text-secondary)]">
-            Discover and trade on prediction markets
+            Trade on the outcomes of real-world events
           </p>
         </div>
 
-        {/* Desktop: Search + Topic Filters in one row */}
-        <div className="hidden sm:flex items-center gap-3 mb-6">
-          {/* Search Bar */}
-          <div className="relative flex-1 max-w-md">
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative max-w-md">
             <input
               type="text"
               placeholder="Search events..."
@@ -511,78 +465,15 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-
-          {/* Topic Pills */}
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-            {TOPIC_FILTERS.map((topic) => (
-              <button
-                key={topic.id}
-                onClick={() => setSelectedTopic(topic.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedTopic === topic.id
-                  ? 'bg-[var(--accent)] text-white shadow-lg'
-                  : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
-                  }`}
-              >
-                {topic.label}
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* Mobile: Search Icon + Topic Pills */}
-        <div className="sm:hidden mb-6 space-y-3">
-          {/* Search Toggle + Topic Pills Row */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-              className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full transition-colors ${isMobileSearchOpen
-                ? 'bg-[var(--accent)] text-white'
-                : 'bg-[var(--surface)] text-[var(--text-tertiary)]'
-                }`}
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1">
-              {TOPIC_FILTERS.map((topic) => (
-                <button
-                  key={topic.id}
-                  onClick={() => setSelectedTopic(topic.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedTopic === topic.id
-                    ? 'bg-[var(--accent)] text-white'
-                    : 'bg-[var(--surface)] text-[var(--text-secondary)]'
-                    }`}
-                >
-                  {topic.label}
-                </button>
-              ))}
-            </div>
+        {filteredEvents.length > 0 && (
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+              Top events by volume
+            </h2>
           </div>
-
-          {/* Mobile Search Input (expandable) */}
-          {isMobileSearchOpen && (
-            <div className="relative">
-              <input
-                ref={mobileSearchInputRef}
-                type="text"
-                placeholder="Search events..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2.5 pl-10 bg-[var(--surface)] border border-[var(--card-border)] rounded-2xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-              />
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-tertiary)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Events Grid - 1 col mobile, 2 cols tablet, 3 cols desktop */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -596,22 +487,19 @@ export default function Home() {
               <p className="text-[var(--text-secondary)] text-sm mb-3">
                 {searchQuery ? `No markets found for "${searchQuery}"` : 'No events found'}
               </p>
-              {(selectedTopic !== 'all' || searchQuery) && (
+              {searchQuery && (
                 <button
-                  onClick={() => {
-                    setSelectedTopic('all');
-                    setSearchQuery('');
-                  }}
+                  onClick={() => setSearchQuery('')}
                   className="text-[var(--accent)] text-sm font-medium hover:underline"
                 >
-                  Clear filters →
+                  Clear search →
                 </button>
               )}
             </div>
           ) : (
-            filteredEvents.map((event, index) => (
+            topEvents.map((event, index) => (
               <EventCard
-                key={event.ticker || index}
+                key={`top-${event.ticker || index}`}
                 event={event}
                 onClick={() => handleEventClick(event.ticker)}
                 onOpenTrade={handleOpenTradeModal}
@@ -620,6 +508,20 @@ export default function Home() {
             ))
           )}
         </div>
+
+        {remainingEvents.length > 0 && (
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {remainingEvents.map((event, index) => (
+              <EventCard
+                key={`rest-${event.ticker || index}`}
+                event={event}
+                onClick={() => handleEventClick(event.ticker)}
+                onOpenTrade={handleOpenTradeModal}
+                isMobile={isMobile}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Infinite scroll trigger */}
         {hasMore && (

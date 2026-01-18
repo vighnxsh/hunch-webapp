@@ -7,7 +7,7 @@ import 'server-only';
 const METADATA_API_BASE_URL =
     process.env.DFLOW_METADATA_API_URL ??
     process.env.NEXT_PUBLIC_PM_METADATA_API_BASE_URL ??
-    "https://dev-prediction-markets-api.dflow.net";
+    "https://a.prediction-markets-api.dflow.net";
 
 const TRADE_API_BASE_URL =
     process.env.DFLOW_TRADE_API_URL ??
@@ -172,7 +172,7 @@ export interface OrderResponse {
  * Fetch events from DFlow API (server-only)
  */
 export async function fetchEventsServer(
-    limit: number = 500,
+    limit: number = 100,
     options?: {
         status?: string;
         withNestedMarkets?: boolean;
@@ -194,7 +194,7 @@ export async function fetchEventsServer(
 
     const url = `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`;
     console.log(`[dflowServer] Fetching events from: ${url}`);
-    
+
     let response;
     try {
         response = await fetch(url, {
@@ -214,7 +214,7 @@ export async function fetchEventsServer(
             hasApiKey: !!DFLOW_API_KEY,
             apiBaseUrl: METADATA_API_BASE_URL,
         });
-        
+
         // Provide more helpful error messages
         if (errorName === 'AbortError' || errorMessage.includes('timeout')) {
             throw new Error(`DFlow API request timed out. The API at ${METADATA_API_BASE_URL} may be slow or unreachable.`);
@@ -242,7 +242,7 @@ export async function fetchEventsServer(
 export async function fetchEventDetailsServer(eventTicker: string): Promise<EventDetails> {
     const url = `${METADATA_API_BASE_URL}/api/v1/event/${encodeURIComponent(eventTicker)}?withNestedMarkets=true`;
     console.log(`[dflowServer] Fetching event details for: ${eventTicker}`);
-    
+
     let response;
     try {
         response = await fetch(url, {
@@ -263,7 +263,7 @@ export async function fetchEventDetailsServer(eventTicker: string): Promise<Even
             hasApiKey: !!DFLOW_API_KEY,
             apiBaseUrl: METADATA_API_BASE_URL,
         });
-        
+
         // Provide more helpful error messages
         if (errorName === 'AbortError' || errorMessage.includes('timeout')) {
             throw new Error(`DFlow API request timed out for event ${eventTicker}. The API at ${METADATA_API_BASE_URL} may be slow or unreachable.`);
@@ -459,6 +459,8 @@ export async function fetchTagsByCategoriesServer(): Promise<Record<string, stri
 export async function fetchSeriesServer(params?: {
     category?: string;
     tags?: string;
+    status?: string;
+    isInitialized?: boolean;
 }): Promise<Series[]> {
     const queryParams = new URLSearchParams();
     if (params?.category) {
@@ -466,6 +468,12 @@ export async function fetchSeriesServer(params?: {
     }
     if (params?.tags) {
         queryParams.append("tags", params.tags);
+    }
+    if (params?.status) {
+        queryParams.append("status", params.status);
+    }
+    if (params?.isInitialized !== undefined) {
+        queryParams.append("isInitialized", params.isInitialized ? "true" : "false");
     }
 
     const response = await fetch(
@@ -509,9 +517,9 @@ export async function fetchEventsBySeriesServer(
         queryParams.append("status", options.status);
     }
     if (options?.limit) {
-        queryParams.append("limit", options.limit.toString());
+        queryParams.append("limit", Math.min(options.limit, 100).toString());
     } else {
-        queryParams.append("limit", "500"); // Default limit
+        queryParams.append("limit", "100"); // Default limit - API max is ~100
     }
 
     const response = await fetch(

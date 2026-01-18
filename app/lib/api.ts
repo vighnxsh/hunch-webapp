@@ -63,6 +63,9 @@ export interface Event {
   volume24h?: number;
   liquidity?: number;
   openInterest?: number;
+  closeTime?: number | string;
+  expirationTime?: number | string;
+  markets?: Market[];
   [key: string]: any; // For other fields that might exist
 }
 
@@ -272,6 +275,8 @@ export async function fetchTagsByCategories(): Promise<TagsByCategories> {
 export async function fetchSeries(params?: {
   category?: string;
   tags?: string;
+  status?: string;
+  isInitialized?: boolean;
 }): Promise<Series[]> {
   try {
     const queryParams = new URLSearchParams();
@@ -280,6 +285,12 @@ export async function fetchSeries(params?: {
     }
     if (params?.tags) {
       queryParams.append("tags", params.tags);
+    }
+    if (params?.status) {
+      queryParams.append("status", params.status);
+    }
+    if (params?.isInitialized !== undefined) {
+      queryParams.append("isInitialized", params.isInitialized ? "true" : "false");
     }
 
     // TODO: Create /api/dflow/series route if needed
@@ -305,6 +316,7 @@ export async function fetchSeries(params?: {
 
 /**
  * Fetch events filtered by series tickers
+ * Chunks requests to avoid 25 ticker limit
  */
 export async function fetchEventsBySeries(
   seriesTickers: string | string[],
@@ -315,36 +327,57 @@ export async function fetchEventsBySeries(
   }
 ): Promise<Event[]> {
   try {
-    const queryParams = new URLSearchParams();
-    const tickers = Array.isArray(seriesTickers) ? seriesTickers.join(",") : seriesTickers;
-    queryParams.append("seriesTickers", tickers);
+    const tickers = Array.isArray(seriesTickers) ? seriesTickers : [seriesTickers];
 
-    if (options?.withNestedMarkets) {
-      queryParams.append("withNestedMarkets", "true");
-    }
-    if (options?.status) {
-      queryParams.append("status", options.status);
-    }
-    if (options?.limit) {
-      queryParams.append("limit", options.limit.toString());
-    }
+    // API has a 25 ticker limit, so we need to chunk requests
+    const CHUNK_SIZE = 25;
+    const allEvents: Event[] = [];
 
-    const response = await fetch(
-      `${INTERNAL_API_PREFIX}/events?${queryParams.toString()}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    for (let i = 0; i < tickers.length; i += CHUNK_SIZE) {
+      const chunk = tickers.slice(i, i + CHUNK_SIZE);
+      const queryParams = new URLSearchParams();
+      queryParams.append("seriesTickers", chunk.join(","));
+
+      if (options?.withNestedMarkets) {
+        queryParams.append("withNestedMarkets", "true");
       }
-    );
+      if (options?.status) {
+        queryParams.append("status", options.status);
+      }
+      if (options?.limit) {
+        // Distribute limit across chunks
+        const remainingLimit = options.limit - allEvents.length;
+        if (remainingLimit <= 0) break;
+        queryParams.append("limit", Math.min(remainingLimit, options.limit).toString());
+      }
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch events by series: ${response.statusText}`);
+      const response = await fetch(
+        `${INTERNAL_API_PREFIX}/events?${queryParams.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Chunk ${Math.floor(i / CHUNK_SIZE) + 1} failed:`, errorText);
+        continue; // Continue with other chunks even if one fails
+      }
+
+      const data: EventsResponse = await response.json();
+      const events = data.events || [];
+      allEvents.push(...events);
+
+      // Stop if we've reached the limit
+      if (options?.limit && allEvents.length >= options.limit) {
+        break;
+      }
     }
 
-    const data: EventsResponse = await response.json();
-    return data.events || [];
+    return allEvents;
   } catch (error) {
     console.error("Error fetching events by series:", error);
     throw error;

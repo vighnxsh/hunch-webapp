@@ -53,14 +53,17 @@ export interface PositionsByStatus {
  * Get all user positions with P&L calculations
  */
 export async function getUserPositions(userId: string): Promise<PositionsByStatus> {
-  // Positions are derived from onchain token holdings (source of truth),
-  // then mapped to markets via the Metadata API (per retrive_token.md).
-  // Accept either a DB userId or (fallback) a wallet address string.
+  // Hybrid source of truth:
+  // - DB positions provide cost basis + realized PnL + closed positions
+  // - Onchain balances provide current holdings
+  // - Market API provides current prices
   let walletAddress: string | null = null;
+  let dbId: string | null = null;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { walletAddress: true },
+    select: { id: true, walletAddress: true },
   });
+  if (user?.id) dbId = user.id;
   if (user?.walletAddress) {
     walletAddress = user.walletAddress;
   } else {
@@ -68,53 +71,121 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
     walletAddress = userId;
   }
 
-  if (!walletAddress) return { active: [], previous: [] };
-
-  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
-  const connection = new Connection(rpcUrl, 'confirmed');
-  const owner = new PublicKey(walletAddress);
-
-  const [tokenAccounts2022, tokenAccountsLegacy] = await Promise.all([
-    connection
-      .getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID })
-      .catch(() => ({ value: [] as any[] })),
-    connection
-      .getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID })
-      .catch(() => ({ value: [] as any[] })),
-  ]);
-
-  const allAccounts = [...tokenAccounts2022.value, ...tokenAccountsLegacy.value];
-
-  const userTokens = allAccounts
-    .map(({ account }) => {
-      const info = (account.data as any).parsed.info;
-      return {
-        mint: info.mint as string,
-        rawBalance: info.tokenAmount.amount as string,
-        balance: Number(info.tokenAmount.uiAmount || 0),
-        decimals: Number(info.tokenAmount.decimals || 0),
-      };
-    })
-    .filter((t) => t.balance > 0);
-
-  if (userTokens.length === 0) {
-    return { active: [], previous: [] };
+  if (!dbId && walletAddress) {
+    const u = await prisma.user.findUnique({ where: { walletAddress } });
+    if (u) dbId = u.id;
   }
 
-  // Filter to prediction-market outcome mints using server-side function
-  // This avoids the relative URL issue that occurs when calling from API routes
-  const outcomeMints = await filterOutcomeMintsServer(userTokens.map((t) => t.mint));
+  const positionsMap = new Map<string, AggregatedPosition>();
+  let positionModels: Array<{
+    marketTicker: string;
+    eventTicker: string | null;
+    side: string;
+    totalCostBasis: number;
+    totalTokensBought: number;
+    totalTokensSold: number;
+    totalSellProceeds: number;
+    realizedPnL: number;
+    status: string;
+  }> = [];
 
-  if (!outcomeMints || outcomeMints.length === 0) {
-    return { active: [], previous: [] };
+  if (dbId) {
+    positionModels = await prisma.position.findMany({
+      where: { userId: dbId },
+      select: {
+        marketTicker: true,
+        eventTicker: true,
+        side: true,
+        totalCostBasis: true,
+        totalTokensBought: true,
+        totalTokensSold: true,
+        totalSellProceeds: true,
+        realizedPnL: true,
+        status: true,
+      },
+    });
+
+    const tradeCounts = await prisma.trade.groupBy({
+      by: ['marketTicker', 'side'],
+      where: { userId: dbId, isDummy: false },
+      _count: { _all: true },
+    });
+    const tradeCountMap = new Map(
+      tradeCounts.map((t) => [`${t.marketTicker}-${t.side}`, t._count._all])
+    );
+
+    for (const positionModel of positionModels) {
+      const key = `${positionModel.marketTicker}-${positionModel.side}`;
+      positionsMap.set(key, {
+        marketTicker: positionModel.marketTicker,
+        eventTicker: positionModel.eventTicker,
+        side: positionModel.side as 'yes' | 'no',
+        totalTokenAmount: 0,
+        totalUsdcAmount: 0,
+        averageEntryPrice: 0,
+        currentPrice: null,
+        currentValue: null,
+        profitLoss: null,
+        profitLossPercentage: null,
+        tradeCount: tradeCountMap.get(key) || 0,
+        market: null,
+        eventImageUrl: null,
+        trades: [],
+        totalCostBasis: positionModel.totalCostBasis,
+        totalTokensBought: positionModel.totalTokensBought,
+        totalTokensSold: positionModel.totalTokensSold,
+        totalSellProceeds: positionModel.totalSellProceeds,
+        realizedPnL: positionModel.realizedPnL,
+        unrealizedPnL: null,
+        totalPnL: null,
+        positionStatus: positionModel.status as 'OPEN' | 'CLOSED' | 'PARTIALLY_CLOSED',
+      });
+    }
   }
 
-  const outcomeTokenBalances = userTokens.filter((t) => outcomeMints.includes(t.mint));
-  if (outcomeTokenBalances.length === 0) {
-    return { active: [], previous: [] };
-  }
+  let outcomeTokenBalances: Array<{ mint: string; balance: number }> = [];
+  let markets: Market[] = [];
 
-  const markets = await fetchMarketsBatchServer(outcomeMints);
+  if (walletAddress) {
+    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+    const connection = new Connection(rpcUrl, 'confirmed');
+    const owner = new PublicKey(walletAddress);
+
+    const [tokenAccounts2022, tokenAccountsLegacy] = await Promise.all([
+      connection
+        .getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID })
+        .catch(() => ({ value: [] as any[] })),
+      connection
+        .getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID })
+        .catch(() => ({ value: [] as any[] })),
+    ]);
+
+    const allAccounts = [...tokenAccounts2022.value, ...tokenAccountsLegacy.value];
+
+    const userTokens = allAccounts
+      .map(({ account }) => {
+        const info = (account.data as any).parsed.info;
+        return {
+          mint: info.mint as string,
+          rawBalance: info.tokenAmount.amount as string,
+          balance: Number(info.tokenAmount.uiAmount || 0),
+          decimals: Number(info.tokenAmount.decimals || 0),
+        };
+      })
+      .filter((t) => t.balance > 0);
+
+    if (userTokens.length > 0) {
+      // Filter to prediction-market outcome mints using server-side function
+      // This avoids the relative URL issue that occurs when calling from API routes
+      const outcomeMints = await filterOutcomeMintsServer(userTokens.map((t) => t.mint));
+      if (outcomeMints && outcomeMints.length > 0) {
+        outcomeTokenBalances = userTokens.filter((t) => outcomeMints.includes(t.mint));
+        if (outcomeTokenBalances.length > 0) {
+          markets = await fetchMarketsBatchServer(outcomeMints);
+        }
+      }
+    }
+  }
 
   // Build mint -> market mapping (yesMint/noMint/marketLedger)
   const marketByMint = new Map<string, Market>();
@@ -133,8 +204,7 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
     }
   }
 
-  // Aggregate by market ticker + side using onchain balances as the quantity.
-  const positionsMap = new Map<string, AggregatedPosition>();
+  // Overlay onchain balances into positions (or create untracked positions)
   for (const tok of outcomeTokenBalances) {
     const market = marketByMint.get(tok.mint) || null;
     if (!market) continue;
@@ -173,63 +243,41 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
 
     const pos = positionsMap.get(key)!;
     pos.totalTokenAmount += tok.balance;
+    pos.market = market;
+    if (!pos.eventTicker) {
+      pos.eventTicker = market.eventTicker || null;
+    }
   }
 
-  // Fetch DB trades to find sold positions (zero balance)
-  let dbId = user ? userId : null;
-  if (!dbId && walletAddress) {
-    const u = await prisma.user.findUnique({ where: { walletAddress } });
-    if (u) dbId = u.id;
+  // Attach markets for DB positions missing market data
+  const tickersToFetch = new Set<string>();
+  for (const pos of positionsMap.values()) {
+    if (!pos.market) {
+      tickersToFetch.add(pos.marketTicker);
+    }
   }
 
-  if (dbId) {
-    const dbTrades = await prisma.trade.findMany({
-      where: { userId: dbId },
-      select: { marketTicker: true, side: true },
-      distinct: ['marketTicker', 'side'],
-    });
-
-    for (const trade of dbTrades) {
-      const key = `${trade.marketTicker}-${trade.side}`;
-      if (!positionsMap.has(key)) {
+  if (tickersToFetch.size > 0) {
+    const fetchedMarkets = await Promise.all(
+      Array.from(tickersToFetch).map(async (ticker) => {
         try {
-          // Check if we already have the market in our batch
-          let market = markets.find(m => m.ticker === trade.marketTicker);
-
-          // If not, fetch it individually using server-side function
-          if (!market) {
-            market = await fetchMarketDetailsServer(trade.marketTicker);
-          }
-
-          if (market) {
-            positionsMap.set(key, {
-              marketTicker: market.ticker,
-              eventTicker: market.eventTicker || null,
-              side: trade.side as 'yes' | 'no',
-              totalTokenAmount: 0,
-              totalUsdcAmount: 0,
-              averageEntryPrice: 0,
-              currentPrice: null,
-              currentValue: null,
-              profitLoss: null,
-              profitLossPercentage: null,
-              tradeCount: 0,
-              market,
-              eventImageUrl: null,
-              trades: [],
-              // New PnL fields - will be populated from Position model
-              totalCostBasis: 0,
-              totalTokensBought: 0,
-              totalTokensSold: 0,
-              totalSellProceeds: 0,
-              realizedPnL: 0,
-              unrealizedPnL: null,
-              totalPnL: null,
-              positionStatus: 'CLOSED',
-            });
-          }
+          return await fetchMarketDetailsServer(ticker);
         } catch (e) {
-          console.error(`Failed to fetch market details for sold position ${trade.marketTicker}:`, e);
+          console.error(`Failed to fetch market details for ${ticker}:`, e);
+          return null;
+        }
+      })
+    );
+    const marketByTicker = new Map(
+      fetchedMarkets.filter((m): m is Market => !!m).map((m) => [m.ticker, m])
+    );
+
+    for (const pos of positionsMap.values()) {
+      if (!pos.market) {
+        const market = marketByTicker.get(pos.marketTicker) || null;
+        if (market) {
+          pos.market = market;
+          if (!pos.eventTicker) pos.eventTicker = market.eventTicker || null;
         }
       }
     }
@@ -253,37 +301,9 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
     })
   );
 
-  // Fetch Position model data for PnL information
-  const positionModels = await prisma.position.findMany({
-    where: { userId: dbId || undefined },
-  });
-  const positionModelMap = new Map(
-    positionModels.map((p) => [`${p.marketTicker}-${p.side}`, p])
-  );
-
-  // Compute current value and merge Position model data
+  // Compute current value and PnL
   for (const pos of positions) {
     if (pos.eventTicker) pos.eventImageUrl = eventImagesMap.get(pos.eventTicker) || null;
-
-    // Get Position model data
-    const key = `${pos.marketTicker}-${pos.side}`;
-    const positionModel = positionModelMap.get(key);
-
-    if (positionModel) {
-      pos.totalCostBasis = positionModel.totalCostBasis;
-      pos.totalTokensBought = positionModel.totalTokensBought;
-      pos.totalTokensSold = positionModel.totalTokensSold;
-      pos.totalSellProceeds = positionModel.totalSellProceeds;
-      pos.realizedPnL = positionModel.realizedPnL;
-      pos.positionStatus = positionModel.status as 'OPEN' | 'CLOSED' | 'PARTIALLY_CLOSED';
-      pos.tradeCount = positionModel.totalTokensBought > 0 ? 1 : 0; // Will be updated with actual trade count
-
-      // Calculate average entry price
-      if (positionModel.totalTokensBought > 0) {
-        pos.averageEntryPrice = positionModel.totalCostBasis / positionModel.totalTokensBought;
-        pos.totalUsdcAmount = positionModel.totalCostBasis;
-      }
-    }
 
     if (pos.market) {
       const currentPrice = getCurrentMarketPrice(pos.market, pos.side);
@@ -294,8 +314,8 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
 
         // Calculate unrealized PnL for remaining tokens
         if (pos.totalTokensBought > 0) {
-          const remainingTokens = pos.totalTokensBought - pos.totalTokensSold;
-          const remainingCostBasis = (pos.totalCostBasis / pos.totalTokensBought) * remainingTokens;
+          const avgCostPerToken = pos.totalCostBasis / pos.totalTokensBought;
+          const remainingCostBasis = avgCostPerToken * pos.totalTokenAmount;
           pos.unrealizedPnL = pos.currentValue - remainingCostBasis;
           pos.totalPnL = pos.realizedPnL + pos.unrealizedPnL;
 
@@ -306,6 +326,11 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
           }
         }
       }
+    }
+
+    if (pos.totalTokensBought > 0) {
+      pos.averageEntryPrice = pos.totalCostBasis / pos.totalTokensBought;
+      pos.totalUsdcAmount = pos.totalCostBasis;
     }
   }
 

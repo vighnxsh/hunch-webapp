@@ -281,7 +281,9 @@ export default function PositionCard({ position, allowActions = false, isPreviou
 
       // Store the sell trade in the database (async, non-blocking)
       // We do this after triggering refresh to not block the UI
-      if (currentUserId) {
+      if (!currentUserId) {
+        console.error('Cannot save sell trade: currentUserId is null');
+      } else {
         fetch('/api/trades', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -296,10 +298,18 @@ export default function PositionCard({ position, allowActions = false, isPreviou
             executedOutAmount: order.outAmount || null, // Actual USDC received (in smallest unit)
             transactionSig: signatureString,
           }),
-        }).catch((dbError) => {
-          console.error('Failed to store sell trade:', dbError);
-          // Don't fail the sell operation if DB storage fails
-        });
+        })
+          .then(async (response) => {
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('Failed to store sell trade - API error:', response.status, errorText);
+            } else {
+              console.log('Sell trade saved successfully');
+            }
+          })
+          .catch((dbError) => {
+            console.error('Failed to store sell trade - Network error:', dbError);
+          });
       }
     } catch (err: any) {
       setActionError(err.message || 'Sell failed');
@@ -455,12 +465,14 @@ export default function PositionCard({ position, allowActions = false, isPreviou
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-3">
               {/* Current Value */}
-              <div>
-                <span className="text-[10px] text-[var(--text-tertiary)] block">Value</span>
-                <span className="font-semibold text-[var(--text-primary)]">
-                  {formatCurrency(position.currentValue)}
-                </span>
-              </div>
+              {!isPrevious && (
+                <div>
+                  <span className="text-[10px] text-[var(--text-tertiary)] block">Value</span>
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {formatCurrency(position.currentValue)}
+                  </span>
+                </div>
+              )}
 
               {/* Cost Basis */}
               {position.totalCostBasis > 0 && (

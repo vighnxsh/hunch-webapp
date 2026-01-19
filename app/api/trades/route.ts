@@ -12,7 +12,10 @@ export async function POST(request: NextRequest) {
       marketTicker,
       eventTicker,
       side,
+      action,
       amount,
+      executedInAmount,
+      executedOutAmount,
       transactionSig,
       quote,
       entryPrice
@@ -32,12 +35,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (action && action !== 'BUY' && action !== 'SELL') {
+      return NextResponse.json(
+        { error: 'action must be either "BUY" or "SELL"' },
+        { status: 400 }
+      );
+    }
+
     const trade = await createTrade({
       userId,
       marketTicker,
       eventTicker: eventTicker || undefined,
       side: side as 'yes' | 'no',
+      action: action as 'BUY' | 'SELL' | undefined,
       amount,
+      executedInAmount: executedInAmount || undefined,
+      executedOutAmount: executedOutAmount || undefined,
       transactionSig,
       quote: quote || undefined,
       entryPrice: entryPrice && entryPrice !== 'null' ? parseFloat(entryPrice) : undefined,

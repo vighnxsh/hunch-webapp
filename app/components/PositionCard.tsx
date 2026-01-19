@@ -21,7 +21,7 @@ export default function PositionCard({ position, allowActions = false, isPreviou
   const router = useRouter();
   const { wallets } = useWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
-  const { triggerPositionsRefresh } = useAppData();
+  const { triggerPositionsRefresh, currentUserId } = useAppData();
   const [actionLoading, setActionLoading] = useState<'sell' | 'redeem' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -222,9 +222,85 @@ export default function PositionCard({ position, allowActions = false, isPreviou
       const amountRaw = Math.floor(position.totalTokenAmount * 1_000_000).toString();
       if (!amountRaw || amountRaw === '0') throw new Error('Position size is 0');
 
-      await executeOrder({ inputMint: outcomeMint, outputMint: USDC_MINT, amountRaw });
+      const order = await requestOrder({
+        userPublicKey: walletAddress!,
+        inputMint: outcomeMint,
+        outputMint: USDC_MINT,
+        amount: amountRaw,
+        slippageBps: 100,
+      });
+
+      const txBase64 = order.transaction || order.openTransaction;
+      if (!txBase64) throw new Error('No transaction in order response');
+
+      const txBytes = new Uint8Array(Buffer.from(txBase64, 'base64'));
+
+      // Use Privy's signAndSendTransaction
+      const result = await signAndSendTransaction({
+        transaction: txBytes,
+        wallet: solanaWallet,
+      });
+
+      if (!result?.signature) {
+        throw new Error('No signature received from transaction');
+      }
+
+      // Convert signature to string format (base58)
+      let signatureString: string;
+      if (typeof result.signature === 'string') {
+        signatureString = result.signature;
+      } else if (result.signature instanceof Uint8Array) {
+        const bs58Module = await import('bs58');
+        const bs58 = bs58Module.default || bs58Module;
+        signatureString = bs58.encode(result.signature);
+      } else {
+        throw new Error('Invalid signature format');
+      }
+
+      // For async orders, wait for DFlow order status
+      if (order.executionMode === 'async') {
+        const maxAttempts = 20;
+        let attempts = 0;
+        while (attempts < maxAttempts) {
+          const st = await getOrderStatus(signatureString);
+          if (st.status === 'closed') break;
+          if (st.status === 'failed') throw new Error('Execution failed');
+          attempts++;
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        if (attempts >= maxAttempts) throw new Error('Still processing. Please check again shortly.');
+      }
+
+      // Calculate the USDC amount received from the sell
+      const receivedUsdc = order.outAmount
+        ? Number(order.outAmount) / 1_000_000
+        : position.currentValue || 0;
+
       triggerPositionsRefresh(); // Trigger global refresh
       onActionComplete?.();
+
+      // Store the sell trade in the database (async, non-blocking)
+      // We do this after triggering refresh to not block the UI
+      if (currentUserId) {
+        fetch('/api/trades', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUserId,
+            marketTicker: position.marketTicker,
+            eventTicker: position.market?.eventTicker || null,
+            side: position.side,
+            action: 'SELL',
+            amount: receivedUsdc.toFixed(2), // Store USDC received (human-readable)
+            executedInAmount: order.inAmount || null, // Actual tokens sold (in smallest unit)
+            executedOutAmount: order.outAmount || null, // Actual USDC received (in smallest unit)
+            transactionSig: signatureString,
+          }),
+        }).catch((dbError) => {
+          console.error('Failed to store sell trade:', dbError);
+          // Don't fail the sell operation if DB storage fails
+        });
+      }
     } catch (err: any) {
       setActionError(err.message || 'Sell failed');
     } finally {
@@ -386,12 +462,22 @@ export default function PositionCard({ position, allowActions = false, isPreviou
                 </span>
               </div>
 
-              {/* P&L */}
-              {position.profitLoss !== null && (
+              {/* Cost Basis */}
+              {position.totalCostBasis > 0 && (
+                <div>
+                  <span className="text-[10px] text-[var(--text-tertiary)] block">Cost</span>
+                  <span className="text-[var(--text-secondary)]">
+                    {formatCurrency(position.totalCostBasis)}
+                  </span>
+                </div>
+              )}
+
+              {/* Total P&L (Realized + Unrealized) */}
+              {position.totalPnL !== null && position.totalPnL !== undefined && (
                 <div>
                   <span className="text-[10px] text-[var(--text-tertiary)] block">P&L</span>
                   <span className={`font-semibold ${getPLColorClass()}`}>
-                    {position.profitLoss >= 0 ? '+' : ''}{formatCurrency(position.profitLoss)}
+                    {position.totalPnL >= 0 ? '+' : ''}{formatCurrency(position.totalPnL)}
                     {position.profitLossPercentage !== null && (
                       <span className="ml-1 text-[10px] opacity-80">
                         ({formatPercentage(position.profitLossPercentage)})
@@ -402,15 +488,25 @@ export default function PositionCard({ position, allowActions = false, isPreviou
               )}
             </div>
 
-            {/* Current Price (subtle, right-aligned) */}
-            {position.currentPrice !== null && (
-              <div className="text-right">
-                <span className="text-[10px] text-[var(--text-tertiary)] block">Price</span>
-                <span className="text-[var(--text-secondary)]">
-                  {formatCurrency(position.currentPrice)}
-                </span>
-              </div>
-            )}
+            {/* Realized/Unrealized Breakdown (subtle, right-aligned) */}
+            <div className="text-right">
+              {position.realizedPnL !== 0 && (
+                <div className="text-[10px]">
+                  <span className="text-[var(--text-tertiary)]">Realized: </span>
+                  <span className={position.realizedPnL >= 0 ? 'text-green-500' : 'text-red-500'}>
+                    {position.realizedPnL >= 0 ? '+' : ''}{formatCurrency(position.realizedPnL)}
+                  </span>
+                </div>
+              )}
+              {position.unrealizedPnL !== null && position.unrealizedPnL !== undefined && (
+                <div className="text-[10px]">
+                  <span className="text-[var(--text-tertiary)]">Unrealized: </span>
+                  <span className={position.unrealizedPnL >= 0 ? 'text-green-500' : 'text-red-500'}>
+                    {position.unrealizedPnL >= 0 ? '+' : ''}{formatCurrency(position.unrealizedPnL)}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Error Display */}

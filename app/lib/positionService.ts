@@ -33,6 +33,15 @@ export interface AggregatedPosition {
   market: Market | null;
   eventImageUrl: string | null;
   trades: TradeWithDetails[];
+  // New PnL fields from Position model
+  totalCostBasis: number;
+  totalTokensBought: number;
+  totalTokensSold: number;
+  totalSellProceeds: number;
+  realizedPnL: number;
+  unrealizedPnL: number | null;
+  totalPnL: number | null;
+  positionStatus: 'OPEN' | 'CLOSED' | 'PARTIALLY_CLOSED';
 }
 
 export interface PositionsByStatus {
@@ -140,7 +149,7 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
         eventTicker: market.eventTicker || null,
         side,
         totalTokenAmount: 0,
-        totalUsdcAmount: 0, // cost basis unknown (entry-only DB)
+        totalUsdcAmount: 0,
         averageEntryPrice: 0,
         currentPrice: null,
         currentValue: null,
@@ -150,6 +159,15 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
         market,
         eventImageUrl: null,
         trades: [],
+        // New PnL fields - will be populated from Position model
+        totalCostBasis: 0,
+        totalTokensBought: 0,
+        totalTokensSold: 0,
+        totalSellProceeds: 0,
+        realizedPnL: 0,
+        unrealizedPnL: null,
+        totalPnL: null,
+        positionStatus: 'OPEN',
       });
     }
 
@@ -199,6 +217,15 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
               market,
               eventImageUrl: null,
               trades: [],
+              // New PnL fields - will be populated from Position model
+              totalCostBasis: 0,
+              totalTokensBought: 0,
+              totalTokensSold: 0,
+              totalSellProceeds: 0,
+              realizedPnL: 0,
+              unrealizedPnL: null,
+              totalPnL: null,
+              positionStatus: 'CLOSED',
             });
           }
         } catch (e) {
@@ -226,15 +253,58 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
     })
   );
 
-  // Compute current value from current market price
+  // Fetch Position model data for PnL information
+  const positionModels = await prisma.position.findMany({
+    where: { userId: dbId || undefined },
+  });
+  const positionModelMap = new Map(
+    positionModels.map((p) => [`${p.marketTicker}-${p.side}`, p])
+  );
+
+  // Compute current value and merge Position model data
   for (const pos of positions) {
     if (pos.eventTicker) pos.eventImageUrl = eventImagesMap.get(pos.eventTicker) || null;
+
+    // Get Position model data
+    const key = `${pos.marketTicker}-${pos.side}`;
+    const positionModel = positionModelMap.get(key);
+
+    if (positionModel) {
+      pos.totalCostBasis = positionModel.totalCostBasis;
+      pos.totalTokensBought = positionModel.totalTokensBought;
+      pos.totalTokensSold = positionModel.totalTokensSold;
+      pos.totalSellProceeds = positionModel.totalSellProceeds;
+      pos.realizedPnL = positionModel.realizedPnL;
+      pos.positionStatus = positionModel.status as 'OPEN' | 'CLOSED' | 'PARTIALLY_CLOSED';
+      pos.tradeCount = positionModel.totalTokensBought > 0 ? 1 : 0; // Will be updated with actual trade count
+
+      // Calculate average entry price
+      if (positionModel.totalTokensBought > 0) {
+        pos.averageEntryPrice = positionModel.totalCostBasis / positionModel.totalTokensBought;
+        pos.totalUsdcAmount = positionModel.totalCostBasis;
+      }
+    }
 
     if (pos.market) {
       const currentPrice = getCurrentMarketPrice(pos.market, pos.side);
       pos.currentPrice = currentPrice;
+
       if (currentPrice !== null && pos.totalTokenAmount > 0) {
         pos.currentValue = pos.totalTokenAmount * currentPrice;
+
+        // Calculate unrealized PnL for remaining tokens
+        if (pos.totalTokensBought > 0) {
+          const remainingTokens = pos.totalTokensBought - pos.totalTokensSold;
+          const remainingCostBasis = (pos.totalCostBasis / pos.totalTokensBought) * remainingTokens;
+          pos.unrealizedPnL = pos.currentValue - remainingCostBasis;
+          pos.totalPnL = pos.realizedPnL + pos.unrealizedPnL;
+
+          // Calculate profitLoss and profitLossPercentage for display
+          pos.profitLoss = pos.totalPnL;
+          if (remainingCostBasis > 0) {
+            pos.profitLossPercentage = (pos.totalPnL / remainingCostBasis) * 100;
+          }
+        }
       }
     }
   }

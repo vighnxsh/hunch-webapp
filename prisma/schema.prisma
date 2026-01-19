@@ -19,6 +19,7 @@ model User {
   followers      Follow[] @relation("Follower")
   following      Follow[] @relation("Following")
   trades         Trade[]
+  positions      Position[]
   
   // Copy trading relations
   copySettingsAsFollower  CopySettings[] @relation("CopyFollower")
@@ -29,18 +30,23 @@ model User {
 }
 
 model Trade {
-  id             String   @id @default(cuid())
-  userId         String
-  marketTicker   String
-  eventTicker    String?
-  side           String
-  amount         String
-  transactionSig String
-  quote          String?
-  isDummy        Boolean  @default(true)
-  entryPrice     Decimal? @db.Decimal(20, 10)
-  createdAt      DateTime @default(now())
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(cuid())
+  userId             String
+  marketTicker       String
+  eventTicker        String?
+  side               String
+  action             String    @default("BUY")
+  amount             String
+  executedInAmount   String?
+  executedOutAmount  String?
+  transactionSig     String
+  quote              String?
+  isDummy            Boolean   @default(true)
+  entryPrice         Decimal?  @db.Decimal(20, 10)
+  createdAt          DateTime  @default(now())
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId         String?
+  position           Position? @relation(fields: [positionId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
@@ -48,6 +54,42 @@ model Trade {
   @@index([isDummy])
   @@index([eventTicker])
   @@index([marketTicker])
+  @@index([action])
+  @@index([positionId])
+}
+
+model Position {
+  id                  String    @id @default(cuid())
+  userId              String
+  marketTicker        String
+  eventTicker         String?
+  side                String    // "yes" or "no"
+  
+  // Cost Tracking (stored in human-readable USD/tokens, NOT raw decimals)
+  totalCostBasis      Float     @default(0)  // Total USDC spent on BUYs
+  totalTokensBought   Float     @default(0)  // Total tokens acquired
+  totalTokensSold     Float     @default(0)  // Total tokens sold
+  totalSellProceeds   Float     @default(0)  // Total USDC received from SELLs
+  
+  // Calculated PnL
+  realizedPnL         Float     @default(0)  // Locked-in profit/loss from sells
+  
+  // Status: OPEN, CLOSED, PARTIALLY_CLOSED
+  status              String    @default("OPEN")
+  
+  // Timestamps
+  openedAt            DateTime  @default(now())
+  closedAt            DateTime?
+  updatedAt           DateTime  @updatedAt
+  
+  // Relations
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades              Trade[]
+  
+  @@unique([userId, marketTicker, side])
+  @@index([userId])
+  @@index([marketTicker])
+  @@index([status])
 }
 
 model Follow {

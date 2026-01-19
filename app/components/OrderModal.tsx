@@ -372,7 +372,10 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                 marketTicker: market.ticker,
                 eventTicker: market.eventTicker || null,
                 side: selectedSide,
+                action: 'BUY',
                 amount: amount, // Store in dollars (user input)
+                executedInAmount: orderResponse.inAmount || null, // Actual USDC spent (in smallest unit)
+                executedOutAmount: orderResponse.outAmount || null, // Actual tokens received (in smallest unit)
                 transactionSig: signatureString,
                 entryPrice: entryPrice?.toString() || null,
             };

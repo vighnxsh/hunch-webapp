@@ -40,7 +40,11 @@ import {
 } from './lib/eventSelector';
 
 // Legacy categories for backward compatibility
-const LEGACY_CATEGORIES = ['crypto', 'politics', 'economics', 'sports', 'entertainment', 'tech', 'finance'];
+// All categories that can be processed individually
+const LEGACY_CATEGORIES = [
+    'crypto', 'politics', 'economics', 'sports', 'entertainment', 'tech', 'finance',
+    'elections', 'companies', 'climate', 'mentions', 'social', 'transportation', 'science'
+];
 
 // Parse command line arguments
 function parseArgs(): {

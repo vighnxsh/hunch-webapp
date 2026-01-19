@@ -8,19 +8,29 @@ const DEFAULT_LIMIT = 50;
 const DEFAULT_PER_CATEGORY = 5;
 const DEFAULT_CONCURRENCY = 2;
 
-// Topic filters matching the frontend
+// Topic filters matching the frontend (all 13 Home page categories)
 const TOPIC_FILTERS: Record<string, string[]> = {
     crypto: ['crypto', 'bitcoin', 'btc', 'eth', 'ethereum', 'solana', 'sol', 'token', 'defi', 'nft', 'blockchain', 'web3', 'memecoin', 'altcoin', 'stablecoin', 'usdc', 'usdt'],
-    politics: ['election', 'president', 'congress', 'senate', 'vote', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house', 'electoral'],
+    politics: ['president', 'congress', 'senate', 'government', 'trump', 'biden', 'democrat', 'republican', 'political', 'governor', 'mayor', 'impeach', 'cabinet', 'white house'],
     economics: ['fed ', 'federal reserve', 'interest rate', 'inflation', 'gdp', 'recession', 'economy', 'treasury', 'bond', 'yield', 'economic', 'tariff', 'trade war', 'unemployment', 'cpi', 'ppi'],
     sports: ['football', 'basketball', 'soccer', 'nfl', 'nba', 'mlb', 'nhl', 'tennis', 'golf', 'ufc', 'mma', 'boxing', 'f1', 'formula 1', 'racing', 'olympics', 'world cup', 'championship', 'playoff', 'super bowl'],
     entertainment: ['movie', 'film', 'music', 'celebrity', 'awards', 'oscar', 'grammy', 'emmy', 'tv show', 'streaming', 'netflix', 'disney', 'spotify', 'concert', 'album', 'box office'],
     tech: ['ai ', ' ai', 'artificial intelligence', 'openai', 'chatgpt', 'gpt-', 'llm', 'machine learning', 'robotics', 'autonomous', 'iphone', 'android', 'software', 'app launch', 'product launch'],
     finance: ['stock', 's&p 500', 'nasdaq', 'dow jones', 'earnings', 'quarterly', 'ipo', 'merger', 'acquisition', 'market cap', 'shares', 'dividend'],
+    elections: ['election', 'vote', 'voting', 'ballot', 'primary', 'caucus', 'electoral', 'candidate', 'poll', 'swing state', 'midterm', 'runoff'],
+    companies: ['company', 'corporate', 'ceo', 'layoff', 'hire', 'startup', 'founder', 'business', 'corporation'],
+    climate: ['climate', 'weather', 'temperature', 'hurricane', 'wildfire', 'flood', 'drought', 'storm', 'tornado', 'warming'],
+    mentions: ['trending', 'viral', 'mention', 'hashtag', 'social media', 'twitter', 'x.com'],
+    social: ['protest', 'movement', 'activism', 'rally', 'demonstration', 'community', 'public opinion'],
+    transportation: ['airline', 'aviation', 'car', 'automotive', 'tesla', 'ev ', 'electric vehicle', 'train', 'shipping', 'port', 'logistics'],
+    science: ['space', 'nasa', 'rocket', 'satellite', 'research', 'discovery', 'science', 'physics', 'biology', 'medical'],
 };
 
 // Allowed categories that can be processed
-const ALLOWED_CATEGORIES = ['crypto', 'politics', 'economics', 'sports', 'entertainment', 'tech', 'finance', 'all'];
+const ALLOWED_CATEGORIES = [
+    'crypto', 'politics', 'economics', 'sports', 'entertainment', 'tech', 'finance',
+    'elections', 'companies', 'climate', 'mentions', 'social', 'transportation', 'science', 'all'
+];
 
 function getNumberEnv(value: string | undefined, fallback: number): number {
     if (!value) return fallback;

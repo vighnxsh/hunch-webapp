@@ -122,125 +122,131 @@ async function backfillPositions() {
     console.log(`📦 Found ${tradeGroups.size} unique positions to create\n`);
 
     let created = 0;
-    let updated = 0;
+    let closed = 0;
     let tradesLinked = 0;
+    let skippedTrades = 0;
+
+    const EPSILON = 1e-9;
 
     for (const [key, group] of tradeGroups) {
-        // Calculate aggregated values
-        let totalCostBasis = 0;
-        let totalTokensBought = 0;
-        let totalTokensSold = 0;
-        let totalSellProceeds = 0;
+        let currentPositionId: string | null = null;
+        let netQuantity = 0;
+        let avgEntryPrice = 0;
         let realizedPnL = 0;
 
         for (const trade of group.trades) {
             if (trade.action === 'BUY') {
-                // BUY: inAmount = USDC spent, outAmount = tokens received
                 const usdcSpent = trade.executedInAmount ? Number(trade.executedInAmount) / DECIMALS : 0;
                 const tokensReceived = trade.executedOutAmount ? Number(trade.executedOutAmount) / DECIMALS : 0;
 
-                if (usdcSpent > 0 && tokensReceived > 0) {
-                    totalCostBasis += usdcSpent;
-                    totalTokensBought += tokensReceived;
+                if (usdcSpent <= 0 || tokensReceived <= 0) {
+                    skippedTrades++;
+                    continue;
                 }
+
+                if (!currentPositionId || netQuantity <= EPSILON) {
+                    const position = await prisma.position.create({
+                        data: {
+                            userId: group.userId,
+                            marketTicker: group.marketTicker,
+                            eventTicker: group.eventTicker,
+                            side: group.side,
+                            status: 'OPEN',
+                            openedAt: trade.createdAt,
+                            avgEntryPrice: 0,
+                            netQuantity: 0,
+                            realizedPnL: 0,
+                        },
+                        select: { id: true },
+                    });
+                    currentPositionId = position.id;
+                    netQuantity = 0;
+                    avgEntryPrice = 0;
+                    realizedPnL = 0;
+                    created++;
+                }
+
+                const newQty = netQuantity + tokensReceived;
+                const newAvg = newQty > 0 ? (avgEntryPrice * netQuantity + usdcSpent) / newQty : avgEntryPrice;
+
+                netQuantity = newQty;
+                avgEntryPrice = newAvg;
+
+                await prisma.position.update({
+                    where: { id: currentPositionId },
+                    data: {
+                        netQuantity,
+                        avgEntryPrice,
+                        status: 'OPEN',
+                        closedAt: null,
+                    },
+                });
+
+                await prisma.trade.update({
+                    where: { id: trade.id },
+                    data: { positionId: currentPositionId },
+                });
+                tradesLinked++;
             } else if (trade.action === 'SELL') {
-                // SELL: inAmount = tokens sold, outAmount = USDC received
-                const tokensSold = trade.executedInAmount ? Number(trade.executedInAmount) / DECIMALS : 0;
-                const usdcReceived = trade.executedOutAmount ? Number(trade.executedOutAmount) / DECIMALS : 0;
+                if (!currentPositionId || netQuantity <= EPSILON) {
+                    skippedTrades++;
+                    continue;
+                }
 
-                if (tokensSold > 0 && usdcReceived > 0) {
-                    // Calculate realized PnL using average cost method
-                    if (totalTokensBought > 0) {
-                        const avgCostPerToken = totalCostBasis / totalTokensBought;
-                        const costBasisSold = avgCostPerToken * tokensSold;
-                        realizedPnL += usdcReceived - costBasisSold;
-                    }
+                const tokensSoldRaw = trade.executedInAmount ? Number(trade.executedInAmount) / DECIMALS : 0;
+                const usdcReceivedRaw = trade.executedOutAmount ? Number(trade.executedOutAmount) / DECIMALS : 0;
 
-                    totalTokensSold += tokensSold;
-                    totalSellProceeds += usdcReceived;
+                if (tokensSoldRaw <= 0 || usdcReceivedRaw <= 0) {
+                    skippedTrades++;
+                    continue;
+                }
+
+                const tokensSold = Math.min(tokensSoldRaw, netQuantity);
+                const usdcReceived = tokensSoldRaw > 0
+                    ? usdcReceivedRaw * (tokensSold / tokensSoldRaw)
+                    : usdcReceivedRaw;
+
+                const costBasisSold = avgEntryPrice * tokensSold;
+                realizedPnL += usdcReceived - costBasisSold;
+                netQuantity -= tokensSold;
+
+                const isClosed = netQuantity <= EPSILON;
+
+                await prisma.position.update({
+                    where: { id: currentPositionId },
+                    data: {
+                        netQuantity: isClosed ? 0 : netQuantity,
+                        avgEntryPrice,
+                        realizedPnL,
+                        status: isClosed ? 'CLOSED' : 'OPEN',
+                        closedAt: isClosed ? trade.createdAt : null,
+                    },
+                });
+
+                await prisma.trade.update({
+                    where: { id: trade.id },
+                    data: { positionId: currentPositionId },
+                });
+                tradesLinked++;
+
+                if (isClosed) {
+                    closed++;
+                    currentPositionId = null;
+                    netQuantity = 0;
+                    avgEntryPrice = 0;
+                    realizedPnL = 0;
                 }
             }
         }
 
-        // Determine status
-        const remainingTokens = totalTokensBought - totalTokensSold;
-        let status = 'OPEN';
-        let closedAt = null;
-
-        if (remainingTokens <= 0.0001) {
-            status = 'CLOSED';
-            closedAt = group.trades[group.trades.length - 1].createdAt;
-        } else if (totalTokensSold > 0) {
-            status = 'PARTIALLY_CLOSED';
-        }
-
-        const existingPosition = await prisma.position.findUnique({
-            where: {
-                userId_marketTicker_side: {
-                    userId: group.userId,
-                    marketTicker: group.marketTicker,
-                    side: group.side,
-                },
-            },
-            select: { id: true },
-        });
-
-        // Upsert position
-        const position = await prisma.position.upsert({
-            where: {
-                userId_marketTicker_side: {
-                    userId: group.userId,
-                    marketTicker: group.marketTicker,
-                    side: group.side,
-                },
-            },
-            create: {
-                userId: group.userId,
-                marketTicker: group.marketTicker,
-                eventTicker: group.eventTicker,
-                side: group.side,
-                totalCostBasis,
-                totalTokensBought,
-                totalTokensSold,
-                totalSellProceeds,
-                realizedPnL,
-                status,
-                closedAt,
-                openedAt: group.trades[0].createdAt,
-            },
-            update: {
-                totalCostBasis,
-                totalTokensBought,
-                totalTokensSold,
-                totalSellProceeds,
-                realizedPnL,
-                status,
-                closedAt,
-            },
-        });
-
-        // Link trades to position
-        const tradeIds = group.trades.map(t => t.id);
-        await prisma.trade.updateMany({
-            where: { id: { in: tradeIds } },
-            data: { positionId: position.id },
-        });
-
-        tradesLinked += tradeIds.length;
-
-        if (!existingPosition) {
-            created++;
-        } else {
-            updated++;
-        }
-
-        console.log(`  ✅ ${group.marketTicker} (${group.side}): ${group.trades.length} trades, PnL: $${realizedPnL.toFixed(2)}`);
+        console.log(`  ✅ ${group.marketTicker} (${group.side}): ${group.trades.length} trades processed`);
     }
 
     console.log('\n📊 Backfill Summary:');
     console.log(`  - Positions created: ${created}`);
-    console.log(`  - Positions updated: ${updated}`);
+    console.log(`  - Positions closed: ${closed}`);
     console.log(`  - Trades linked: ${tradesLinked}`);
+    console.log(`  - Trades skipped: ${skippedTrades}`);
     console.log('\n✨ Backfill complete!');
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { usePrivy } from '@privy-io/react-auth';
@@ -26,7 +26,9 @@ function ReceiptCard({
     selectedSide,
     amount,
     setAmount,
-    potentialReturn,
+    toWinAmount,
+    estimatedSpendUsdc,
+    quoteReady,
     onPlaceOrder,
     loading,
     status,
@@ -37,7 +39,9 @@ function ReceiptCard({
     selectedSide: 'yes' | 'no' | null;
     amount: string;
     setAmount: (val: string) => void;
-    potentialReturn: string | null;
+    toWinAmount?: string;
+    estimatedSpendUsdc?: string;
+    quoteReady: boolean;
     onPlaceOrder: () => void;
     loading: boolean;
     status: string;
@@ -52,7 +56,7 @@ function ReceiptCard({
     }, [selectedSide]);
 
     const isValidAmount = amount && parseFloat(amount) > 0;
-    const buttonDisabled = loading || !isValidAmount;
+    const buttonDisabled = loading || !isValidAmount || !quoteReady;
 
     return (
         <div
@@ -103,18 +107,23 @@ function ReceiptCard({
                                 </div>
                             </div>
 
-                            {/* Potential Win */}
                             <AnimatePresence>
-                                {potentialReturn && (
+                                {estimatedSpendUsdc && toWinAmount && (
                                     <motion.div
-                                        className="mb-3 px-3 py-2 bg-green-50 rounded-lg border border-green-200"
+                                        className="mb-3 px-3 py-2 bg-gray-100 rounded-lg border border-gray-200"
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
                                         exit={{ opacity: 0, height: 0 }}
                                     >
                                         <div className="flex items-center justify-between">
-                                            <span className="text-xs font-medium text-green-600">Potential win</span>
-                                            <span className="text-base font-bold text-green-600 font-mono">${potentialReturn}</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-medium text-gray-600">Total spend</span>
+                                                <span className="text-base font-bold text-gray-800 font-mono">${estimatedSpendUsdc}</span>
+                                            </div>
+                                            <div className="flex flex-col text-right">
+                                                <span className="text-[10px] font-medium text-green-600">To win</span>
+                                                <span className="text-base font-bold text-green-600 font-mono">${toWinAmount}</span>
+                                            </div>
                                         </div>
                                     </motion.div>
                                 )}
@@ -136,6 +145,8 @@ function ReceiptCard({
                                     ? 'Placing...'
                                     : !isValidAmount
                                         ? 'Enter Amount'
+                                        : !quoteReady
+                                            ? 'Fetching Quote...'
                                         : authenticated
                                             ? 'Place Trade'
                                             : 'Sign in'}
@@ -191,6 +202,12 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
     const [showQuoteModal, setShowQuoteModal] = useState(false);
     const [pendingTradePayload, setPendingTradePayload] = useState<any | null>(null);
     const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
+    const [quotePreview, setQuotePreview] = useState<{
+        estimatedSpendUsdc?: string;
+        estimatedTokens?: string;
+        entryPrice?: string;
+    } | null>(null);
+    const [quoteError, setQuoteError] = useState<string | null>(null);
     const [lastQuoteSummary, setLastQuoteSummary] = useState<{
         estimatedSpendUsdc?: string;
         estimatedTokens?: string;
@@ -209,18 +226,6 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
             setLoading(false);
         }
     }, [isOpen]);
-
-    // Calculate potential return
-    const calculatePotentialReturn = useCallback((): string | null => {
-        if (!amount || parseFloat(amount) <= 0 || !selectedSide) return null;
-        const price = selectedSide === 'yes'
-            ? (market.yesAsk ? parseFloat(market.yesAsk) : null)
-            : (market.noAsk ? parseFloat(market.noAsk) : null);
-        if (!price || price <= 0) return null;
-        return (parseFloat(amount) / price).toFixed(2);
-    }, [amount, selectedSide, market]);
-
-    const potentialReturn = calculatePotentialReturn();
 
     // Handle pill selection - simple toggle
     const handlePillSelect = (side: 'yes' | 'no') => {
@@ -246,6 +251,74 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
         }
         return type === 'yes' ? market.yesMint : market.noMint;
     };
+
+    const quoteRequestRef = useRef(0);
+
+    useEffect(() => {
+        if (!walletAddress || !amount || parseFloat(amount) <= 0 || !selectedSide) {
+            setQuotePreview(null);
+            setQuoteError(null);
+            return;
+        }
+        if (market.status !== 'active') {
+            setQuotePreview(null);
+            setQuoteError(null);
+            return;
+        }
+
+        const outputMint = getMintAddress(selectedSide);
+        if (!outputMint) {
+            setQuotePreview(null);
+            setQuoteError('Unable to find market token mint');
+            return;
+        }
+
+        const requestId = ++quoteRequestRef.current;
+
+        const fetchQuote = async () => {
+            try {
+                const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000).toString();
+                const orderResponse = await requestOrder({
+                    userPublicKey: walletAddress,
+                    inputMint: USDC_MINT,
+                    outputMint,
+                    amount: amountInSmallestUnit,
+                    slippageBps: 100,
+                });
+
+                if (requestId !== quoteRequestRef.current) return;
+
+                setQuoteError(null);
+                const spentUsdc = orderResponse.inAmount
+                    ? Number(orderResponse.inAmount) / 1_000_000
+                    : Number(amountInSmallestUnit) / 1_000_000;
+                const receivedTokens = orderResponse.outAmount
+                    ? Number(orderResponse.outAmount) / 1_000_000
+                    : null;
+                const entryPrice =
+                    receivedTokens && receivedTokens > 0 ? spentUsdc / receivedTokens : null;
+
+                setQuotePreview({
+                    estimatedSpendUsdc: Number.isFinite(spentUsdc) ? spentUsdc.toFixed(6) : undefined,
+                    estimatedTokens: Number.isFinite(receivedTokens)
+                        ? receivedTokens?.toFixed(6)
+                        : undefined,
+                    entryPrice: entryPrice !== null && Number.isFinite(entryPrice)
+                        ? entryPrice.toFixed(10)
+                        : undefined,
+                });
+            } catch (error: any) {
+                if (requestId === quoteRequestRef.current) {
+                    setQuotePreview(null);
+                    const rawMessage = error?.message || 'Quote failed';
+                    const lowAmount = rawMessage.toLowerCase().includes('zero out amount');
+                    setQuoteError(lowAmount ? 'Amount too low for a valid quote' : rawMessage);
+                }
+            }
+        };
+
+        fetchQuote();
+    }, [amount, walletAddress, market.status, selectedSide]);
 
     // Place order handler
     const handlePlaceOrder = async () => {
@@ -281,45 +354,63 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
         try {
             const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000).toString();
 
-            const orderResponse: OrderResponse = await requestOrder({
-                userPublicKey: walletAddress,
-                inputMint: USDC_MINT,
-                outputMint: outputMint,
-                amount: amountInSmallestUnit,
-                slippageBps: 100,
-            });
+            const attemptOrder = async () => {
+                const orderResponse: OrderResponse = await requestOrder({
+                    userPublicKey: walletAddress,
+                    inputMint: USDC_MINT,
+                    outputMint: outputMint,
+                    amount: amountInSmallestUnit,
+                    slippageBps: 100,
+                });
 
-            setStatus('Signing transaction...');
+                setStatus('Signing transaction...');
 
-            const transactionBase64 = orderResponse.transaction || orderResponse.openTransaction;
-            if (!transactionBase64) {
-                throw new Error('No transaction found in order response');
-            }
+                const transactionBase64 = orderResponse.transaction || orderResponse.openTransaction;
+                if (!transactionBase64) {
+                    throw new Error('No transaction found in order response');
+                }
 
-            const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
+                const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
 
-            setStatus('Signing and sending transaction...');
+                setStatus('Signing and sending transaction...');
 
-            // Use Privy's signAndSendTransaction which handles signing, sending, and confirmation
-            const result = await signAndSendTransaction({
-                transaction: transactionBytes,
-                wallet: solanaWallet,
-            });
+                // Use Privy's signAndSendTransaction which handles signing, sending, and confirmation
+                const result = await signAndSendTransaction({
+                    transaction: transactionBytes,
+                    wallet: solanaWallet,
+                });
 
-            if (!result?.signature) {
-                throw new Error('No signature received from transaction');
-            }
+                if (!result?.signature) {
+                    throw new Error('No signature received from transaction');
+                }
 
-            // Convert signature to string format (base58)
+                // Convert signature to string format (base58)
+                let signatureString: string;
+                if (typeof result.signature === 'string') {
+                    signatureString = result.signature;
+                } else if (result.signature instanceof Uint8Array) {
+                    const bs58Module = await import('bs58');
+                    const bs58 = bs58Module.default || bs58Module;
+                    signatureString = bs58.encode(result.signature);
+                } else {
+                    throw new Error('Invalid signature format');
+                }
+
+                return { orderResponse, signatureString };
+            };
+
+            let orderResponse: OrderResponse;
             let signatureString: string;
-            if (typeof result.signature === 'string') {
-                signatureString = result.signature;
-            } else if (result.signature instanceof Uint8Array) {
-                const bs58Module = await import('bs58');
-                const bs58 = bs58Module.default || bs58Module;
-                signatureString = bs58.encode(result.signature);
-            } else {
-                throw new Error('Invalid signature format');
+            try {
+                ({ orderResponse, signatureString } = await attemptOrder());
+            } catch (error: any) {
+                const msg = (error?.message || '').toLowerCase();
+                const shouldRetry =
+                    msg.includes('transaction simulation failed') ||
+                    msg.includes('blockhash not found');
+                if (!shouldRetry) throw error;
+                setStatus('Refreshing quote and retrying...');
+                ({ orderResponse, signatureString } = await attemptOrder());
             }
 
             setStatus('Transaction confirmed!');
@@ -373,7 +464,7 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                 eventTicker: market.eventTicker || null,
                 side: selectedSide,
                 action: 'BUY',
-                amount: amount, // Store in dollars (user input)
+                amount: spentUsdc.toFixed(6), // Store actual inAmount (USDC spent)
                 executedInAmount: orderResponse.inAmount || null, // Actual USDC spent (in smallest unit)
                 executedOutAmount: orderResponse.outAmount || null, // Actual tokens received (in smallest unit)
                 transactionSig: signatureString,
@@ -563,12 +654,19 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                                     selectedSide={selectedSide}
                                     amount={amount}
                                     setAmount={setAmount}
-                                    potentialReturn={potentialReturn}
+                                    toWinAmount={quotePreview?.estimatedTokens}
+                                    estimatedSpendUsdc={quotePreview?.estimatedSpendUsdc}
+                                    quoteReady={!!quotePreview?.estimatedSpendUsdc && !!quotePreview?.estimatedTokens}
                                     onPlaceOrder={handlePlaceOrder}
                                     loading={loading}
                                     status={status}
                                     authenticated={authenticated}
                                 />
+                                {quoteError && (
+                                    <div className="mt-2 text-xs text-red-600 text-center">
+                                        {quoteError}
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     </motion.div>

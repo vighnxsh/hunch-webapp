@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import redis, { CacheKeys } from './redis';
 
@@ -36,11 +37,14 @@ export interface TradeWithUser {
   };
 }
 
-/**
- * Upsert position and calculate PnL for a trade
- * Uses average cost method for partial sells
- */
-async function upsertPositionForTrade(
+type PositionActionResult = {
+  positionId: string;
+};
+
+const NET_QTY_EPSILON = 1e-9;
+
+async function applyTradeToPosition(
+  tx: Prisma.TransactionClient,
   userId: string,
   marketTicker: string,
   eventTicker: string | null,
@@ -48,128 +52,121 @@ async function upsertPositionForTrade(
   action: 'BUY' | 'SELL',
   executedInAmount: string | null,
   executedOutAmount: string | null
-): Promise<string> {
-  // Find or create position
-  let position = await prisma.position.findUnique({
+): Promise<PositionActionResult> {
+  let position = await tx.position.findFirst({
     where: {
-      userId_marketTicker_side: { userId, marketTicker, side }
-    }
+      userId,
+      marketTicker,
+      side,
+      status: 'OPEN',
+    },
+    orderBy: { openedAt: 'desc' },
   });
 
   if (!position) {
-    position = await prisma.position.create({
+    if (action === 'SELL') {
+      throw new Error('Cannot sell without an open position');
+    }
+    position = await tx.position.create({
       data: {
         userId,
         marketTicker,
         eventTicker,
         side,
-        status: 'OPEN'
-      }
+        status: 'OPEN',
+      },
     });
   }
 
-  // Calculate amounts in human-readable form (divide by 1M)
   if (action === 'BUY') {
-    // BUY: inAmount = USDC spent, outAmount = tokens received
     const usdcSpent = executedInAmount ? Number(executedInAmount) / DECIMALS : 0;
     const tokensReceived = executedOutAmount ? Number(executedOutAmount) / DECIMALS : 0;
 
     if (usdcSpent > 0 && tokensReceived > 0) {
-      await prisma.position.update({
+      const prevQty = Number(position.netQuantity);
+      const prevAvg = Number(position.avgEntryPrice);
+      const newQty = prevQty + tokensReceived;
+      const newAvgEntry =
+        newQty > 0 ? (prevAvg * prevQty + usdcSpent) / newQty : prevAvg;
+
+      await tx.position.update({
         where: { id: position.id },
         data: {
-          totalCostBasis: { increment: usdcSpent },
-          totalTokensBought: { increment: tokensReceived },
-          status: 'OPEN'
-        }
+          netQuantity: newQty,
+          avgEntryPrice: newAvgEntry,
+          status: 'OPEN',
+          closedAt: null,
+        },
       });
     }
   } else if (action === 'SELL') {
-    // SELL: inAmount = tokens sold, outAmount = USDC received
     const tokensSold = executedInAmount ? Number(executedInAmount) / DECIMALS : 0;
     const usdcReceived = executedOutAmount ? Number(executedOutAmount) / DECIMALS : 0;
 
     if (tokensSold > 0 && usdcReceived > 0) {
-      // Refresh position to get latest values
-      position = await prisma.position.findUnique({
-        where: { id: position.id }
+      const prevQty = Number(position.netQuantity);
+      const prevAvg = Number(position.avgEntryPrice);
+
+      if (prevQty <= NET_QTY_EPSILON) {
+        throw new Error('Cannot sell from a zero-quantity position');
+      }
+      if (tokensSold > prevQty + NET_QTY_EPSILON) {
+        throw new Error('Sell quantity exceeds open position quantity');
+      }
+
+      const costBasisSold = prevAvg * tokensSold;
+      const realizedPnLThisSell = usdcReceived - costBasisSold;
+      const newQty = prevQty - tokensSold;
+      const isClosed = newQty <= NET_QTY_EPSILON;
+
+      await tx.position.update({
+        where: { id: position.id },
+        data: {
+          netQuantity: isClosed ? 0 : newQty,
+          realizedPnL: { increment: realizedPnLThisSell },
+          status: isClosed ? 'CLOSED' : 'OPEN',
+          closedAt: isClosed ? new Date() : null,
+        },
       });
-
-      if (!position) {
-        throw new Error('Position not found during sell processing');
-      }
-
-      if (position.totalTokensBought > 0) {
-        // Calculate average cost per token
-        const avgCostPerToken = position.totalCostBasis / position.totalTokensBought;
-
-        // Cost basis for tokens being sold
-        const costBasisSold = avgCostPerToken * tokensSold;
-
-        // Realized PnL for this sell
-        const realizedPnLThisSell = usdcReceived - costBasisSold;
-
-        // Calculate new status
-        const newTotalTokensSold = position.totalTokensSold + tokensSold;
-        const remainingTokens = position.totalTokensBought - newTotalTokensSold;
-
-        let newStatus = 'OPEN';
-        let closedAt = null;
-        if (remainingTokens <= 0.0001) { // Small tolerance for floating point
-          newStatus = 'CLOSED';
-          closedAt = new Date();
-        } else if (newTotalTokensSold > 0) {
-          newStatus = 'PARTIALLY_CLOSED';
-        }
-
-        await prisma.position.update({
-          where: { id: position.id },
-          data: {
-            totalTokensSold: { increment: tokensSold },
-            totalSellProceeds: { increment: usdcReceived },
-            realizedPnL: { increment: realizedPnLThisSell },
-            status: newStatus,
-            closedAt: closedAt
-          }
-        });
-      }
     }
   }
 
-  return position.id;
+  return { positionId: position.id };
 }
 
 /**
  * Create a new trade (real trades only)
  */
 export async function createTrade(data: CreateTradeData) {
-  // First, upsert the position
-  const positionId = await upsertPositionForTrade(
-    data.userId,
-    data.marketTicker,
-    data.eventTicker || null,
-    data.side,
-    data.action || 'BUY',
-    data.executedInAmount || null,
-    data.executedOutAmount || null
-  );
+  const trade = await prisma.$transaction(async (tx) => {
+    const { positionId } = await applyTradeToPosition(
+      tx,
+      data.userId,
+      data.marketTicker,
+      data.eventTicker || null,
+      data.side,
+      data.action || 'BUY',
+      data.executedInAmount || null,
+      data.executedOutAmount || null
+    );
 
-  const trade = await prisma.trade.create({
-    data: {
-      userId: data.userId,
-      marketTicker: data.marketTicker,
-      eventTicker: data.eventTicker || null,
-      side: data.side,
-      action: data.action || 'BUY',
-      amount: data.amount,
-      executedInAmount: data.executedInAmount || null,
-      executedOutAmount: data.executedOutAmount || null,
-      transactionSig: data.transactionSig,
-      quote: data.quote || null,
-      isDummy: false, // Only real trades are allowed
-      entryPrice: data.entryPrice ?? null,
-      positionId: positionId,
-    },
+    return tx.trade.create({
+      data: {
+        userId: data.userId,
+        marketTicker: data.marketTicker,
+        eventTicker: data.eventTicker || null,
+        side: data.side,
+        action: data.action || 'BUY',
+        amount: data.amount,
+        executedInAmount: data.executedInAmount || null,
+        executedOutAmount: data.executedOutAmount || null,
+        transactionSig: data.transactionSig,
+        quote: data.quote || null,
+        isDummy: false, // Only real trades are allowed
+        entryPrice: data.entryPrice ?? null,
+        positionId,
+      },
+    });
   });
 
   // Invalidate feed caches for all followers of this user
@@ -354,26 +351,23 @@ export async function getPortfolioStats(userId: string): Promise<{
   totalSellProceeds: number;
   openPositions: number;
   closedPositions: number;
-  partiallyClosedPositions: number;
 }> {
   const positions = await prisma.position.findMany({
     where: { userId },
     select: {
       realizedPnL: true,
-      totalCostBasis: true,
-      totalSellProceeds: true,
+      avgEntryPrice: true,
+      netQuantity: true,
       status: true,
     }
   });
 
   const stats = positions.reduce((acc, pos) => {
-    acc.totalRealizedPnL += pos.realizedPnL;
-    acc.totalCostBasis += pos.totalCostBasis;
-    acc.totalSellProceeds += pos.totalSellProceeds;
+    acc.totalRealizedPnL += Number(pos.realizedPnL);
+    acc.totalCostBasis += Number(pos.avgEntryPrice) * Number(pos.netQuantity);
 
     if (pos.status === 'OPEN') acc.openPositions++;
     else if (pos.status === 'CLOSED') acc.closedPositions++;
-    else if (pos.status === 'PARTIALLY_CLOSED') acc.partiallyClosedPositions++;
 
     return acc;
   }, {
@@ -382,7 +376,6 @@ export async function getPortfolioStats(userId: string): Promise<{
     totalSellProceeds: 0,
     openPositions: 0,
     closedPositions: 0,
-    partiallyClosedPositions: 0,
   });
 
   return stats;

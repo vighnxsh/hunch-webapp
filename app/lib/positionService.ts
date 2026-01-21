@@ -1,8 +1,6 @@
 import { prisma } from './db';
-import { type Market, type EventDetails } from './api';
-import { fetchMarketDetailsServer, fetchEventDetailsServer, filterOutcomeMintsServer, fetchMarketsBatchServer } from './dflowServer';
-import { Connection, PublicKey } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
+import { type Market } from './api';
+import { fetchMarketDetailsServer, fetchEventDetailsServer } from './dflowServer';
 
 export interface TradeWithDetails {
   id: string;
@@ -19,6 +17,7 @@ export interface TradeWithDetails {
 }
 
 export interface AggregatedPosition {
+  positionId: string;
   marketTicker: string;
   eventTicker: string | null;
   side: 'yes' | 'no';
@@ -33,15 +32,15 @@ export interface AggregatedPosition {
   market: Market | null;
   eventImageUrl: string | null;
   trades: TradeWithDetails[];
-  // New PnL fields from Position model
-  totalCostBasis: number;
-  totalTokensBought: number;
-  totalTokensSold: number;
-  totalSellProceeds: number;
+  avgEntryPrice: number;
+  netQuantity: number;
   realizedPnL: number;
   unrealizedPnL: number | null;
   totalPnL: number | null;
-  positionStatus: 'OPEN' | 'CLOSED' | 'PARTIALLY_CLOSED';
+  totalCostBasis: number;
+  openedAt: Date;
+  closedAt: Date | null;
+  positionStatus: 'OPEN' | 'CLOSED';
 }
 
 export interface PositionsByStatus {
@@ -53,10 +52,6 @@ export interface PositionsByStatus {
  * Get all user positions with P&L calculations
  */
 export async function getUserPositions(userId: string): Promise<PositionsByStatus> {
-  // Hybrid source of truth:
-  // - DB positions provide cost basis + realized PnL + closed positions
-  // - Onchain balances provide current holdings
-  // - Market API provides current prices
   let walletAddress: string | null = null;
   let dbId: string | null = null;
   const user = await prisma.user.findUnique({
@@ -78,174 +73,76 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
 
   const positionsMap = new Map<string, AggregatedPosition>();
   let positionModels: Array<{
+    id: string;
     marketTicker: string;
     eventTicker: string | null;
     side: string;
-    totalCostBasis: number;
-    totalTokensBought: number;
-    totalTokensSold: number;
-    totalSellProceeds: number;
-    realizedPnL: number;
+    avgEntryPrice: any;
+    netQuantity: any;
+    realizedPnL: any;
     status: string;
+    openedAt: Date;
+    closedAt: Date | null;
   }> = [];
 
   if (dbId) {
     positionModels = await prisma.position.findMany({
       where: { userId: dbId },
       select: {
+        id: true,
         marketTicker: true,
         eventTicker: true,
         side: true,
-        totalCostBasis: true,
-        totalTokensBought: true,
-        totalTokensSold: true,
-        totalSellProceeds: true,
+        avgEntryPrice: true,
+        netQuantity: true,
         realizedPnL: true,
         status: true,
+        openedAt: true,
+        closedAt: true,
       },
     });
 
     const tradeCounts = await prisma.trade.groupBy({
-      by: ['marketTicker', 'side'],
-      where: { userId: dbId, isDummy: false },
+      by: ['positionId'],
+      where: { userId: dbId, isDummy: false, positionId: { not: null } },
       _count: { _all: true },
     });
     const tradeCountMap = new Map(
-      tradeCounts.map((t) => [`${t.marketTicker}-${t.side}`, t._count._all])
+      tradeCounts.map((t) => [t.positionId as string, t._count._all])
     );
 
     for (const positionModel of positionModels) {
-      const key = `${positionModel.marketTicker}-${positionModel.side}`;
-      positionsMap.set(key, {
+      const avgEntryPrice = Number(positionModel.avgEntryPrice);
+      const netQuantity = Number(positionModel.netQuantity);
+      const realizedPnL = Number(positionModel.realizedPnL);
+      const totalCostBasis = avgEntryPrice * netQuantity;
+
+      positionsMap.set(positionModel.id, {
+        positionId: positionModel.id,
         marketTicker: positionModel.marketTicker,
         eventTicker: positionModel.eventTicker,
         side: positionModel.side as 'yes' | 'no',
-        totalTokenAmount: 0,
-        totalUsdcAmount: 0,
-        averageEntryPrice: 0,
+        totalTokenAmount: netQuantity,
+        totalUsdcAmount: totalCostBasis,
+        averageEntryPrice: avgEntryPrice,
         currentPrice: null,
         currentValue: null,
         profitLoss: null,
         profitLossPercentage: null,
-        tradeCount: tradeCountMap.get(key) || 0,
+        tradeCount: tradeCountMap.get(positionModel.id) || 0,
         market: null,
         eventImageUrl: null,
         trades: [],
-        totalCostBasis: positionModel.totalCostBasis,
-        totalTokensBought: positionModel.totalTokensBought,
-        totalTokensSold: positionModel.totalTokensSold,
-        totalSellProceeds: positionModel.totalSellProceeds,
-        realizedPnL: positionModel.realizedPnL,
+        avgEntryPrice,
+        netQuantity,
+        realizedPnL,
         unrealizedPnL: null,
         totalPnL: null,
-        positionStatus: positionModel.status as 'OPEN' | 'CLOSED' | 'PARTIALLY_CLOSED',
+        totalCostBasis,
+        openedAt: positionModel.openedAt,
+        closedAt: positionModel.closedAt,
+        positionStatus: positionModel.status as 'OPEN' | 'CLOSED',
       });
-    }
-  }
-
-  let outcomeTokenBalances: Array<{ mint: string; balance: number }> = [];
-  let markets: Market[] = [];
-
-  if (walletAddress) {
-    const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
-    const connection = new Connection(rpcUrl, 'confirmed');
-    const owner = new PublicKey(walletAddress);
-
-    const [tokenAccounts2022, tokenAccountsLegacy] = await Promise.all([
-      connection
-        .getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID })
-        .catch(() => ({ value: [] as any[] })),
-      connection
-        .getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID })
-        .catch(() => ({ value: [] as any[] })),
-    ]);
-
-    const allAccounts = [...tokenAccounts2022.value, ...tokenAccountsLegacy.value];
-
-    const userTokens = allAccounts
-      .map(({ account }) => {
-        const info = (account.data as any).parsed.info;
-        return {
-          mint: info.mint as string,
-          rawBalance: info.tokenAmount.amount as string,
-          balance: Number(info.tokenAmount.uiAmount || 0),
-          decimals: Number(info.tokenAmount.decimals || 0),
-        };
-      })
-      .filter((t) => t.balance > 0);
-
-    if (userTokens.length > 0) {
-      // Filter to prediction-market outcome mints using server-side function
-      // This avoids the relative URL issue that occurs when calling from API routes
-      const outcomeMints = await filterOutcomeMintsServer(userTokens.map((t) => t.mint));
-      if (outcomeMints && outcomeMints.length > 0) {
-        outcomeTokenBalances = userTokens.filter((t) => outcomeMints.includes(t.mint));
-        if (outcomeTokenBalances.length > 0) {
-          markets = await fetchMarketsBatchServer(outcomeMints);
-        }
-      }
-    }
-  }
-
-  // Build mint -> market mapping (yesMint/noMint/marketLedger)
-  const marketByMint = new Map<string, Market>();
-  for (const market of markets) {
-    if (!market?.accounts) continue;
-
-    const accountsAny = market.accounts as any;
-    // Some responses have accounts keyed by settlement mint; others are flat.
-    if (typeof accountsAny === 'object') {
-      for (const v of Object.values(accountsAny)) {
-        const acct = v as any;
-        if (acct?.yesMint) marketByMint.set(acct.yesMint, market);
-        if (acct?.noMint) marketByMint.set(acct.noMint, market);
-        if (acct?.marketLedger) marketByMint.set(acct.marketLedger, market);
-      }
-    }
-  }
-
-  // Overlay onchain balances into positions (or create untracked positions)
-  for (const tok of outcomeTokenBalances) {
-    const market = marketByMint.get(tok.mint) || null;
-    if (!market) continue;
-
-    const side = inferSideFromMint(market, tok.mint);
-    if (side === 'unknown') continue;
-
-    const key = `${market.ticker}-${side}`;
-    if (!positionsMap.has(key)) {
-      positionsMap.set(key, {
-        marketTicker: market.ticker,
-        eventTicker: market.eventTicker || null,
-        side,
-        totalTokenAmount: 0,
-        totalUsdcAmount: 0,
-        averageEntryPrice: 0,
-        currentPrice: null,
-        currentValue: null,
-        profitLoss: null,
-        profitLossPercentage: null,
-        tradeCount: 0,
-        market,
-        eventImageUrl: null,
-        trades: [],
-        // New PnL fields - will be populated from Position model
-        totalCostBasis: 0,
-        totalTokensBought: 0,
-        totalTokensSold: 0,
-        totalSellProceeds: 0,
-        realizedPnL: 0,
-        unrealizedPnL: null,
-        totalPnL: null,
-        positionStatus: 'OPEN',
-      });
-    }
-
-    const pos = positionsMap.get(key)!;
-    pos.totalTokenAmount += tok.balance;
-    pos.market = market;
-    if (!pos.eventTicker) {
-      pos.eventTicker = market.eventTicker || null;
     }
   }
 
@@ -311,26 +208,21 @@ export async function getUserPositions(userId: string): Promise<PositionsByStatu
 
       if (currentPrice !== null && pos.totalTokenAmount > 0) {
         pos.currentValue = pos.totalTokenAmount * currentPrice;
+        pos.unrealizedPnL = (currentPrice - pos.avgEntryPrice) * pos.totalTokenAmount;
+        pos.totalPnL = pos.realizedPnL + pos.unrealizedPnL;
+        pos.profitLoss = pos.totalPnL;
 
-        // Calculate unrealized PnL for remaining tokens
-        if (pos.totalTokensBought > 0) {
-          const avgCostPerToken = pos.totalCostBasis / pos.totalTokensBought;
-          const remainingCostBasis = avgCostPerToken * pos.totalTokenAmount;
-          pos.unrealizedPnL = pos.currentValue - remainingCostBasis;
-          pos.totalPnL = pos.realizedPnL + pos.unrealizedPnL;
-
-          // Calculate profitLoss and profitLossPercentage for display
-          pos.profitLoss = pos.totalPnL;
-          if (remainingCostBasis > 0) {
-            pos.profitLossPercentage = (pos.totalPnL / remainingCostBasis) * 100;
-          }
+        if (pos.totalCostBasis > 0) {
+          pos.profitLossPercentage = (pos.totalPnL / pos.totalCostBasis) * 100;
         }
       }
     }
 
-    if (pos.totalTokensBought > 0) {
-      pos.averageEntryPrice = pos.totalCostBasis / pos.totalTokensBought;
-      pos.totalUsdcAmount = pos.totalCostBasis;
+    if (pos.totalTokenAmount <= 0) {
+      pos.unrealizedPnL = null;
+      pos.totalPnL = pos.realizedPnL;
+      pos.profitLoss = pos.realizedPnL;
+      pos.profitLossPercentage = null;
     }
   }
 
@@ -362,25 +254,6 @@ function getCurrentMarketPrice(market: Market, side: 'yes' | 'no'): number | nul
   return null;
 }
 
-function inferSideFromMint(market: Market, outcomeMint: string): 'yes' | 'no' | 'unknown' {
-  const accountsAny = market.accounts as any;
-  if (!accountsAny) return 'unknown';
-
-  // accounts may be keyed by settlement mint -> account object
-  if (typeof accountsAny === 'object') {
-    for (const v of Object.values(accountsAny)) {
-      const acct = v as any;
-      if (acct?.yesMint === outcomeMint) return 'yes';
-      if (acct?.noMint === outcomeMint) return 'no';
-    }
-  }
-
-  // fallback to top-level fields if present
-  if ((market as any).yesMint === outcomeMint) return 'yes';
-  if ((market as any).noMint === outcomeMint) return 'no';
-  return 'unknown';
-}
-
 /**
  * Separate positions into active and previous based on market status
  */
@@ -389,8 +262,7 @@ function separateByMarketStatus(positions: AggregatedPosition[]): PositionsBySta
   const previous: AggregatedPosition[] = [];
 
   for (const position of positions) {
-    // If sold (zero balance), it goes to previous
-    if (position.totalTokenAmount === 0) {
+    if (position.positionStatus === 'CLOSED') {
       previous.push(position);
       continue;
     }
@@ -462,15 +334,23 @@ export async function getUserPositionStats(userId: string): Promise<{
   const { active, previous } = await getUserPositions(userId);
   const allPositions = [...active, ...previous];
 
-  // With entry-only DB, we don't have cost basis on server, so P&L stats are not meaningful.
-  // Return counts only; profit/loss-related fields default to 0.
+  const totalProfitLoss = allPositions.reduce((sum, pos) => {
+    if (pos.totalPnL !== null) return sum + pos.totalPnL;
+    return sum + pos.realizedPnL;
+  }, 0);
+  const winningPositions = allPositions.filter((p) => (p.totalPnL ?? p.realizedPnL) > 0).length;
+  const losingPositions = allPositions.filter((p) => (p.totalPnL ?? p.realizedPnL) < 0).length;
+  const winRate = allPositions.length > 0
+    ? (winningPositions / allPositions.length) * 100
+    : 0;
+
   return {
-    totalProfitLoss: 0,
+    totalProfitLoss,
     totalPositions: allPositions.length,
     activePositions: active.length,
-    winningPositions: 0,
-    losingPositions: 0,
-    winRate: 0,
+    winningPositions,
+    losingPositions,
+    winRate,
   };
 }
 

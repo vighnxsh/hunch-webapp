@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets, useSignTransaction } from '@privy-io/react-auth/solana';
@@ -42,6 +42,11 @@ export default function TradeDrawer({ isOpen, onClose, market, event, initialSid
     const [showQuoteModal, setShowQuoteModal] = useState(false);
     const [pendingTradePayload, setPendingTradePayload] = useState<any | null>(null);
     const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
+    const [quotePreview, setQuotePreview] = useState<{
+        estimatedSpendUsdc?: string;
+        estimatedTokens?: string;
+        entryPrice?: string;
+    } | null>(null);
     const [lastQuoteSummary, setLastQuoteSummary] = useState<{
         estimatedSpendUsdc?: string;
         estimatedTokens?: string;
@@ -65,23 +70,6 @@ export default function TradeDrawer({ isOpen, onClose, market, event, initialSid
         }
     }, [isOpen]);
 
-    // Calculate potential return
-    const calculatePotentialReturn = useCallback((): string | null => {
-        if (!amount || parseFloat(amount) <= 0) return null;
-        const price = initialSide === 'yes'
-            ? (market.yesAsk ? parseFloat(market.yesAsk) : null)
-            : (market.noAsk ? parseFloat(market.noAsk) : null);
-        if (!price || price <= 0) return null;
-        // Price is in cents (0-100), convert to decimal
-        const priceDecimal = price / 100;
-        // Tokens received = amount / priceDecimal
-        const tokens = parseFloat(amount) / priceDecimal;
-        // If outcome happens, each token is worth $1, so total return = tokens
-        return tokens.toFixed(2);
-    }, [amount, initialSide, market]);
-
-    const potentialReturn = calculatePotentialReturn();
-
     // Get mint address helper
     const getMintAddress = (type: 'yes' | 'no'): string | undefined => {
         if (market.accounts && typeof market.accounts === 'object') {
@@ -101,6 +89,59 @@ export default function TradeDrawer({ isOpen, onClose, market, event, initialSid
         }
         return type === 'yes' ? market.yesMint : market.noMint;
     };
+
+    useEffect(() => {
+        if (!walletAddress || !amount || parseFloat(amount) <= 0) {
+            setQuotePreview(null);
+            return;
+        }
+        if (market.status !== 'active') {
+            setQuotePreview(null);
+            return;
+        }
+
+        const outputMint = getMintAddress(initialSide);
+        if (!outputMint) {
+            setQuotePreview(null);
+            return;
+        }
+
+        const debounce = setTimeout(async () => {
+            try {
+                const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000).toString();
+                const orderResponse = await requestOrder({
+                    userPublicKey: walletAddress,
+                    inputMint: USDC_MINT,
+                    outputMint,
+                    amount: amountInSmallestUnit,
+                    slippageBps: 100,
+                });
+
+                const spentUsdc = orderResponse.inAmount
+                    ? Number(orderResponse.inAmount) / 1_000_000
+                    : Number(amountInSmallestUnit) / 1_000_000;
+                const receivedTokens = orderResponse.outAmount
+                    ? Number(orderResponse.outAmount) / 1_000_000
+                    : null;
+                const entryPrice =
+                    receivedTokens && receivedTokens > 0 ? spentUsdc / receivedTokens : null;
+
+                setQuotePreview({
+                    estimatedSpendUsdc: Number.isFinite(spentUsdc) ? spentUsdc.toFixed(6) : undefined,
+                    estimatedTokens: Number.isFinite(receivedTokens)
+                        ? receivedTokens?.toFixed(6)
+                        : undefined,
+                    entryPrice: entryPrice !== null && Number.isFinite(entryPrice)
+                        ? entryPrice.toFixed(10)
+                        : undefined,
+                });
+            } catch (error) {
+                setQuotePreview(null);
+            }
+        }, 450);
+
+        return () => clearTimeout(debounce);
+    }, [amount, walletAddress, market.status, initialSide]);
 
     // Place order handler
     const handlePlaceOrder = async () => {
@@ -136,43 +177,61 @@ export default function TradeDrawer({ isOpen, onClose, market, event, initialSid
         try {
             const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000).toString();
 
-            const orderResponse: OrderResponse = await requestOrder({
-                userPublicKey: walletAddress,
-                inputMint: USDC_MINT,
-                outputMint: outputMint,
-                amount: amountInSmallestUnit,
-                slippageBps: 100,
-            });
+            const attemptOrder = async () => {
+                const orderResponse: OrderResponse = await requestOrder({
+                    userPublicKey: walletAddress,
+                    inputMint: USDC_MINT,
+                    outputMint: outputMint,
+                    amount: amountInSmallestUnit,
+                    slippageBps: 100,
+                });
 
-            setStatus('Signing transaction...');
+                setStatus('Signing transaction...');
 
-            const transactionBase64 = orderResponse.transaction || orderResponse.openTransaction;
-            if (!transactionBase64) {
-                throw new Error('No transaction found in order response');
+                const transactionBase64 = orderResponse.transaction || orderResponse.openTransaction;
+                if (!transactionBase64) {
+                    throw new Error('No transaction found in order response');
+                }
+
+                const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
+
+                const signResult = await signTransaction({
+                    transaction: transactionBytes,
+                    wallet: solanaWallet,
+                });
+
+                if (!signResult?.signedTransaction) {
+                    throw new Error('No signed transaction received');
+                }
+
+                const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
+                    ? signResult.signedTransaction
+                    : new Uint8Array(signResult.signedTransaction);
+
+                setStatus('Sending transaction...');
+
+                const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
+                const signature = await connection.sendTransaction(signedTransaction, {
+                    skipPreflight: true,
+                    maxRetries: 3,
+                });
+
+                return { orderResponse, signature };
+            };
+
+            let orderResponse: OrderResponse;
+            let signature: string;
+            try {
+                ({ orderResponse, signature } = await attemptOrder());
+            } catch (error: any) {
+                const msg = (error?.message || '').toLowerCase();
+                const shouldRetry =
+                    msg.includes('transaction simulation failed') ||
+                    msg.includes('blockhash not found');
+                if (!shouldRetry) throw error;
+                setStatus('Refreshing quote and retrying...');
+                ({ orderResponse, signature } = await attemptOrder());
             }
-
-            const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
-
-            const signResult = await signTransaction({
-                transaction: transactionBytes,
-                wallet: solanaWallet,
-            });
-
-            if (!signResult?.signedTransaction) {
-                throw new Error('No signed transaction received');
-            }
-
-            const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
-                ? signResult.signedTransaction
-                : new Uint8Array(signResult.signedTransaction);
-
-            setStatus('Sending transaction...');
-
-            const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
-            const signature = await connection.sendTransaction(signedTransaction, {
-                skipPreflight: true,
-                maxRetries: 3,
-            });
 
             setStatus('Transaction submitted! Confirming...');
 
@@ -182,7 +241,7 @@ export default function TradeDrawer({ isOpen, onClose, market, event, initialSid
             let confirmationStatus;
 
             while (attempts < maxAttempts) {
-                const statusResult = await connection.getSignatureStatuses([signature]);
+            const statusResult = await connection.getSignatureStatuses([signature]);
                 confirmationStatus = statusResult.value[0];
 
                 if (confirmationStatus?.err) {
@@ -259,7 +318,7 @@ export default function TradeDrawer({ isOpen, onClose, market, event, initialSid
                 marketTicker: market.ticker,
                 eventTicker: market.eventTicker || null,
                 side: initialSide,
-                amount: amount, // Store in dollars (user input)
+                amount: spentUsdc.toFixed(6), // Store actual inAmount (USDC spent)
                 transactionSig: signature,
                 entryPrice: entryPrice?.toString() || null,
             };
@@ -399,9 +458,9 @@ export default function TradeDrawer({ isOpen, onClose, market, event, initialSid
                                     </div>
                                 </div>
 
-                                {/* Potential Win */}
+                                {/* To Win */}
                                 <AnimatePresence>
-                                    {potentialReturn && (
+                                    {quotePreview?.estimatedTokens && (
                                         <motion.div
                                             className="mb-4 px-4 py-3 bg-[#22C55E]/10 rounded-xl border border-[#22C55E]/30"
                                             initial={{ opacity: 0, height: 0 }}
@@ -409,8 +468,27 @@ export default function TradeDrawer({ isOpen, onClose, market, event, initialSid
                                             exit={{ opacity: 0, height: 0 }}
                                         >
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm font-medium text-[#22C55E]">Potential Win</span>
-                                                <span className="text-xl font-bold text-[#22C55E] font-mono">${potentialReturn}</span>
+                                                <span className="text-sm font-medium text-[#22C55E]">To win</span>
+                                                <span className="text-xl font-bold text-[#22C55E] font-mono">
+                                                    ${quotePreview.estimatedTokens}
+                                                </span>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                                <AnimatePresence>
+                                    {quotePreview?.estimatedSpendUsdc && (
+                                        <motion.div
+                                            className="mb-4 px-4 py-3 bg-[var(--surface-hover)] rounded-xl border border-[var(--border-color)]"
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm font-medium text-[var(--text-secondary)]">Estimated spend</span>
+                                                <span className="text-xl font-bold text-[var(--text-primary)] font-mono">
+                                                    ${quotePreview.estimatedSpendUsdc}
+                                                </span>
                                             </div>
                                         </motion.div>
                                     )}

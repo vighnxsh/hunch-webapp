@@ -45,7 +45,7 @@ model Trade {
   entryPrice         Decimal?  @db.Decimal(20, 10)
   createdAt          DateTime  @default(now())
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  positionId         String?
+  positionId         String?   @db.Uuid
   position           Position? @relation(fields: [positionId], references: [id])
 
   @@index([userId])
@@ -58,35 +58,31 @@ model Trade {
   @@index([positionId])
 }
 
+enum PositionStatus {
+  OPEN
+  CLOSED
+}
+
 model Position {
-  id                  String    @id @default(cuid())
-  userId              String
-  marketTicker        String
-  eventTicker         String?
-  side                String    // "yes" or "no"
-  
-  // Cost Tracking (stored in human-readable USD/tokens, NOT raw decimals)
-  totalCostBasis      Float     @default(0)  // Total USDC spent on BUYs
-  totalTokensBought   Float     @default(0)  // Total tokens acquired
-  totalTokensSold     Float     @default(0)  // Total tokens sold
-  totalSellProceeds   Float     @default(0)  // Total USDC received from SELLs
-  
-  // Calculated PnL
-  realizedPnL         Float     @default(0)  // Locked-in profit/loss from sells
-  
-  // Status: OPEN, CLOSED, PARTIALLY_CLOSED
-  status              String    @default("OPEN")
-  
-  // Timestamps
-  openedAt            DateTime  @default(now())
-  closedAt            DateTime?
-  updatedAt           DateTime  @updatedAt
-  
-  // Relations
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trades              Trade[]
-  
-  @@unique([userId, marketTicker, side])
+  id            String         @id @default(uuid()) @db.Uuid
+  userId        String
+  marketTicker  String
+  eventTicker   String?
+  side          String         // "yes" or "no"
+  status        PositionStatus @default(OPEN)
+
+  openedAt      DateTime       @default(now())
+  closedAt      DateTime?
+  updatedAt     DateTime       @updatedAt
+
+  avgEntryPrice Decimal        @default(0) @db.Decimal(20, 10)
+  netQuantity   Decimal        @default(0) @db.Decimal(20, 10)
+  realizedPnL   Decimal        @default(0) @db.Decimal(20, 10)
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades        Trade[]
+
+  @@index([userId, marketTicker, side, status])
   @@index([userId])
   @@index([marketTicker])
   @@index([status])

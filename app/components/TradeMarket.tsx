@@ -46,27 +46,16 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
   const [currentTradeId, setCurrentTradeId] = useState<string | null>(null);
   const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
   const [pendingTradePayload, setPendingTradePayload] = useState<any | null>(null);
+  const [quotePreview, setQuotePreview] = useState<{
+    estimatedSpendUsdc?: string;
+    estimatedTokens?: string;
+    entryPrice?: string;
+  } | null>(null);
   const [lastQuoteSummary, setLastQuoteSummary] = useState<{
     estimatedSpendUsdc?: string;
     estimatedTokens?: string;
     entryPrice?: string;
   } | null>(null);
-
-  // Calculate "to win" amount based on market price
-  const calculateToWin = (): string | null => {
-    if (!amount || parseFloat(amount) <= 0) return null;
-
-    const price = side === 'yes'
-      ? (market.yesAsk ? parseFloat(market.yesAsk) : null)
-      : (market.noAsk ? parseFloat(market.noAsk) : null);
-
-    if (!price || price <= 0) return null;
-
-    const toWin = parseFloat(amount) / price;
-    return toWin.toFixed(2);
-  };
-
-  const toWinAmount = calculateToWin();
 
   // Get the first Solana wallet from useWallets
   const solanaWallet = wallets[0];
@@ -121,6 +110,59 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
     return mint;
   };
 
+  useEffect(() => {
+    if (!walletAddress || !amount || parseFloat(amount) <= 0) {
+      setQuotePreview(null);
+      return;
+    }
+    if (market.status !== 'active') {
+      setQuotePreview(null);
+      return;
+    }
+
+    const outputMint = getMintAddress(side);
+    if (!outputMint) {
+      setQuotePreview(null);
+      return;
+    }
+
+    const debounce = setTimeout(async () => {
+      try {
+        const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000).toString();
+        const orderResponse = await requestOrder({
+          userPublicKey: walletAddress,
+          inputMint: USDC_MINT,
+          outputMint,
+          amount: amountInSmallestUnit,
+          slippageBps: 100,
+        });
+
+        const spentUsdc = orderResponse.inAmount
+          ? Number(orderResponse.inAmount) / 1_000_000
+          : Number(amountInSmallestUnit) / 1_000_000;
+        const receivedTokens = orderResponse.outAmount
+          ? Number(orderResponse.outAmount) / 1_000_000
+          : null;
+        const entryPrice =
+          receivedTokens && receivedTokens > 0 ? spentUsdc / receivedTokens : null;
+
+        setQuotePreview({
+          estimatedSpendUsdc: Number.isFinite(spentUsdc) ? spentUsdc.toFixed(6) : undefined,
+          estimatedTokens: Number.isFinite(receivedTokens)
+            ? receivedTokens?.toFixed(6)
+            : undefined,
+          entryPrice: entryPrice !== null && Number.isFinite(entryPrice)
+            ? entryPrice.toFixed(10)
+            : undefined,
+        });
+      } catch (error) {
+        setQuotePreview(null);
+      }
+    }, 450);
+
+    return () => clearTimeout(debounce);
+  }, [amount, side, walletAddress, market.status]);
+
   /**
    * Real trade handler using DFlow API
    * 
@@ -170,60 +212,78 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
       // Convert amount to smallest unit (USDC has 6 decimals)
       const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000).toString();
 
-      // Request order from DFlow API
-      const orderResponse: OrderResponse = await requestOrder({
-        userPublicKey: walletAddress,
-        inputMint: USDC_MINT,
-        outputMint: outputMint,
-        amount: amountInSmallestUnit,
-        slippageBps: 100, // 1% slippage
-      });
+      const attemptOrder = async () => {
+        // Request order from DFlow API
+        const orderResponse: OrderResponse = await requestOrder({
+          userPublicKey: walletAddress,
+          inputMint: USDC_MINT,
+          outputMint: outputMint,
+          amount: amountInSmallestUnit,
+          slippageBps: 100, // 1% slippage
+        });
 
-      setStatus('Signing transaction...');
+        setStatus('Signing transaction...');
 
-      // Get transaction from DFlow API response - it's base64 encoded
-      const transactionBase64 = orderResponse.transaction || orderResponse.openTransaction;
-      if (!transactionBase64) {
-        throw new Error('No transaction found in order response');
+        // Get transaction from DFlow API response - it's base64 encoded
+        const transactionBase64 = orderResponse.transaction || orderResponse.openTransaction;
+        if (!transactionBase64) {
+          throw new Error('No transaction found in order response');
+        }
+
+        console.log('Extracting transaction from DFlow response:', {
+          hasTransaction: !!orderResponse.transaction,
+          hasOpenTransaction: !!orderResponse.openTransaction,
+          executionMode: orderResponse.executionMode,
+        });
+
+        // Decode the transaction from base64 to Uint8Array
+        const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
+
+        // Sign the transaction using Privy
+        const signResult = await signTransaction({
+          transaction: transactionBytes,
+          wallet: solanaWallet,
+        });
+
+        if (!signResult?.signedTransaction) {
+          throw new Error('No signed transaction received');
+        }
+
+        // Get the signed transaction as Uint8Array
+        const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
+          ? signResult.signedTransaction
+          : new Uint8Array(signResult.signedTransaction);
+
+        setStatus('Sending transaction...');
+
+        // Create VersionedTransaction from signed bytes and send it
+        const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
+
+        // Send the signed transaction to the network
+        const signature = await connection.sendTransaction(signedTransaction, {
+          skipPreflight: true, // Skip simulation for DFlow transactions
+          maxRetries: 3,
+        });
+
+        // connection.sendTransaction returns a Promise<string> with base58 signature
+        const signatureString = signature;
+
+        return { orderResponse, signatureString };
+      };
+
+      let orderResponse: OrderResponse;
+      let signatureString: string;
+      try {
+        ({ orderResponse, signatureString } = await attemptOrder());
+      } catch (error: any) {
+        const msg = (error?.message || '').toLowerCase();
+        const shouldRetry =
+          msg.includes('transaction simulation failed') ||
+          msg.includes('blockhash not found');
+        if (!shouldRetry) throw error;
+        setStatus('Refreshing quote and retrying...');
+        ({ orderResponse, signatureString } = await attemptOrder());
       }
-
-      console.log('Extracting transaction from DFlow response:', {
-        hasTransaction: !!orderResponse.transaction,
-        hasOpenTransaction: !!orderResponse.openTransaction,
-        executionMode: orderResponse.executionMode,
-      });
-
-      // Decode the transaction from base64 to Uint8Array
-      const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
-
-      // Sign the transaction using Privy
-      const signResult = await signTransaction({
-        transaction: transactionBytes,
-        wallet: solanaWallet,
-      });
-
-      if (!signResult?.signedTransaction) {
-        throw new Error('No signed transaction received');
-      }
-
-      // Get the signed transaction as Uint8Array
-      const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
-        ? signResult.signedTransaction
-        : new Uint8Array(signResult.signedTransaction);
-
-      setStatus('Sending transaction...');
-
-      // Create VersionedTransaction from signed bytes and send it
-      const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
-
-      // Send the signed transaction to the network
-      const signature = await connection.sendTransaction(signedTransaction, {
-        skipPreflight: true, // Skip simulation for DFlow transactions
-        maxRetries: 3,
-      });
-
-      // connection.sendTransaction returns a Promise<string> with base58 signature
-      const signatureString = signature;
 
       setStatus('Transaction submitted! Confirming...');
 
@@ -337,7 +397,7 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
         marketTicker: market.ticker,
         eventTicker: market.eventTicker || null,
         side: side,
-        amount: amount, // Store in dollars (user input)
+        amount: spentUsdc.toFixed(6), // Store actual inAmount (USDC spent)
         transactionSig: signatureString,
         // Store only entryPrice as requested (quote-implied), omit executed sizes.
         entryPrice: entryPrice !== null ? entryPrice.toString() : null,
@@ -559,11 +619,19 @@ export default function TradeMarket({ market, initialSide = 'yes' }: TradeMarket
             />
 
             {/* To Win Display */}
-            {toWinAmount && (
+            {quotePreview?.estimatedTokens && (
               <div className="mt-2 flex items-center justify-between animate-fadeIn">
                 <span className="text-sm text-[var(--text-secondary)]">To win</span>
                 <span className="text-lg font-bold text-green-400 font-number">
-                  ${toWinAmount}
+                  ${quotePreview.estimatedTokens}
+                </span>
+              </div>
+            )}
+            {quotePreview?.estimatedSpendUsdc && (
+              <div className="mt-2 flex items-center justify-between animate-fadeIn">
+                <span className="text-sm text-[var(--text-secondary)]">Estimated spend</span>
+                <span className="text-lg font-bold text-[var(--text-primary)] font-number">
+                  ${quotePreview.estimatedSpendUsdc}
                 </span>
               </div>
             )}

@@ -185,6 +185,7 @@ export default function WithdrawModal({
         transaction: transactionBytes,
         wallet: solanaWallet,
         chain: 'solana:mainnet',
+        options: { sponsor: true }, // Enable gas sponsorship
       });
 
       if (!result?.signature) {

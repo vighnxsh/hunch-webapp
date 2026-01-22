@@ -13,6 +13,10 @@ const getBaseUrl = () => {
 
 const INTERNAL_API_PREFIX = `${getBaseUrl()}/api/dflow`;
 
+// Platform fee configuration
+const PLATFORM_FEE_SCALE = '50'; // 50 bps (0.5%)
+const PLATFORM_FEE_ACCOUNT = 'CjH6XsvFD6poErKvN8fj7hxEUKj2t2xeP5xHRo9Lzys2';
+
 export interface OrderRequest {
   userPublicKey: string;
   inputMint: string;
@@ -69,6 +73,11 @@ export async function requestOrder(params: OrderRequest): Promise<OrderResponse>
   const slippageBps = params.slippageBps ?? 100;
   queryParams.append("slippageBps", slippageBps.toString());
 
+  // Add platform fee parameters
+  // Note: For prediction market trades, platformFeeMode is ignored - fee is always collected in USDC
+  queryParams.append("platformFeeScale", PLATFORM_FEE_SCALE);
+  queryParams.append("feeAccount", PLATFORM_FEE_ACCOUNT);
+
   const url = `${INTERNAL_API_PREFIX}/quote?${queryParams.toString()}`;
 
   // Log for debugging - verify URL format matches expected format
@@ -80,6 +89,8 @@ export async function requestOrder(params: OrderRequest): Promise<OrderResponse>
       outputMint: params.outputMint,
       amount: params.amount,
       slippageBps,
+      platformFeeScale: PLATFORM_FEE_SCALE,
+      feeAccount: PLATFORM_FEE_ACCOUNT,
     },
     // Verify all required params are present
     hasAllParams: {

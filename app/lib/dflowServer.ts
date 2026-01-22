@@ -144,6 +144,10 @@ export interface EventCandlesticksResponse {
     market_tickers: string[];
 }
 
+// Platform fee configuration
+const PLATFORM_FEE_SCALE = '50'; // 50 bps (0.5%)
+const PLATFORM_FEE_ACCOUNT = 'CjH6XsvFD6poErKvN8fj7hxEUKj2t2xeP5xHRo9Lzys2';
+
 export interface OrderRequest {
     userPublicKey: string;
     inputMint: string;
@@ -372,6 +376,9 @@ export async function fetchEventCandlesticksServer(
 
 /**
  * Request order/quote from DFlow Trade API (server-only)
+ * Automatically applies platform fees based on trade direction:
+ * - Buy (USDC → token): platformFeeMode = inputMint (fee from USDC input)
+ * - Sell (token → USDC): platformFeeMode = outputMint (fee from USDC output)
  */
 export async function requestOrderServer(params: OrderRequest): Promise<OrderResponse> {
     const queryParams = new URLSearchParams();
@@ -383,6 +390,11 @@ export async function requestOrderServer(params: OrderRequest): Promise<OrderRes
     const slippageBps = params.slippageBps ?? 100;
     queryParams.append("slippageBps", slippageBps.toString());
 
+    // Add platform fee parameters
+    // Note: For prediction market trades, platformFeeMode is ignored - fee is always collected in USDC
+    queryParams.append("platformFeeScale", PLATFORM_FEE_SCALE);
+    queryParams.append("feeAccount", PLATFORM_FEE_ACCOUNT);
+
     const url = `${TRADE_API_BASE_URL}/order?${queryParams.toString()}`;
 
     console.log('[dflowServer] Requesting order:', {
@@ -391,6 +403,8 @@ export async function requestOrderServer(params: OrderRequest): Promise<OrderRes
         outputMint: params.outputMint,
         amount: params.amount,
         slippageBps,
+        platformFeeScale: PLATFORM_FEE_SCALE,
+        feeAccount: PLATFORM_FEE_ACCOUNT,
     });
 
     const response = await fetch(url, {

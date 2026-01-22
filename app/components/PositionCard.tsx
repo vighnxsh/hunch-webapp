@@ -177,6 +177,7 @@ export default function PositionCard({ position, allowActions = false, isPreviou
     const result = await signAndSendTransaction({
       transaction: txBytes,
       wallet: solanaWallet,
+      options: { sponsor: true }, // Enable gas sponsorship
     });
 
     if (!result?.signature) {
@@ -239,6 +240,7 @@ export default function PositionCard({ position, allowActions = false, isPreviou
       const result = await signAndSendTransaction({
         transaction: txBytes,
         wallet: solanaWallet,
+        options: { sponsor: true }, // Enable gas sponsorship
       });
 
       if (!result?.signature) {

@@ -147,9 +147,9 @@ function ReceiptCard({
                                         ? 'Enter Amount'
                                         : !quoteReady
                                             ? 'Fetching Quote...'
-                                        : authenticated
-                                            ? 'Place Trade'
-                                            : 'Sign in'}
+                                            : authenticated
+                                                ? 'Place Trade'
+                                                : 'Sign in'}
                             </button>
 
                             {/* Status Message */}
@@ -378,6 +378,7 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
                 const result = await signAndSendTransaction({
                     transaction: transactionBytes,
                     wallet: solanaWallet,
+                    options: { sponsor: true }, // Enable gas sponsorship
                 });
 
                 if (!result?.signature) {

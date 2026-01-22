@@ -4,7 +4,7 @@ import { syncUser } from '@/app/lib/userService';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { privyId, walletAddress, displayName, avatarUrl } = body;
+    const { privyId, walletAddress, displayName, avatarUrl, preferences } = body;
 
     if (!privyId || !walletAddress) {
       return NextResponse.json(
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
       walletAddress,
       displayName,
       avatarUrl,
+      preferences,
     });
 
     return NextResponse.json(user, { status: 200 });

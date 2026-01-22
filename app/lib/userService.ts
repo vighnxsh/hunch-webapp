@@ -6,6 +6,7 @@ export interface CreateUserData {
   walletAddress: string;
   displayName?: string;
   avatarUrl?: string;
+  preferences?: string[];
 }
 
 export interface UserProfile {
@@ -14,6 +15,7 @@ export interface UserProfile {
   walletAddress: string;
   displayName: string | null;
   avatarUrl: string | null;
+  preferences: string[];
   followerCount: number;
   followingCount: number;
   createdAt: Date;
@@ -46,6 +48,7 @@ export async function syncUser(data: CreateUserData): Promise<UserProfile> {
         walletAddress: data.walletAddress,
         displayName: data.displayName ?? existingUser.displayName,
         avatarUrl: data.avatarUrl ?? existingUser.avatarUrl,
+        preferences: data.preferences ?? existingUser.preferences,
       },
       select: {
         id: true,
@@ -53,6 +56,7 @@ export async function syncUser(data: CreateUserData): Promise<UserProfile> {
         walletAddress: true,
         displayName: true,
         avatarUrl: true,
+        preferences: true,
         followerCount: true,
         followingCount: true,
         createdAt: true,
@@ -99,6 +103,7 @@ export async function syncUser(data: CreateUserData): Promise<UserProfile> {
       walletAddress: data.walletAddress,
       displayName: data.displayName,
       avatarUrl: data.avatarUrl,
+      preferences: data.preferences ?? [],
     },
     select: {
       id: true,
@@ -106,6 +111,7 @@ export async function syncUser(data: CreateUserData): Promise<UserProfile> {
       walletAddress: true,
       displayName: true,
       avatarUrl: true,
+      preferences: true,
       followerCount: true,
       followingCount: true,
       createdAt: true,
@@ -160,6 +166,7 @@ export async function getUserById(userId: string, skipCache: boolean = false): P
       walletAddress: true,
       displayName: true,
       avatarUrl: true,
+      preferences: true,
       followerCount: true,
       followingCount: true,
       createdAt: true,

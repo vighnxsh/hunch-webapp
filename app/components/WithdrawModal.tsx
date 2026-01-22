@@ -184,8 +184,9 @@ export default function WithdrawModal({
       const result = await signAndSendTransaction({
         transaction: transactionBytes,
         wallet: solanaWallet,
-        chain: 'solana:mainnet',
-        options: { sponsor: true }, // Enable gas sponsorship
+        options: {
+          sponsor: true, // Enable Privy gas sponsorship
+        },
       });
 
       if (!result?.signature) {
@@ -223,17 +224,20 @@ export default function WithdrawModal({
       }, 3000);
 
     } catch (error: any) {
-      console.error('Withdraw error:', error);
+      console.error('Withdraw error (full):', error);
+      console.error('Withdraw error message:', error?.message);
 
       let msg = 'Transaction failed';
       if (error?.message?.includes('rejected') || error?.message?.includes('cancelled') || error?.message?.includes('denied')) {
         msg = 'Transaction cancelled';
       } else if (error?.message?.includes('insufficient') || error?.message?.includes('balance')) {
-        msg = 'Insufficient balance for fees';
+        // Log more details about insufficient balance errors
+        console.error('Insufficient balance error - check if Privy sponsorship is enabled for Solana');
+        msg = 'Insufficient balance - ensure Privy gas sponsorship is configured';
       } else if (error?.message?.includes('network') || error?.message?.includes('timeout')) {
         msg = 'Network error - try again';
       } else if (error?.message) {
-        msg = error.message.length > 50 ? error.message.slice(0, 50) + '...' : error.message;
+        msg = error.message.length > 80 ? error.message.slice(0, 80) + '...' : error.message;
       }
 
       setStatus({ type: 'error', message: msg });

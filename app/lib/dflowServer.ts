@@ -145,6 +145,8 @@ export interface EventCandlesticksResponse {
 }
 
 // Platform fee configuration
+// Set ENABLE_PLATFORM_FEES=true in .env to enable platform fees
+const ENABLE_PLATFORM_FEES = process.env.ENABLE_PLATFORM_FEES === 'true';
 const PLATFORM_FEE_SCALE = '50'; // 50 bps (0.5%)
 const PLATFORM_FEE_ACCOUNT = 'CjH6XsvFD6poErKvN8fj7hxEUKj2t2xeP5xHRo9Lzys2';
 
@@ -390,10 +392,12 @@ export async function requestOrderServer(params: OrderRequest): Promise<OrderRes
     const slippageBps = params.slippageBps ?? 100;
     queryParams.append("slippageBps", slippageBps.toString());
 
-    // Add platform fee parameters
-    // Note: For prediction market trades, platformFeeMode is ignored - fee is always collected in USDC
-    queryParams.append("platformFeeScale", PLATFORM_FEE_SCALE);
-    queryParams.append("feeAccount", PLATFORM_FEE_ACCOUNT);
+    // Add platform fee parameters only if enabled
+    // Set ENABLE_PLATFORM_FEES=true in .env to enable
+    if (ENABLE_PLATFORM_FEES) {
+        queryParams.append("platformFeeScale", PLATFORM_FEE_SCALE);
+        queryParams.append("feeAccount", PLATFORM_FEE_ACCOUNT);
+    }
 
     const url = `${TRADE_API_BASE_URL}/order?${queryParams.toString()}`;
 
@@ -403,8 +407,11 @@ export async function requestOrderServer(params: OrderRequest): Promise<OrderRes
         outputMint: params.outputMint,
         amount: params.amount,
         slippageBps,
-        platformFeeScale: PLATFORM_FEE_SCALE,
-        feeAccount: PLATFORM_FEE_ACCOUNT,
+        platformFeesEnabled: ENABLE_PLATFORM_FEES,
+        ...(ENABLE_PLATFORM_FEES && {
+            platformFeeScale: PLATFORM_FEE_SCALE,
+            feeAccount: PLATFORM_FEE_ACCOUNT,
+        }),
     });
 
     const response = await fetch(url, {

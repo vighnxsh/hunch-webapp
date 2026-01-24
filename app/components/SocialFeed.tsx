@@ -1,40 +1,39 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
-import { formatMarketTitle } from '../lib/marketUtils';
-import { getCachedUserId, syncUserOnLogin, needsSync } from '../lib/authSync';
-import { fetchMarketDetails, fetchEventDetails, Market, EventDetails } from '../lib/api';
 import { useAppData } from '../contexts/AppDataContext';
-import FeedChartItem from './FeedChartItem';
-import { TradeEntry } from './SocialPriceChart';
+import SignalFeedItem from './SignalFeedItem';
 
-// Market data cache for feed items
-interface MarketData {
-  market: Market | null;
-  event: EventDetails | null;
-  loading: boolean;
-  error: string | null;
-}
-
-interface FeedItem {
+// Feed item type from API
+interface FeedItemResponse {
   id: string;
-  userId: string;
-  marketTicker: string;
-  eventTicker: string | null;
-  side: string;
-  amount: string;
-  transactionSig: string;
-  quote: string | null;
-  createdAt: string;
+  type: 'TRADE_MILESTONE' | 'POSITION_CLOSED' | 'NEWS';
   user: {
     id: string;
     displayName: string | null;
     avatarUrl: string | null;
     walletAddress: string;
-  };
+  } | null;
+  marketTicker: string;
+  eventTicker: string | null;
+  side: 'yes' | 'no' | null;
+  milestoneType: string | null;
+  milestoneValue: number | null;
+  finalPnL: number | null;
+  evidence: {
+    id: string;
+    headline: string | null;
+    explanation: string | null;
+    classification: string;
+    highlightScore: number;
+    sourceUrls: string[];
+    sourceTitles: string[];
+  } | null;
+  createdAt: string;
+  score: number;
 }
 
 interface SearchResult {
@@ -49,7 +48,7 @@ interface SearchResult {
   };
 }
 
-// User Search Result Item Component - Defined before main component to avoid hook order issues
+// User Search Result Item Component
 function UserSearchResultItem({
   user,
   currentUserId,
@@ -80,7 +79,7 @@ function UserSearchResultItem({
   }, [currentUserId, user.id]);
 
   const handleFollowClick = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click navigation
+    e.stopPropagation();
     if (!currentUserId || currentUserId === user.id || followLoading) return;
 
     setFollowLoading(true);
@@ -89,20 +88,14 @@ function UserSearchResultItem({
         await fetch('/api/follow', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            followerId: currentUserId,
-            followingId: user.id,
-          }),
+          body: JSON.stringify({ followerId: currentUserId, followingId: user.id }),
         });
         setIsFollowing(false);
       } else {
         await fetch('/api/follow', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            followerId: currentUserId,
-            followingId: user.id,
-          }),
+          body: JSON.stringify({ followerId: currentUserId, followingId: user.id }),
         });
         setIsFollowing(true);
       }
@@ -115,7 +108,6 @@ function UserSearchResultItem({
   };
 
   const handleCardClick = () => {
-    // Use displayName (username) if available, otherwise fall back to userId
     const username = user.displayName || user.id;
     router.push(`/user/${encodeURIComponent(username)}`);
   };
@@ -153,13 +145,20 @@ function UserSearchResultItem({
   );
 }
 
+type FeedTab = 'for-you' | 'following';
+
 export default function SocialFeed() {
   const router = useRouter();
   const { ready, authenticated } = usePrivy();
-  const { currentUserId } = useAppData(); // Use context for current user
-  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const { currentUserId } = useAppData();
+
+  const [activeTab, setActiveTab] = useState<FeedTab>('for-you');
+  const [feedItems, setFeedItems] = useState<FeedItemResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+
+  // Search state
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -167,28 +166,32 @@ export default function SocialFeed() {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Market data cache for displaying event cards
-  const [marketDataCache, setMarketDataCache] = useState<Map<string, MarketData>>(new Map());
-  const loadedTickersRef = useRef<Set<string>>(new Set());
-
-  // Load feed - for authenticated users show personalized feed, for others show global
+  // Load feed when tab changes
   useEffect(() => {
     loadFeed();
-  }, [currentUserId, authenticated]);
+  }, [activeTab, currentUserId, authenticated]);
 
-  const loadFeed = async () => {
-    setLoading(true);
+  const loadFeed = async (cursor?: string) => {
+    if (!cursor) {
+      setLoading(true);
+      setFeedItems([]);
+    }
     setError(null);
 
     try {
-      // If authenticated and has userId, fetch personalized feed (following)
-      // Otherwise, fetch global feed (all recent trades)
-      let url = '/api/feed?limit=50';
+      let url: string;
 
-      if (authenticated && currentUserId) {
-        url += `&userId=${currentUserId}&mode=following`;
+      if (activeTab === 'following' && currentUserId) {
+        url = `/api/feed/following?userId=${currentUserId}&limit=20`;
       } else {
-        url += '&mode=global';
+        url = `/api/feed/for-you?limit=20`;
+        if (currentUserId) {
+          url += `&excludeUserId=${currentUserId}`;
+        }
+      }
+
+      if (cursor) {
+        url += `&cursor=${encodeURIComponent(cursor)}`;
       }
 
       const response = await fetch(url);
@@ -198,8 +201,13 @@ export default function SocialFeed() {
       }
 
       const data = await response.json();
-      // Feed is already sorted by most recent (newest first) from the API
-      setFeedItems(data);
+
+      if (cursor) {
+        setFeedItems(prev => [...prev, ...data.items]);
+      } else {
+        setFeedItems(data.items);
+      }
+      setNextCursor(data.nextCursor);
     } catch (err: any) {
       setError(err.message || 'Failed to load feed');
       console.error('Error loading feed:', err);
@@ -208,57 +216,7 @@ export default function SocialFeed() {
     }
   };
 
-  // Fetch market and event data for feed items
-  useEffect(() => {
-    const fetchMarketData = async (marketTicker: string) => {
-      // Skip if already loaded or loading
-      if (loadedTickersRef.current.has(marketTicker)) return;
-      loadedTickersRef.current.add(marketTicker);
-
-      // Set loading state
-      setMarketDataCache(prev => {
-        const newCache = new Map(prev);
-        newCache.set(marketTicker, { market: null, event: null, loading: true, error: null });
-        return newCache;
-      });
-
-      try {
-        // 1. Fetch market details
-        const market = await fetchMarketDetails(marketTicker);
-
-        let eventData: EventDetails | null = null;
-
-        // 2. If market has eventTicker, fetch event details
-        if (market.eventTicker) {
-          try {
-            eventData = await fetchEventDetails(market.eventTicker);
-          } catch (eventError) {
-            console.error('Error fetching event details:', eventError);
-          }
-        }
-
-        setMarketDataCache(prev => {
-          const newCache = new Map(prev);
-          newCache.set(marketTicker, { market, event: eventData, loading: false, error: null });
-          return newCache;
-        });
-      } catch (error: any) {
-        console.error('Error fetching market data:', error);
-        setMarketDataCache(prev => {
-          const newCache = new Map(prev);
-          newCache.set(marketTicker, { market: null, event: null, loading: false, error: error.message });
-          return newCache;
-        });
-      }
-    };
-
-    // Fetch data for all feed items
-    feedItems.forEach(item => {
-      fetchMarketData(item.marketTicker);
-    });
-  }, [feedItems]);
-
-  // Debounced search function (only works for authenticated users)
+  // Debounced search function
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim() || !authenticated || !currentUserId) {
       setSearchResults([]);
@@ -271,7 +229,6 @@ export default function SocialFeed() {
       const response = await fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}&type=displayName`);
       if (response.ok) {
         const users = await response.json();
-        // Filter out current user
         const filtered = users.filter((u: SearchResult) => u.id !== currentUserId);
         setSearchResults(filtered);
       } else {
@@ -289,28 +246,21 @@ export default function SocialFeed() {
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
 
-    // Clear previous timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // If empty, clear results immediately
     if (!value.trim()) {
       setSearchResults([]);
       setSearching(false);
       return;
     }
 
-    // Show searching indicator
     setSearching(true);
-
-    // Debounce the search
     searchTimeoutRef.current = setTimeout(() => {
       performSearch(value);
-    }, 300); // 300ms debounce
+    }, 300);
   }, [performSearch]);
-
-
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -321,69 +271,12 @@ export default function SocialFeed() {
     };
   }, []);
 
-
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (diffInSeconds < 60) {
-      return `${diffInSeconds}s ago`;
-    } else if (diffInSeconds < 3600) {
-      const minutes = Math.floor(diffInSeconds / 60);
-      return `${minutes}m ago`;
-    } else if (diffInSeconds < 86400) {
-      const hours = Math.floor(diffInSeconds / 3600);
-      return `${hours}h ago`;
-    } else {
-      const days = Math.floor(diffInSeconds / 86400);
-      return `${days}d ago`;
+  // Load more when scrolling
+  const handleLoadMore = () => {
+    if (nextCursor && !loading) {
+      loadFeed(nextCursor);
     }
   };
-
-  const formatAmount = (amount: string) => {
-    // Convert from smallest unit (real trades only)
-    const num = parseFloat(amount) / 1_000_000;
-    return num.toFixed(2);
-  };
-
-  const truncateAddress = (address: string) => {
-    return `${address.slice(0, 4)}...${address.slice(-4)}`;
-  };
-
-  // Group trades by marketTicker for chart view
-  const groupedTradesByMarket = useMemo(() => {
-    const groups = new Map<string, TradeEntry[]>();
-
-    feedItems.forEach(item => {
-      const existing = groups.get(item.marketTicker) || [];
-      // Convert FeedItem to TradeEntry format
-      const tradeEntry: TradeEntry = {
-        id: item.id,
-        userId: item.userId,
-        side: item.side as 'yes' | 'no',
-        amount: item.amount,
-        createdAt: item.createdAt,
-        user: {
-          id: item.user.id,
-          displayName: item.user.displayName,
-          avatarUrl: item.user.avatarUrl,
-          walletAddress: item.user.walletAddress,
-        },
-      };
-      existing.push(tradeEntry);
-      groups.set(item.marketTicker, existing);
-    });
-
-    // Convert to array and sort by most recent trade
-    return Array.from(groups.entries())
-      .map(([marketTicker, trades]) => ({
-        marketTicker,
-        trades,
-        mostRecentTradeTime: Math.max(...trades.map(t => new Date(t.createdAt).getTime())),
-      }))
-      .sort((a, b) => b.mostRecentTradeTime - a.mostRecentTradeTime);
-  }, [feedItems]);
 
   if (!ready) {
     return (
@@ -395,244 +288,247 @@ export default function SocialFeed() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Minimal Search Bar - Left aligned, Expandable - Hidden on mobile, only for authenticated users */}
-
-      {authenticated && <div className="hidden md:flex justify-center relative mb-4 z-50">
-        <div className={`relative transition-all duration-300 ease-out ${isSearchFocused || searchQuery ? 'w-96' : 'w-72'}`}>
-          {/* Search Icon */}
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-            {searching ? (
-              <svg className="w-4 h-4 text-yellow-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            )}
-          </div>
-
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
-            placeholder="Search friends..."
-            className={`w-full  pr-9 pl-18  py-2.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm transition-all duration-300 outline-none ${isSearchFocused ? 'bg-[var(--card-bg)]' : 'hover:bg-[var(--card-bg)]'}`}
-          />
-
-          {/* Clear button */}
-          {searchQuery && (
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSearchResults([]);
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        {/* Search Results - Dropdown Overlay on top of everything */}
-        {(searchResults.length > 0 || (searchQuery.trim() && !searching && searchResults.length === 0)) && (
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-96 bg-[var(--card-bg)] rounded-xl shadow-2xl border border-[var(--border-color)] max-h-72 overflow-y-auto">
-            {searchResults.length > 0 ? (
-              <div className="p-2">
-                {searchResults.map((result) => (
-                  <UserSearchResultItem
-                    key={result.id}
-                    user={result}
-                    currentUserId={currentUserId}
-                    onFollowChange={() => {
-                      performSearch(searchQuery);
-                      loadFeed();
-                    }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-[var(--text-tertiary)] text-sm">No users found</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>}
-
-      {/* Feed Section */}
-      <div>
-        {/* Header with Refresh */}
-        <div className="flex items-center justify-end mb-5">
-          {/* Refresh Button */}
-          <button
-            onClick={loadFeed}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-xs font-medium"
-          >
-            {loading ? (
-              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            )}
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className="text-red-400 text-sm">{error}</p>
-          </div>
-        )}
-
-        {loading && feedItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-[var(--text-secondary)] text-sm">Loading feed...</p>
-          </div>
-        ) : feedItems.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-hover)] flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-[var(--text-tertiary)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-            </div>
-            <p className="text-[var(--text-secondary)] text-lg mb-2">No trades yet</p>
-            <p className="text-[var(--text-tertiary)] text-sm">
-              {authenticated
-                ? 'Follow users to see their trades in your feed'
-                : 'Be the first to make a prediction!'}
-            </p>
-          </div>
-        ) : (
-          /* Chart View - Individual Trades */
-          <div className="space-y-4">
-            {feedItems.map((item) => {
-              // Convert FeedItem to TradeEntry for FeedChartItem
-              const tradeEntry: TradeEntry = {
-                id: item.id,
-                userId: item.userId,
-                side: item.side as 'yes' | 'no',
-                amount: item.amount,
-                createdAt: item.createdAt,
-                user: {
-                  id: item.user.id,
-                  displayName: item.user.displayName,
-                  avatarUrl: item.user.avatarUrl,
-                  walletAddress: item.user.walletAddress,
-                },
-              };
-              return (
-                <FeedChartItem
-                  key={item.id}
-                  trade={tradeEntry}
-                  marketTicker={item.marketTicker}
-                  quote={item.quote}
-                />
-              );
-            })}
-          </div>
-        )}
+    <div className="space-y-4">
+      {/* Tab Switcher */}
+      <div className="flex items-center justify-center gap-1 bg-[var(--surface-hover)] rounded-full p-1 max-w-xs mx-auto">
+        <button
+          onClick={() => setActiveTab('for-you')}
+          className={`flex-1 px-4 py-2 text-sm font-semibold rounded-full transition-all ${activeTab === 'for-you'
+              ? 'bg-yellow-400 text-black'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+        >
+          For You
+        </button>
+        <button
+          onClick={() => setActiveTab('following')}
+          className={`flex-1 px-4 py-2 text-sm font-semibold rounded-full transition-all ${activeTab === 'following'
+              ? 'bg-yellow-400 text-black'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+        >
+          Following
+        </button>
       </div>
 
-
-      {/* Mobile Floating Search - bubble expands left into bar (authenticated) */}
-      {
-        authenticated && (
-          <motion.div
-            className="md:hidden fixed bottom-28 right-4 z-50 pointer-events-auto"
-            animate={{
-              width: isMobileSearchOpen ? '80vw' : '56px',
-              maxWidth: isMobileSearchOpen ? 320 : 56,
-              paddingLeft: isMobileSearchOpen ? 16 : 0,
-              paddingRight: isMobileSearchOpen ? 16 : 0,
-            }}
-            transition={{ type: 'tween', duration: 0.22, ease: 'easeInOut' }}
-          >
-            <div className="flex items-center gap-2 w-full h-14 px-2 border border-[var(--border-color)] rounded-full shadow-2xl bg-[var(--surface)]/90 backdrop-blur-sm origin-right">
-              <button
-                onClick={() => setIsMobileSearchOpen((prev) => !prev)}
-                aria-label="Toggle search"
-                className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--text-primary)] hover:text-yellow-400 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      {/* Search Bar - Desktop only, authenticated only */}
+      {authenticated && (
+        <div className="hidden md:flex justify-center relative z-50">
+          <div className={`relative transition-all duration-300 ease-out ${isSearchFocused || searchQuery ? 'w-96' : 'w-72'}`}>
+            {/* Search Icon */}
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              {searching ? (
+                <svg className="w-4 h-4 text-yellow-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-              </button>
+              )}
+            </div>
 
-              <motion.input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search friends..."
-                className="flex-1 min-w-0 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm outline-none"
-                animate={{
-                  opacity: isMobileSearchOpen ? 1 : 0,
-                  x: isMobileSearchOpen ? 0 : 6,
-                  width: isMobileSearchOpen ? '100%' : '0%',
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              placeholder="Search friends..."
+              className={`w-full pr-9 pl-10 py-2.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm transition-all duration-300 outline-none ${isSearchFocused ? 'bg-[var(--card-bg)]' : 'hover:bg-[var(--card-bg)]'}`}
+            />
+
+            {/* Clear button */}
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchResults([]);
                 }}
-                transition={{ type: 'tween', duration: 0.18, ease: 'easeOut' }}
-                style={{ pointerEvents: isMobileSearchOpen ? 'auto' : 'none' }}
-              />
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
 
-              <AnimatePresence mode="popLayout">
-                {isMobileSearchOpen && searchQuery && (
-                  <motion.button
-                    key="clear"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setSearchResults([]);
-                    }}
-                    className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                    aria-label="Clear search"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 0.14, ease: 'easeOut' }}
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </motion.button>
-                )}
-              </AnimatePresence>
+          {/* Search Results Dropdown */}
+          {(searchResults.length > 0 || (searchQuery.trim() && !searching && searchResults.length === 0)) && (
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-96 bg-[var(--card-bg)] rounded-xl shadow-2xl border border-[var(--border-color)] max-h-72 overflow-y-auto">
+              {searchResults.length > 0 ? (
+                <div className="p-2">
+                  {searchResults.map((result) => (
+                    <UserSearchResultItem
+                      key={result.id}
+                      user={result}
+                      currentUserId={currentUserId}
+                      onFollowChange={() => {
+                        performSearch(searchQuery);
+                        loadFeed();
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-[var(--text-tertiary)] text-sm">No users found</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
-              {isMobileSearchOpen && (
-                <button
-                  onClick={() => setIsMobileSearchOpen(false)}
+      {/* Header with Refresh */}
+      <div className="flex items-center justify-end">
+        <button
+          onClick={() => loadFeed()}
+          disabled={loading}
+          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-hover)] hover:bg-[var(--input-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-xs font-medium"
+        >
+          {loading ? (
+            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          )}
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <p className="text-red-400 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Feed Content */}
+      {loading && feedItems.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-[var(--text-secondary)] text-sm">Loading feed...</p>
+        </div>
+      ) : feedItems.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-hover)] flex items-center justify-center">
+            <svg className="w-8 h-8 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </div>
+          <p className="text-[var(--text-secondary)] text-lg mb-2">
+            {activeTab === 'following' ? 'No activity from people you follow' : 'No signals yet'}
+          </p>
+          <p className="text-[var(--text-tertiary)] text-sm">
+            {activeTab === 'following'
+              ? 'Follow traders to see their milestones here'
+              : 'When traders hit milestones, they\'ll appear here'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <AnimatePresence mode="popLayout">
+            {feedItems.map((item) => (
+              <SignalFeedItem key={item.id} item={item} />
+            ))}
+          </AnimatePresence>
+
+          {/* Load More Button */}
+          {nextCursor && (
+            <div className="flex justify-center py-4">
+              <button
+                onClick={handleLoadMore}
+                disabled={loading}
+                className="px-6 py-2 bg-[var(--surface-hover)] hover:bg-[var(--card-bg)] text-[var(--text-secondary)] rounded-full text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Loading...' : 'Load More'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Mobile Floating Search */}
+      {authenticated && (
+        <motion.div
+          className="md:hidden fixed bottom-28 right-4 z-50 pointer-events-auto"
+          animate={{
+            width: isMobileSearchOpen ? '80vw' : '56px',
+            maxWidth: isMobileSearchOpen ? 320 : 56,
+            paddingLeft: isMobileSearchOpen ? 16 : 0,
+            paddingRight: isMobileSearchOpen ? 16 : 0,
+          }}
+          transition={{ type: 'tween', duration: 0.22, ease: 'easeInOut' }}
+        >
+          <div className="flex items-center gap-2 w-full h-14 px-2 border border-[var(--border-color)] rounded-full shadow-2xl bg-[var(--surface)]/90 backdrop-blur-sm origin-right">
+            <button
+              onClick={() => setIsMobileSearchOpen((prev) => !prev)}
+              aria-label="Toggle search"
+              className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--text-primary)] hover:text-yellow-400 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
+            <motion.input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search friends..."
+              className="flex-1 min-w-0 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-tertiary)] text-sm outline-none"
+              animate={{
+                opacity: isMobileSearchOpen ? 1 : 0,
+                x: isMobileSearchOpen ? 0 : 6,
+                width: isMobileSearchOpen ? '100%' : '0%',
+              }}
+              transition={{ type: 'tween', duration: 0.18, ease: 'easeOut' }}
+              style={{ pointerEvents: isMobileSearchOpen ? 'auto' : 'none' }}
+            />
+
+            <AnimatePresence mode="popLayout">
+              {isMobileSearchOpen && searchQuery && (
+                <motion.button
+                  key="clear"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}
                   className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                  aria-label="Close search"
+                  aria-label="Clear search"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.14, ease: 'easeOut' }}
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                </button>
+                </motion.button>
               )}
-            </div>
-          </motion.div>
-        )
-      }
-    </div >
+            </AnimatePresence>
+
+            {isMobileSearchOpen && (
+              <button
+                onClick={() => setIsMobileSearchOpen(false)}
+                className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                aria-label="Close search"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </div>
   );
 }

@@ -164,11 +164,6 @@ export function getTopHighlights(
 
       if (typeof score !== 'number') continue;
 
-      if (score < HIGHLIGHT_THRESHOLD) {
-        console.log(`[exaPipeline] Discarding highlight: Score ${score} < ${HIGHLIGHT_THRESHOLD}. "${sentence.substring(0, 50)}..."`);
-        continue;
-      }
-
       if (
         typeof sentence !== 'string' ||
         !sentence.trim()
@@ -385,14 +380,6 @@ export async function runPipelineForEvent(
 
       if (typeof score !== 'number') continue;
 
-      if (score < HIGHLIGHT_THRESHOLD) {
-        // Log only first 3 failures to avoid spam
-        if (logs.length < 20) {
-          log(`Discarding highlight: Score ${score.toFixed(3)} < ${HIGHLIGHT_THRESHOLD}`, { sentence: sentence.substring(0, 30) + '...' });
-        }
-        continue;
-      }
-
       if (typeof sentence !== 'string' || !sentence.trim()) continue;
 
       validHighlights.push({
@@ -408,7 +395,7 @@ export async function runPipelineForEvent(
   const topHighlights = validHighlights.sort((a, b) => b.score - a.score).slice(0, 3);
 
   if (topHighlights.length === 0) {
-    log('No highlights passed threshold', { threshold: HIGHLIGHT_THRESHOLD });
+    log('No highlights found in Exa results');
     return {
       eventTicker,
       outputs: [],

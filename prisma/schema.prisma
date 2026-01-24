@@ -7,47 +7,48 @@ datasource db {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  privyId        String   @unique
-  walletAddress  String   @unique
+  id             String     @id @default(cuid())
+  privyId        String     @unique
+  walletAddress  String     @unique
   displayName    String?
   avatarUrl      String?
-  preferences    String[] @default([])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  followerCount  Int      @default(0)
-  followingCount Int      @default(0)
-  followers      Follow[] @relation("Follower")
-  following      Follow[] @relation("Following")
+  preferences    String[]   @default([])
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  followerCount  Int        @default(0)
+  followingCount Int        @default(0)
+  followers      Follow[]   @relation("Follower")
+  following      Follow[]   @relation("Following")
   trades         Trade[]
   positions      Position[]
-  
+  feedItems      FeedItem[]
+
   // Copy trading relations
-  copySettingsAsFollower  CopySettings[] @relation("CopyFollower")
-  copySettingsAsLeader    CopySettings[] @relation("CopyLeader")
+  copySettingsAsFollower CopySettings[] @relation("CopyFollower")
+  copySettingsAsLeader   CopySettings[] @relation("CopyLeader")
 
   @@index([privyId])
   @@index([walletAddress])
 }
 
 model Trade {
-  id                 String    @id @default(cuid())
-  userId             String
-  marketTicker       String
-  eventTicker        String?
-  side               String
-  action             String    @default("BUY")
-  amount             String
-  executedInAmount   String?
-  executedOutAmount  String?
-  transactionSig     String
-  quote              String?
-  isDummy            Boolean   @default(true)
-  entryPrice         Decimal?  @db.Decimal(20, 10)
-  createdAt          DateTime  @default(now())
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  positionId         String?   @db.Uuid
-  position           Position? @relation(fields: [positionId], references: [id])
+  id                String    @id @default(cuid())
+  userId            String
+  marketTicker      String
+  eventTicker       String?
+  side              String
+  action            String    @default("BUY")
+  amount            String
+  executedInAmount  String?
+  executedOutAmount String?
+  transactionSig    String
+  quote             String?
+  isDummy           Boolean   @default(true)
+  entryPrice        Decimal?  @db.Decimal(20, 10)
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positionId        String?   @db.Uuid
+  position          Position? @relation(fields: [positionId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
@@ -65,23 +66,23 @@ enum PositionStatus {
 }
 
 model Position {
-  id            String         @id @default(uuid()) @db.Uuid
-  userId        String
-  marketTicker  String
-  eventTicker   String?
-  side          String         // "yes" or "no"
-  status        PositionStatus @default(OPEN)
+  id           String         @id @default(uuid()) @db.Uuid
+  userId       String
+  marketTicker String
+  eventTicker  String?
+  side         String // "yes" or "no"
+  status       PositionStatus @default(OPEN)
 
-  openedAt      DateTime       @default(now())
-  closedAt      DateTime?
-  updatedAt     DateTime       @updatedAt
+  openedAt  DateTime  @default(now())
+  closedAt  DateTime?
+  updatedAt DateTime  @updatedAt
 
-  avgEntryPrice Decimal        @default(0) @db.Decimal(20, 10)
-  netQuantity   Decimal        @default(0) @db.Decimal(20, 10)
-  realizedPnL   Decimal        @default(0) @db.Decimal(20, 10)
+  avgEntryPrice Decimal @default(0) @db.Decimal(20, 10)
+  netQuantity   Decimal @default(0) @db.Decimal(20, 10)
+  realizedPnL   Decimal @default(0) @db.Decimal(20, 10)
 
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trades        Trade[]
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades Trade[]
 
   @@index([userId, marketTicker, side, status])
   @@index([userId])
@@ -103,28 +104,28 @@ model Follow {
 }
 
 model CopySettings {
-  id              String    @id @default(uuid())
-  
-  followerId      String    // user who copies
-  leaderId        String    // user being copied
-  
-  amountPerTrade  Float     // fixed amount per copied trade
-  maxTotalAmount  Float     // total cap from this leader
-  usedAmount      Float     @default(0) // how much already used
-  
-  enabled         Boolean   @default(true)
-  expiresAt       DateTime? // optional safety expiry
-  
+  id String @id @default(uuid())
+
+  followerId String // user who copies
+  leaderId   String // user being copied
+
+  amountPerTrade Float // fixed amount per copied trade
+  maxTotalAmount Float // total cap from this leader
+  usedAmount     Float @default(0) // how much already used
+
+  enabled   Boolean   @default(true)
+  expiresAt DateTime? // optional safety expiry
+
   delegationSignature String? // wallet signature authorizing Hunch to trade on behalf
-  signedMessage   String?   // the message that was signed
-  signedAt        DateTime? // when the signature was created
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  follower        User      @relation("CopyFollower", fields: [followerId], references: [id], onDelete: Cascade)
-  leader          User      @relation("CopyLeader", fields: [leaderId], references: [id], onDelete: Cascade)
-  
+  signedMessage       String? // the message that was signed
+  signedAt            DateTime? // when the signature was created
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  follower User @relation("CopyFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  leader   User @relation("CopyLeader", fields: [leaderId], references: [id], onDelete: Cascade)
+
   @@unique([followerId, leaderId]) // One active config per follower-leader pair
   @@index([followerId])
   @@index([leaderId])
@@ -134,13 +135,13 @@ model CopyLog {
   id            String   @id @default(cuid())
   leaderTradeId String
   followerId    String
-  copyTradeId   String?  // ID of the created follower trade (null if skipped/failed)
-  copyAmount    Float?   // Actual amount copied
-  status        String   // "pending", "success", "skipped", "failed"
-  skipReason    String?  // Reason if skipped (e.g., "limit_exceeded", "disabled")
-  error         String?  // Error message if failed
+  copyTradeId   String? // ID of the created follower trade (null if skipped/failed)
+  copyAmount    Float? // Actual amount copied
+  status        String // "pending", "success", "skipped", "failed"
+  skipReason    String? // Reason if skipped (e.g., "limit_exceeded", "disabled")
+  error         String? // Error message if failed
   createdAt     DateTime @default(now())
-  
+
   @@unique([leaderTradeId, followerId]) // Idempotency: one copy attempt per leader trade per follower
   @@index([leaderTradeId])
   @@index([followerId])
@@ -157,20 +158,91 @@ model IndexedEvent {
 }
 
 model EventEvidence {
-  id                String   @id @default(cuid())
-  eventTicker       String
-  marketTicker      String
-  marketQuestion    String
-  evidenceSentence  String
-  highlightScore    Float
-  classification    String
-  headline          String?
-  explanation       String?
-  sourceUrls        String[] // Array of up to 3 URLs
-  sourceTitles      String[] // Array of source titles
-  createdAt         DateTime @default(now())
+  id               String   @id @default(cuid())
+  eventTicker      String
+  marketTicker     String
+  marketQuestion   String
+  evidenceSentence String
+  highlightScore   Float
+  classification   String
+  headline         String?
+  explanation      String?
+  sourceUrls       String[] // Array of up to 3 URLs
+  sourceTitles     String[] // Array of source titles
+  createdAt        DateTime @default(now())
 
   @@index([eventTicker])
   @@index([marketTicker])
   @@index([createdAt])
+}
+
+// ==============================
+// Feed Item System (Signal-Based Social Feed)
+// ==============================
+
+enum FeedItemType {
+  TRADE_MILESTONE // PnL milestone crossed
+  POSITION_CLOSED // Position fully closed
+  NEWS // High-impact news item
+}
+
+enum MilestoneType {
+  PNL_PLUS_5
+  PNL_PLUS_10
+  PNL_PLUS_20
+  PNL_MINUS_5
+  PNL_MINUS_10
+  POSITION_CLOSED
+}
+
+model FeedItem {
+  id   String       @id @default(cuid())
+  type FeedItemType
+
+  // Core references (at least one must be set)
+  userId     String? // User who triggered this event
+  positionId String? @db.Uuid
+  tradeId    String? // Specific trade that triggered (for closed positions)
+  evidenceId String? // For NEWS type
+
+  // Denormalized data for feed display (avoids JOINs)
+  marketTicker String
+  eventTicker  String?
+  side         String? // "yes" or "no"
+
+  // Milestone context (for TRADE_MILESTONE type)
+  milestoneType  MilestoneType?
+  milestoneValue Float? // The actual PnL% at time of milestone
+
+  // Closed position context (for POSITION_CLOSED type)
+  finalPnL Float? // Realized PnL at close
+
+  // Ranking
+  score Float @default(0) // For feed ranking
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  indexedAt DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([type])
+  @@index([score, createdAt])
+  @@index([marketTicker])
+  @@index([createdAt])
+}
+
+// Tracks which milestones have been recorded for each position
+// The unique constraint prevents duplicate feed items for the same milestone
+model PositionMilestone {
+  id             String        @id @default(cuid())
+  positionId     String        @db.Uuid
+  milestoneType  MilestoneType
+  reachedAt      DateTime      @default(now())
+  pnlAtMilestone Float // Actual PnL% when milestone was reached
+
+  @@unique([positionId, milestoneType]) // CRITICAL: Ensures once-per-position-per-milestone deduplication
+  @@index([positionId])
 }

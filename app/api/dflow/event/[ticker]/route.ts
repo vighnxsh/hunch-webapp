@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchEventDetailsServer } from '@/app/lib/dflowServer';
+import { fetchEventDetailsServer, fetchEventMetadataServer } from '@/app/lib/dflowServer';
 
 export async function GET(
     request: NextRequest,
@@ -15,7 +15,42 @@ export async function GET(
             );
         }
 
-        const eventDetails = await fetchEventDetailsServer(ticker);
+        const [eventDetails, eventMetadata] = await Promise.all([
+            fetchEventDetailsServer(ticker),
+            fetchEventMetadataServer(ticker),
+        ]);
+
+        const marketDetails = eventMetadata?.market_details || [];
+        const metadataByTicker = new Map(
+            marketDetails
+                .filter(detail => detail.market_ticker)
+                .map(detail => [detail.market_ticker as string, detail])
+        );
+
+        const normalizedMarkets = (eventDetails?.markets ?? []).map(market => {
+            const detail = metadataByTicker.get(market.ticker);
+
+            return {
+                ...market,
+                image_url: detail?.image_url ?? market.image_url ?? market.imageUrl,
+                color_code: detail?.color_code ?? market.color_code,
+            };
+        });
+
+        const enrichedEventDetails = {
+            ...eventDetails,
+            image_url:
+                eventMetadata?.image_url ??
+                (eventDetails as any)?.image_url ??
+                eventDetails?.imageUrl,
+            featured_image_url:
+                eventMetadata?.featured_image_url ??
+                (eventDetails as any)?.featured_image_url,
+            settlement_sources:
+                eventMetadata?.settlement_sources ??
+                (eventDetails as any)?.settlement_sources,
+            markets: normalizedMarkets,
+        };
 
         // Debug logging
         console.log(`[API /dflow/event/${ticker}] Response has markets:`, {
@@ -24,7 +59,7 @@ export async function GET(
             title: eventDetails?.title,
         });
 
-        return NextResponse.json(eventDetails);
+        return NextResponse.json(enrichedEventDetails);
     } catch (error: any) {
         const errorMessage = error?.message || 'Failed to fetch event details';
         const errorStack = error?.stack;

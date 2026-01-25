@@ -111,6 +111,20 @@ export interface EventDetails {
     [key: string]: any;
 }
 
+export interface EventMetadataMarketDetail {
+    color_code?: string;
+    image_url?: string;
+    market_ticker?: string;
+}
+
+export interface EventMetadataResponse {
+    featured_image_url?: string;
+    image_url?: string;
+    market_details?: EventMetadataMarketDetail[];
+    settlement_sources?: { name?: string; url?: string }[];
+    [key: string]: any;
+}
+
 export interface CandlestickData {
     end_period_ts: number;
     open_interest: number;
@@ -288,6 +302,34 @@ export async function fetchEventDetailsServer(eventTicker: string): Promise<Even
     }
 
     return await response.json();
+}
+
+/**
+ * Fetch event metadata from Kalshi (server-only)
+ */
+export async function fetchEventMetadataServer(eventTicker: string): Promise<EventMetadataResponse | null> {
+    const url = `https://api.elections.kalshi.com/trade-api/v2/events/${encodeURIComponent(eventTicker)}/metadata`;
+    console.log(`[dflowServer] Fetching event metadata for: ${eventTicker}`);
+
+    try {
+        const response = await fetch(url, {
+            method: "GET",
+            cache: 'no-store',
+            signal: AbortSignal.timeout(15000),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.warn(`[dflowServer] Event metadata API Error (${response.status}) for ${eventTicker}:`, errorText);
+            return null;
+        }
+
+        return await response.json();
+    } catch (error: any) {
+        const errorMessage = error?.message || 'Unknown fetch error';
+        console.warn(`[dflowServer] Event metadata fetch failed for ${eventTicker}:`, errorMessage);
+        return null;
+    }
 }
 
 /**

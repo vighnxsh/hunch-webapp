@@ -49,7 +49,7 @@ export default function EventPage() {
                 setError(null);
                 const details = await fetchEventDetails(eventId);
                 setEventDetails(details);
-                console.debug('Event imageUrl:', details?.imageUrl);
+                console.debug('Event imageUrl:', details?.imageUrl, details?.image_url, details?.featured_image_url);
                 console.debug('Markets received:', {
                     count: details?.markets?.length || 0,
                     statuses: details?.markets?.map((m: any) => m.status) || [],
@@ -419,6 +419,11 @@ export default function EventPage() {
 
     if (!eventDetails) return null;
 
+    const eventImageUrl =
+        (eventDetails as any)?.image_url ||
+        (eventDetails as any)?.featured_image_url ||
+        eventDetails.imageUrl;
+
     return (
         <div className="min-h-screen bg-[var(--background)]">
             <main className="max-w-7xl mx-auto px-4 py-6 pb-8">
@@ -440,10 +445,10 @@ export default function EventPage() {
                         {/* Event Header - Image + Title */}
                         <div className="flex gap-4 p-4 bg-[var(--surface)] rounded-2xl">
                             {/* Image Thumbnail */}
-                            {eventDetails.imageUrl ? (
+                            {eventImageUrl ? (
                                 <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden flex-shrink-0">
                                     <img
-                                        src={eventDetails.imageUrl}
+                                        src={eventImageUrl}
                                         alt={eventDetails.title}
                                         className="w-full h-full object-cover"
                                     />
@@ -496,6 +501,7 @@ export default function EventPage() {
                                     const isSelected = selectedMarketTicker === market.ticker;
                                     const isLoading = loadingMarkets.has(market.ticker);
                                     const displayTitle = marketData.yesSubTitle || marketData.noSubTitle || marketData.subtitle || 'Market Option';
+                                    const marketImageUrl = (market as any)?.image_url || (market as any)?.imageUrl;
                                     const yesPrice = marketData.yesAsk ? Math.round(parseFloat(marketData.yesAsk) * 100) : null;
                                     const noPrice = marketData.noAsk ? Math.round(parseFloat(marketData.noAsk) * 100) : null;
                                     const chance = marketData.yesBid ? Math.round(parseFloat(marketData.yesBid) * 100) : null;
@@ -510,10 +516,25 @@ export default function EventPage() {
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                                                 {/* Title + Chance Row */}
                                                 <div className="flex items-center justify-between sm:flex-1 gap-2">
-                                                    {/* Title */}
-                                                    <h3 className="font-medium text-sm text-[var(--text-primary)] flex-1 min-w-0 truncate">
-                                                        {displayTitle}
-                                                    </h3>
+                                                    {/* Market Image + Title */}
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        {marketImageUrl ? (
+                                                            <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
+                                                                <img
+                                                                    src={marketImageUrl}
+                                                                    alt={displayTitle}
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                                                                <span className="text-xs">🏈</span>
+                                                            </div>
+                                                        )}
+                                                        <h3 className="font-medium text-sm text-[var(--text-primary)] min-w-0 truncate">
+                                                            {displayTitle}
+                                                        </h3>
+                                                    </div>
 
                                                     {/* Chance */}
                                                     <span className="text-lg sm:text-xl font-bold text-[var(--text-primary)] flex-shrink-0">
@@ -608,9 +629,32 @@ export default function EventPage() {
                                 <div className="bg-[var(--surface)] rounded-2xl overflow-hidden">
                                     {/* Card Header */}
                                     <div className="p-4 border-b border-[var(--border-color)]/50">
-                                        <h3 className="font-semibold text-[var(--text-primary)] leading-tight text-sm">
-                                            {selectedMarket.yesSubTitle || selectedMarket.noSubTitle || selectedMarket.subtitle || 'Market Option'}
-                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            {(() => {
+                                                const selectedMarketBase = activeMarkets.find(m => m.ticker === selectedMarket.ticker);
+                                                const selectedMarketImageUrl =
+                                                    (selectedMarketBase as any)?.image_url ||
+                                                    (selectedMarketBase as any)?.imageUrl ||
+                                                    (selectedMarket as any)?.image_url ||
+                                                    (selectedMarket as any)?.imageUrl;
+                                                return selectedMarketImageUrl ? (
+                                                    <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+                                                        <img
+                                                            src={selectedMarketImageUrl}
+                                                            alt={selectedMarket.yesSubTitle || selectedMarket.noSubTitle || selectedMarket.subtitle || 'Market Option'}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                                                        <span className="text-sm">🏈</span>
+                                                    </div>
+                                                );
+                                            })()}
+                                            <h3 className="font-semibold text-[var(--text-primary)] leading-tight text-sm">
+                                                {selectedMarket.yesSubTitle || selectedMarket.noSubTitle || selectedMarket.subtitle || 'Market Option'}
+                                            </h3>
+                                        </div>
                                         {selectedMarket.closeTime && (
                                             <p className="text-xs text-[var(--text-tertiary)] mt-1">
                                                 Closes {formatDate(selectedMarket.closeTime)}

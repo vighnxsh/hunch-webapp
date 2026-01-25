@@ -20,6 +20,9 @@ export async function GET(request: NextRequest) {
             }
         }
 
+        // Log for monitoring
+        console.log("[CRON_CHECK] feed-index fired", new Date().toISOString());
+
         console.log(`[FeedIndex] Starting feed indexing run at ${new Date().toISOString()}`);
 
         const result = await runFeedIndexing();

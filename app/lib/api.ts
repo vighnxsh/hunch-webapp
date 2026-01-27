@@ -196,6 +196,48 @@ async function fetchEventsUncached(
   return await response.json();
 }
 
+export async function fetchHomeFeed(
+  limit: number = 20,
+  options?: {
+    category?: string;
+    cursor?: string;
+    status?: string;
+  }
+): Promise<EventsResponse> {
+  const queryParams = new URLSearchParams();
+  queryParams.append("limit", limit.toString());
+
+  if (options?.category && options.category !== 'All') {
+    queryParams.append("category", options.category);
+  }
+  if (options?.cursor) {
+    queryParams.append("cursor", options.cursor);
+  }
+  if (options?.status) {
+    queryParams.append("status", options.status);
+  }
+
+  // Use the new consolidated endpoint
+  const response = await fetch(
+    `/api/home-feed?${queryParams.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: 'no-store', // Don't cache feed results
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`API Error (${response.status}):`, errorText);
+    throw new Error(`Failed to fetch home feed: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json();
+}
+
 export async function fetchEventDetails(eventTicker: string): Promise<EventDetails> {
   return withCache(
     cacheKeys.eventDetails(eventTicker),

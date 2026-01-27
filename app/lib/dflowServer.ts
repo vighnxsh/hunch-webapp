@@ -665,41 +665,75 @@ export async function fetchEventsBySeriesServer(
         limit?: number;
     }
 ): Promise<Event[]> {
-    const queryParams = new URLSearchParams();
-    const tickers = Array.isArray(seriesTickers) ? seriesTickers.join(",") : seriesTickers;
-    queryParams.append("seriesTickers", tickers);
+    const tickers = Array.isArray(seriesTickers) ? seriesTickers : [seriesTickers];
 
-    if (options?.withNestedMarkets) {
-        queryParams.append("withNestedMarkets", "true");
-    }
-    if (options?.status) {
-        queryParams.append("status", options.status);
-    }
-    if (options?.limit) {
-        queryParams.append("limit", Math.min(options.limit, 100).toString());
-    } else {
-        queryParams.append("limit", "100"); // Default limit - API max is ~100
-    }
+    // API has a limit of 25 tickers per request
+    const CHUNK_SIZE = 25;
+    const chunkPromises = [];
 
-    const response = await fetch(
-        `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`,
-        {
-            method: "GET",
-            headers: getHeaders(),
-            cache: 'no-store',
+    for (let i = 0; i < tickers.length; i += CHUNK_SIZE) {
+        const chunk = tickers.slice(i, i + CHUNK_SIZE);
+        const queryParams = new URLSearchParams();
+        queryParams.append("seriesTickers", chunk.join(","));
+
+        if (options?.withNestedMarkets) {
+            queryParams.append("withNestedMarkets", "true");
         }
-    );
+        if (options?.status) {
+            queryParams.append("status", options.status);
+        }
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[dflowServer] Events by Series API Error (${response.status}):`, errorText);
-        console.error(`[dflowServer] Request URL: ${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`);
-        console.error(`[dflowServer] Series tickers count: ${Array.isArray(seriesTickers) ? seriesTickers.length : 1}`);
-        throw new Error(`Failed to fetch events by series: ${response.status} ${response.statusText} - ${errorText}`);
+        // Distribution of limit is tricky with parallel requests. 
+        // For simplicity in this consolidated view, we'll ask for the full limit per chunk 
+        // (or a reasonable default) and then slice the combined result.
+        // Since we are aggregating on the server, we can over-fetch slightly then trim.
+        const reqLimit = options?.limit ? Math.min(options.limit, 100) : 100;
+        queryParams.append("limit", reqLimit.toString());
+
+        const url = `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`;
+
+        chunkPromises.push(
+            fetch(url, {
+                method: "GET",
+                headers: getHeaders(),
+                cache: 'no-store',
+            })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`[dflowServer] Chunk events fetch failed (${response.status}):`, errorText);
+                        return []; // Return empty array on failure to allow partial success
+                    }
+                    const data: EventsResponse = await response.json();
+                    return data.events || [];
+                })
+                .catch(err => {
+                    console.error(`[dflowServer] Chunk events fetch network error:`, err);
+                    return [];
+                })
+        );
     }
 
-    const data: EventsResponse = await response.json();
-    return data.events || [];
+    try {
+        const results = await Promise.all(chunkPromises);
+        let allEvents = results.flat();
+
+        // Deduplicate if needed (though unlikely with distinct series tickers)
+        // Check uniqueness by ticker just in case
+        const uniqueEventsMap = new Map();
+        allEvents.forEach(e => uniqueEventsMap.set(e.ticker, e));
+        allEvents = Array.from(uniqueEventsMap.values());
+
+        // Apply overall limit if specified
+        if (options?.limit && allEvents.length > options.limit) {
+            allEvents = allEvents.slice(0, options.limit);
+        }
+
+        return allEvents;
+    } catch (error: any) {
+        console.error(`[dflowServer] Failed to fetch events by series:`, error);
+        throw new Error(`Failed to fetch events by series: ${error.message}`);
+    }
 }
 
 /**

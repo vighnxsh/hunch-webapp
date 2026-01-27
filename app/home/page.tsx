@@ -4,9 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
-  fetchEvents,
-  fetchEventsBySeries,
-  fetchSeries,
+  fetchHomeFeed,
   fetchTagsByCategories,
   fetchTopEventsByCategory,
   Event,
@@ -395,27 +393,13 @@ export default function HomePage() {
       setHasMore(false);
       setCursor(undefined);
 
-      const series = await fetchSeries({
+      // Use the new single endpoint for category filtering
+      const data = await fetchHomeFeed(EVENTS_PER_PAGE, {
         category,
-        isInitialized: true,
         status: 'active',
       });
 
-      const seriesTickers = (series || [])
-        .map((item) => item.ticker)
-        .filter(Boolean);
-
-      if (seriesTickers.length === 0) {
-        setEvents([]);
-        return;
-      }
-
-      const categoryEvents = await fetchEventsBySeries(seriesTickers, {
-        withNestedMarkets: true,
-        status: 'active',
-      });
-
-      const activeEvents = (categoryEvents || []).filter(isEventActive);
+      const activeEvents = (data.events || []).filter(isEventActive);
       setEvents(activeEvents);
     } catch (err: any) {
       setError(err.message || 'Failed to load category events');
@@ -448,9 +432,9 @@ export default function HomePage() {
         setLoadingMore(true);
       }
 
-      const data = await fetchEvents(EVENTS_PER_PAGE, {
+      const data = await fetchHomeFeed(EVENTS_PER_PAGE, {
         cursor: reset ? undefined : cursor,
-        withNestedMarkets: true,
+        category: 'All', // Explicitly pass 'All' or leave undefined
         status: 'active',
       });
 

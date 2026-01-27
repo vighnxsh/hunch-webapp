@@ -303,7 +303,9 @@ export async function fetchEventsServer(
         throw new Error(`Failed to fetch events: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    return await response.json();
+    const data: EventsResponse = await response.json();
+    const events = await enrichEventsWithMetadata(data.events || []);
+    return { ...data, events };
 }
 
 /**
@@ -452,9 +454,7 @@ export async function fetchMarketDetailsServer(ticker: string): Promise<Market> 
         throw new Error(`Failed to fetch market details: ${response.status} ${response.statusText}`);
     }
 
-    const data: EventsResponse = await response.json();
-    const events = await enrichEventsWithMetadata(data.events || []);
-    return { ...data, events };
+    return await response.json();
 }
 
 /**

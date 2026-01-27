@@ -382,6 +382,57 @@ export async function fetchEventMetadataServer(eventTicker: string): Promise<Eve
     }
 }
 
+async function enrichEventsWithMetadata(events: Event[]): Promise<Event[]> {
+    if (!events.length) return events;
+
+    const metadataResults = await Promise.allSettled(
+        events.map(event => fetchEventMetadataServer(event.ticker))
+    );
+
+    return events.map((event, idx) => {
+        const metadata =
+            metadataResults[idx].status === 'fulfilled'
+                ? metadataResults[idx].value
+                : null;
+
+        const marketDetails = metadata?.market_details || [];
+        const metadataByTicker = new Map(
+            marketDetails
+                .filter(detail => detail.market_ticker)
+                .map(detail => [detail.market_ticker as string, detail])
+        );
+
+        const normalizedMarkets = (event.markets ?? []).map(market => {
+            const detail = metadataByTicker.get(market.ticker);
+            return {
+                ...market,
+                image_url: detail?.image_url ?? market.image_url ?? market.imageUrl,
+                color_code: detail?.color_code ?? (market as any).color_code,
+            };
+        });
+
+        const imageUrl =
+            metadata?.image_url ??
+            (event as any)?.image_url ??
+            event.imageUrl;
+
+        const featuredImageUrl =
+            metadata?.featured_image_url ??
+            (event as any)?.featured_image_url;
+
+        return {
+            ...event,
+            imageUrl,
+            image_url: imageUrl,
+            featured_image_url: featuredImageUrl,
+            settlement_sources:
+                metadata?.settlement_sources ??
+                (event as any)?.settlement_sources,
+            markets: normalizedMarkets,
+        };
+    });
+}
+
 /**
  * Fetch market details from DFlow API (server-only)
  */
@@ -401,7 +452,9 @@ export async function fetchMarketDetailsServer(ticker: string): Promise<Market> 
         throw new Error(`Failed to fetch market details: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json();
+    const data: EventsResponse = await response.json();
+    const events = await enrichEventsWithMetadata(data.events || []);
+    return { ...data, events };
 }
 
 /**
@@ -729,7 +782,7 @@ export async function fetchEventsBySeriesServer(
             allEvents = allEvents.slice(0, options.limit);
         }
 
-        return allEvents;
+        return await enrichEventsWithMetadata(allEvents);
     } catch (error: any) {
         console.error(`[dflowServer] Failed to fetch events by series:`, error);
         throw new Error(`Failed to fetch events by series: ${error.message}`);

@@ -4,10 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { usePrivy } from '@privy-io/react-auth';
-import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { useWallets, useSignTransaction } from '@privy-io/react-auth/solana';
 import { Connection, VersionedTransaction } from '@solana/web3.js';
 import { Market, Event } from '../lib/api';
-import { requestOrder, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
+import { requestOrder, requestOrderPreview, getOrderStatus, OrderResponse, USDC_MINT } from '../lib/tradeApi';
 import { useAuth } from './AuthContext';
 import { useAppData } from '../contexts/AppDataContext';
 import TradeQuoteModal from './TradeQuoteModal';
@@ -180,15 +180,19 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
     // Auth & wallet hooks
     const { ready, authenticated, user } = usePrivy();
     const { wallets } = useWallets();
-    const { signAndSendTransaction } = useSignAndSendTransaction();
+    const { signTransaction } = useSignTransaction();
     const { currentUserId, triggerPositionsRefresh } = useAppData();
     const { requireAuth } = useAuth();
 
     // Connection for sending transactions - use useMemo to avoid recreating
-    const connection = useRef(new Connection(
-        process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com',
-        'confirmed'
-    )).current;
+    const primaryRpcUrl =
+        process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+    const connection = useRef(new Connection(primaryRpcUrl, 'confirmed')).current;
+    const fallbackConnection = useRef(
+        primaryRpcUrl === 'https://api.mainnet-beta.solana.com'
+            ? null
+            : new Connection('https://api.mainnet-beta.solana.com', 'confirmed')
+    ).current;
 
     // Modal state - simplified, no phases
     const [selectedSide, setSelectedSide] = useState<'yes' | 'no' | null>(null);
@@ -255,7 +259,7 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
     const quoteRequestRef = useRef(0);
 
     useEffect(() => {
-        if (!walletAddress || !amount || parseFloat(amount) <= 0 || !selectedSide) {
+        if (!amount || parseFloat(amount) <= 0 || !selectedSide) {
             setQuotePreview(null);
             setQuoteError(null);
             return;
@@ -278,12 +282,10 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
         const fetchQuote = async () => {
             try {
                 const amountInSmallestUnit = Math.floor(parseFloat(amount) * 1_000_000).toString();
-                const orderResponse = await requestOrder({
-                    userPublicKey: walletAddress,
+                const orderResponse = await requestOrderPreview({
                     inputMint: USDC_MINT,
                     outputMint,
                     amount: amountInSmallestUnit,
-                    slippageBps: 100,
                 });
 
                 if (requestId !== quoteRequestRef.current) return;
@@ -318,7 +320,7 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
         };
 
         fetchQuote();
-    }, [amount, walletAddress, market.status, selectedSide]);
+    }, [amount, market.status, selectedSide]);
 
     // Place order handler
     const handlePlaceOrder = async () => {
@@ -372,32 +374,49 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
 
                 const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
 
-                setStatus('Signing and sending transaction...');
+                setStatus('Signing transaction...');
 
-                // Use Privy's signAndSendTransaction which handles signing, sending, and confirmation
-                const result = await signAndSendTransaction({
+                const signResult = await signTransaction({
                     transaction: transactionBytes,
                     wallet: solanaWallet,
-                    options: { sponsor: true }, // Enable gas sponsorship
                 });
 
-                if (!result?.signature) {
-                    throw new Error('No signature received from transaction');
+                if (!signResult?.signedTransaction) {
+                    throw new Error('No signed transaction received');
                 }
 
-                // Convert signature to string format (base58)
-                let signatureString: string;
-                if (typeof result.signature === 'string') {
-                    signatureString = result.signature;
-                } else if (result.signature instanceof Uint8Array) {
-                    const bs58Module = await import('bs58');
-                    const bs58 = bs58Module.default || bs58Module;
-                    signatureString = bs58.encode(result.signature);
-                } else {
-                    throw new Error('Invalid signature format');
+                const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
+                    ? signResult.signedTransaction
+                    : new Uint8Array(signResult.signedTransaction);
+
+                setStatus('Sending transaction...');
+
+                const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
+                const sendWithConnection = (conn: Connection) =>
+                    conn.sendTransaction(signedTransaction, {
+                        skipPreflight: true,
+                        maxRetries: 3,
+                    });
+
+                let signature: string;
+                try {
+                    signature = await sendWithConnection(connection);
+                } catch (sendError: any) {
+                    const message = String(sendError?.message || '');
+                    const isNetworkAbort =
+                        message.includes('signal is aborted') ||
+                        message.includes('failed to fetch') ||
+                        message.includes('NetworkError');
+
+                    if (!fallbackConnection || !isNetworkAbort) {
+                        throw sendError;
+                    }
+
+                    console.warn('[OrderModal] Primary RPC failed, retrying with fallback.');
+                    signature = await sendWithConnection(fallbackConnection);
                 }
 
-                return { orderResponse, signatureString };
+                return { orderResponse, signatureString: signature };
             };
 
             let orderResponse: OrderResponse;
@@ -480,6 +499,8 @@ export default function OrderModal({ isOpen, onClose, market, event }: OrderModa
             let errorMessage = error.message || 'Unknown error occurred';
             if (error.message?.includes('User rejected')) {
                 errorMessage = 'Transaction was cancelled';
+            } else if (error.message?.includes('signal is aborted')) {
+                errorMessage = 'RPC request aborted. Please retry.';
             } else if (error.message?.includes('insufficient funds')) {
                 errorMessage = 'Insufficient USDC balance';
             }

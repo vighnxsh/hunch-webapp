@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useRef } from 'react';
-import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { useWallets, useSignTransaction } from '@privy-io/react-auth/solana';
 import { Connection, VersionedTransaction } from '@solana/web3.js';
 import type { AggregatedPosition } from '../lib/positionService';
 import { formatMarketTitle } from '../lib/marketUtils';
@@ -20,7 +20,7 @@ interface PositionCardProps {
 export default function PositionCard({ position, allowActions = false, isPrevious = false, onActionComplete }: PositionCardProps) {
   const router = useRouter();
   const { wallets } = useWallets();
-  const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { signTransaction } = useSignTransaction();
   const { triggerPositionsRefresh, currentUserId } = useAppData();
   const [actionLoading, setActionLoading] = useState<'sell' | 'redeem' | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -28,11 +28,14 @@ export default function PositionCard({ position, allowActions = false, isPreviou
   const solanaWallet = wallets[0];
   const walletAddress = solanaWallet?.address;
 
-  // Use useRef to avoid recreating connection on every render
-  const connection = useRef(new Connection(
-    process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com',
-    'confirmed'
-  )).current;
+  const primaryRpcUrl =
+    process.env.NEXT_PUBLIC_RPC_URL || 'https://api.mainnet-beta.solana.com';
+  const connection = useRef(new Connection(primaryRpcUrl, 'confirmed')).current;
+  const fallbackConnection = useRef(
+    primaryRpcUrl === 'https://api.mainnet-beta.solana.com'
+      ? null
+      : new Connection('https://api.mainnet-beta.solana.com', 'confirmed')
+  ).current;
 
   const handleClick = () => {
     // Redirect to event page if eventTicker exists, otherwise to market page
@@ -172,28 +175,42 @@ export default function PositionCard({ position, allowActions = false, isPreviou
     if (!txBase64) throw new Error('No transaction in order response');
 
     const txBytes = new Uint8Array(Buffer.from(txBase64, 'base64'));
-
-    // Use Privy's signAndSendTransaction which handles signing, sending, and confirmation
-    const result = await signAndSendTransaction({
+    const signResult = await signTransaction({
       transaction: txBytes,
       wallet: solanaWallet,
-      options: { sponsor: true }, // Enable gas sponsorship
     });
 
-    if (!result?.signature) {
-      throw new Error('No signature received from transaction');
+    if (!signResult?.signedTransaction) {
+      throw new Error('No signed transaction received');
     }
 
-    // Convert signature to string format (base58)
+    const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
+      ? signResult.signedTransaction
+      : new Uint8Array(signResult.signedTransaction);
+
+    const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
+    const sendWithConnection = (conn: Connection) =>
+      conn.sendTransaction(signedTransaction, {
+        skipPreflight: true,
+        maxRetries: 3,
+      });
+
     let signatureString: string;
-    if (typeof result.signature === 'string') {
-      signatureString = result.signature;
-    } else if (result.signature instanceof Uint8Array) {
-      const bs58Module = await import('bs58');
-      const bs58 = bs58Module.default || bs58Module;
-      signatureString = bs58.encode(result.signature);
-    } else {
-      throw new Error('Invalid signature format');
+    try {
+      signatureString = await sendWithConnection(connection);
+    } catch (sendError: any) {
+      const message = String(sendError?.message || '');
+      const isNetworkAbort =
+        message.includes('signal is aborted') ||
+        message.includes('failed to fetch') ||
+        message.includes('NetworkError');
+
+      if (!fallbackConnection || !isNetworkAbort) {
+        throw sendError;
+      }
+
+      console.warn('[PositionCard] Primary RPC failed, retrying with fallback.');
+      signatureString = await sendWithConnection(fallbackConnection);
     }
 
     // For async orders, wait for DFlow order status
@@ -234,30 +251,44 @@ export default function PositionCard({ position, allowActions = false, isPreviou
       const txBase64 = order.transaction || order.openTransaction;
       if (!txBase64) throw new Error('No transaction in order response');
 
-      const txBytes = new Uint8Array(Buffer.from(txBase64, 'base64'));
+    const txBytes = new Uint8Array(Buffer.from(txBase64, 'base64'));
+    const signResult = await signTransaction({
+      transaction: txBytes,
+      wallet: solanaWallet,
+    });
 
-      // Use Privy's signAndSendTransaction
-      const result = await signAndSendTransaction({
-        transaction: txBytes,
-        wallet: solanaWallet,
-        options: { sponsor: true }, // Enable gas sponsorship
+    if (!signResult?.signedTransaction) {
+      throw new Error('No signed transaction received');
+    }
+
+    const signedTxBytes = signResult.signedTransaction instanceof Uint8Array
+      ? signResult.signedTransaction
+      : new Uint8Array(signResult.signedTransaction);
+
+    const signedTransaction = VersionedTransaction.deserialize(signedTxBytes);
+    const sendWithConnection = (conn: Connection) =>
+      conn.sendTransaction(signedTransaction, {
+        skipPreflight: true,
+        maxRetries: 3,
       });
 
-      if (!result?.signature) {
-        throw new Error('No signature received from transaction');
+    let signatureString: string;
+    try {
+      signatureString = await sendWithConnection(connection);
+    } catch (sendError: any) {
+      const message = String(sendError?.message || '');
+      const isNetworkAbort =
+        message.includes('signal is aborted') ||
+        message.includes('failed to fetch') ||
+        message.includes('NetworkError');
+
+      if (!fallbackConnection || !isNetworkAbort) {
+        throw sendError;
       }
 
-      // Convert signature to string format (base58)
-      let signatureString: string;
-      if (typeof result.signature === 'string') {
-        signatureString = result.signature;
-      } else if (result.signature instanceof Uint8Array) {
-        const bs58Module = await import('bs58');
-        const bs58 = bs58Module.default || bs58Module;
-        signatureString = bs58.encode(result.signature);
-      } else {
-        throw new Error('Invalid signature format');
-      }
+      console.warn('[PositionCard] Primary RPC failed, retrying with fallback.');
+      signatureString = await sendWithConnection(fallbackConnection);
+    }
 
       // For async orders, wait for DFlow order status
       if (order.executionMode === 'async') {

@@ -27,6 +27,12 @@ export interface OrderRequest {
   slippageBps?: number;
 }
 
+export interface OrderPreviewRequest {
+  inputMint: string;
+  outputMint: string;
+  amount: string;
+}
+
 export interface OrderResponse {
   transaction?: string; // Base64 encoded transaction (new API format)
   openTransaction?: string; // Base64 encoded transaction (legacy format)
@@ -155,6 +161,50 @@ export async function requestOrder(params: OrderRequest): Promise<OrderResponse>
     outputMint: data.outputMint,
   });
   return data;
+}
+
+/**
+ * Request a lightweight quote preview without sponsorship or fees.
+ */
+export async function requestOrderPreview(
+  params: OrderPreviewRequest
+): Promise<OrderResponse> {
+  const queryParams = new URLSearchParams();
+  queryParams.append("inputMint", params.inputMint);
+  queryParams.append("outputMint", params.outputMint);
+  queryParams.append("amount", params.amount);
+
+  const url = `${INTERNAL_API_PREFIX}/quote-preview?${queryParams.toString()}`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = `Failed to request quote preview: ${response.statusText}`;
+
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.msg) {
+        errorMessage = errorJson.msg;
+      } else if (errorJson.message) {
+        errorMessage = errorJson.message;
+      } else if (errorJson.error) {
+        errorMessage = errorJson.error;
+      }
+    } catch (e) {
+      if (errorText) {
+        errorMessage += ` - ${errorText}`;
+      }
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  return await response.json();
 }
 
 /**

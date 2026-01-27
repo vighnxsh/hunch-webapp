@@ -1,4 +1,6 @@
 import 'server-only';
+import { Keypair, VersionedTransaction } from '@solana/web3.js';
+import bs58 from 'bs58';
 
 // Server-only DFlow API library
 // These URLs are never exposed in the client bundle
@@ -164,12 +166,60 @@ const ENABLE_PLATFORM_FEES = process.env.ENABLE_PLATFORM_FEES === 'true';
 const PLATFORM_FEE_SCALE = '50'; // 50 bps (0.5%)
 const PLATFORM_FEE_ACCOUNT = 'CjH6XsvFD6poErKvN8fj7hxEUKj2t2xeP5xHRo9Lzys2';
 
+// Sponsor configuration
+const SPONSOR_PUBLIC_KEY = '7kTQprvYD4QFsAbDZJkeb7tbCJW3KdKhRMX2Q4gUiRj1';
+const SPONSOR_PRIVATE_KEY_BASE58 = process.env.SPONSOR_PRIVATE_KEY_BASE58;
+let sponsorKeypairWarningLogged = false;
+
+const sponsorKeypair = (() => {
+    if (!SPONSOR_PRIVATE_KEY_BASE58) {
+        return null;
+    }
+
+    try {
+        const secretKey = bs58.decode(SPONSOR_PRIVATE_KEY_BASE58);
+        return Keypair.fromSecretKey(secretKey);
+    } catch (error) {
+        if (!sponsorKeypairWarningLogged) {
+            console.warn('[dflowServer] Invalid sponsor private key format.');
+            sponsorKeypairWarningLogged = true;
+        }
+        return null;
+    }
+})();
+
+function signWithSponsor(transactionBase64: string): string {
+    if (!sponsorKeypair) {
+        if (!sponsorKeypairWarningLogged) {
+            console.warn('[dflowServer] Sponsor signing skipped: missing private key.');
+            sponsorKeypairWarningLogged = true;
+        }
+        return transactionBase64;
+    }
+
+    try {
+        const transactionBytes = Buffer.from(transactionBase64, 'base64');
+        const transaction = VersionedTransaction.deserialize(transactionBytes);
+        transaction.sign([sponsorKeypair]);
+        return Buffer.from(transaction.serialize()).toString('base64');
+    } catch (error) {
+        console.warn('[dflowServer] Sponsor signing failed.');
+        return transactionBase64;
+    }
+}
+
 export interface OrderRequest {
     userPublicKey: string;
     inputMint: string;
     outputMint: string;
     amount: string;
     slippageBps?: number;
+}
+
+export interface OrderPreviewRequest {
+    inputMint: string;
+    outputMint: string;
+    amount: string;
 }
 
 export interface OrderResponse {
@@ -430,6 +480,7 @@ export async function requestOrderServer(params: OrderRequest): Promise<OrderRes
     queryParams.append("inputMint", params.inputMint);
     queryParams.append("outputMint", params.outputMint);
     queryParams.append("amount", params.amount);
+    queryParams.append("sponsor", SPONSOR_PUBLIC_KEY);
 
     const slippageBps = params.slippageBps ?? 100;
     queryParams.append("slippageBps", slippageBps.toString());
@@ -486,6 +537,11 @@ export async function requestOrderServer(params: OrderRequest): Promise<OrderRes
     }
 
     const data = await response.json();
+    if (data.transaction) {
+        data.transaction = signWithSponsor(data.transaction);
+    } else if (data.openTransaction) {
+        data.openTransaction = signWithSponsor(data.openTransaction);
+    }
     console.log('[dflowServer] Order response:', {
         hasTransaction: !!data.transaction,
         hasOpenTransaction: !!data.openTransaction,
@@ -494,6 +550,46 @@ export async function requestOrderServer(params: OrderRequest): Promise<OrderRes
         outAmount: data.outAmount,
     });
     return data;
+}
+
+/**
+ * Request a lightweight quote preview without sponsorship or fees.
+ */
+export async function requestOrderPreviewServer(
+    params: OrderPreviewRequest
+): Promise<OrderResponse> {
+    const queryParams = new URLSearchParams();
+    queryParams.append("inputMint", params.inputMint);
+    queryParams.append("outputMint", params.outputMint);
+    queryParams.append("amount", params.amount);
+
+    const url = `${TRADE_API_BASE_URL}/order?${queryParams.toString()}`;
+    const response = await fetch(url, {
+        method: "GET",
+        headers: getHeaders(),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `Failed to request quote preview: ${response.statusText}`;
+
+        try {
+            const errorJson = JSON.parse(errorText);
+            if (errorJson.msg) {
+                errorMessage = errorJson.msg;
+            } else if (errorJson.message) {
+                errorMessage = errorJson.message;
+            }
+        } catch (e) {
+            if (errorText) {
+                errorMessage += ` - ${errorText}`;
+            }
+        }
+
+        throw new Error(errorMessage);
+    }
+
+    return await response.json();
 }
 
 /**

@@ -100,7 +100,7 @@ function EventCard({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-xl">
-              📊
+              📊hi
             </div>
           )}
         </div>

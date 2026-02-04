@@ -91,6 +91,16 @@ export interface EventsResponse {
   [key: string]: any; // For pagination and other response fields
 }
 
+export interface HomeFeedResponse {
+  events: Event[];
+  topMarkets: (Market & { eventTicker: string })[];
+  cursor?: string;
+  metadata: {
+    totalEvents: number;
+    hasMore: boolean;
+  };
+}
+
 export interface EventDetails {
   ticker: string;
   title: string;
@@ -202,8 +212,9 @@ export async function fetchHomeFeed(
     category?: string;
     cursor?: string;
     status?: string;
+    includeMarkets?: boolean;
   }
-): Promise<EventsResponse> {
+): Promise<HomeFeedResponse> {
   const queryParams = new URLSearchParams();
   queryParams.append("limit", limit.toString());
 
@@ -216,8 +227,11 @@ export async function fetchHomeFeed(
   if (options?.status) {
     queryParams.append("status", options.status);
   }
+  if (options?.includeMarkets === false) {
+    queryParams.append("includeMarkets", "false");
+  }
 
-  // Use the new consolidated endpoint
+  // Use the new consolidated endpoint with server-side processing
   const response = await fetch(
     `/api/home-feed?${queryParams.toString()}`,
     {

@@ -5,6 +5,7 @@ import { prisma } from '@/app/lib/db';
 import { getCopySettings, updateUsedAmount } from '@/app/lib/copySettingsService';
 import { executeTradeServerSide } from '@/app/lib/tradeExecutionService';
 import { USDC_MINT } from '@/app/lib/tradeApi';
+import { validateDelegationForCopyTrade } from '@/app/lib/delegationService';
 
 // Initialize QStash receiver for signature verification
 const qstashReceiver = new Receiver({
@@ -102,6 +103,27 @@ export async function POST(request: NextRequest) {
         if (copySettings.expiresAt && new Date() > copySettings.expiresAt) {
             console.log(`[CopyExecute] Copy settings expired for follower ${followerId}`);
             return NextResponse.json({ status: 'skipped', reason: 'expired' });
+        }
+
+        // 4.5 SECURITY: Validate follower has a valid delegation before trading
+        const delegationCheck = await validateDelegationForCopyTrade(followerId);
+        if (!delegationCheck.valid) {
+            console.log(`[CopyExecute] No valid delegation for follower ${followerId}: ${delegationCheck.reason}`);
+            // Create skip log for tracking
+            await prisma.copyLog.create({
+                data: {
+                    leaderTradeId,
+                    followerId,
+                    status: 'skipped',
+                    skipReason: delegationCheck.reason || 'no_delegation',
+                },
+            });
+            return NextResponse.json({
+                status: 'skipped',
+                reason: delegationCheck.reason || 'no_delegation',
+                code: 'DELEGATION_REQUIRED',
+                message: 'Copy trading requires authorization. Please enable copy trading in your settings.',
+            });
         }
 
         // 5. Idempotency check - check if already processed

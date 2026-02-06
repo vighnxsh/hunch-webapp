@@ -15,16 +15,29 @@ export async function GET(
       );
     }
 
-    // Decode username (in case it has special characters)
-    const decodedUsername = decodeURIComponent(username);
+    // Decode username - handle double-encoding (%2540 -> %40 -> @)
+    let decodedUsername = decodeURIComponent(username);
+    // If still contains %40, decode again (double-encoded)
+    if (decodedUsername.includes('%40')) {
+      decodedUsername = decodeURIComponent(decodedUsername);
+    }
+    // Strip leading @ if present (e.g., @vzy010 -> vzy010)
+    if (decodedUsername.startsWith('@')) {
+      decodedUsername = decodedUsername.slice(1);
+    }
+
+    console.log(`[by-username] Looking up: raw="${username}" decoded="${decodedUsername}"`);
 
     // Check if we should skip cache (e.g., after follow/unfollow operations)
     const skipCache = request.headers.get('cache-control') === 'no-cache';
-    const user = await getUserByDisplayName(decodedUsername);
+
+    // Try displayName first, then wallet address as fallback
+    let user = await getUserByDisplayName(decodedUsername);
 
     if (!user) {
+      console.log(`[by-username] User not found: "${decodedUsername}"`);
       return NextResponse.json(
-        { error: 'User not found' },
+        { error: 'User not found', searched: decodedUsername },
         { status: 404 }
       );
     }

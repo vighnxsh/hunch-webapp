@@ -1,6 +1,7 @@
 import 'server-only';
 import { Keypair, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
+import redis, { CacheKeys, CacheTTL } from '@/app/lib/redis';
 
 // Server-only DFlow API library
 // These URLs are never exposed in the client bundle
@@ -262,6 +263,19 @@ export async function fetchEventsServer(
         queryParams.append("cursor", options.cursor);
     }
 
+    const cacheKey = CacheKeys.events(queryParams.toString());
+
+    // 1. Check Redis cache for the entire events list
+    try {
+        const cached = await redis.get<EventsResponse>(cacheKey);
+        if (cached) {
+            console.log(`[dflowServer] Returning cached events for ${queryParams.toString()}`);
+            return cached;
+        }
+    } catch (err) {
+        console.warn(`[dflowServer] Redis cache error for events list ${queryParams.toString()}:`, err);
+    }
+
     const url = `${METADATA_API_BASE_URL}/api/v1/events?${queryParams.toString()}`;
     console.log(`[dflowServer] Fetching events from: ${url}`);
 
@@ -305,7 +319,17 @@ export async function fetchEventsServer(
 
     const data: EventsResponse = await response.json();
     const events = await enrichEventsWithMetadata(data.events || []);
-    return { ...data, events };
+
+    const result = { ...data, events };
+
+    // 2. Store in Redis
+    try {
+        await redis.setex(cacheKey, CacheTTL.EVENTS_LIST, JSON.stringify(result));
+    } catch (err) {
+        console.warn(`[dflowServer] Failed to cache events list for ${queryParams.toString()}:`, err);
+    }
+
+    return result;
 }
 
 /**
@@ -358,25 +382,48 @@ export async function fetchEventDetailsServer(eventTicker: string): Promise<Even
 
 /**
  * Fetch event metadata from Kalshi (server-only)
+ * cached in Redis to prevent rate limits and improve performance
  */
 export async function fetchEventMetadataServer(eventTicker: string): Promise<EventMetadataResponse | null> {
+    // 1. Check Redis cache
+    const cacheKey = CacheKeys.eventMetadata(eventTicker);
+    try {
+        const cached = await redis.get<EventMetadataResponse>(cacheKey);
+        if (cached) {
+            return cached;
+        }
+    } catch (err) {
+        console.warn(`[dflowServer] Redis cache error for ${eventTicker}:`, err);
+    }
+
     const url = `https://api.elections.kalshi.com/trade-api/v2/events/${encodeURIComponent(eventTicker)}/metadata`;
     console.log(`[dflowServer] Fetching event metadata for: ${eventTicker}`);
 
     try {
         const response = await fetch(url, {
             method: "GET",
-            cache: 'no-store',
-            signal: AbortSignal.timeout(15000),
+            // Remove 'no-store' to allow internal fetch mechanism if any, though we use Redis
+            signal: AbortSignal.timeout(10000), // Reduced timeout to 10s
         });
 
         if (!response.ok) {
             const errorText = await response.text();
             console.warn(`[dflowServer] Event metadata API Error (${response.status}) for ${eventTicker}:`, errorText);
+            // Cache null result for a shorter time to avoid hammering 404s? 
+            // For now, don't cache errors to allow retry
             return null;
         }
 
-        return await response.json();
+        const data = await response.json();
+
+        // 2. Store in Redis
+        try {
+            await redis.setex(cacheKey, CacheTTL.EVENT_METADATA, JSON.stringify(data));
+        } catch (err) {
+            console.warn(`[dflowServer] Failed to cache metadata for ${eventTicker}:`, err);
+        }
+
+        return data;
     } catch (error: any) {
         const errorMessage = error?.message || 'Unknown fetch error';
         console.warn(`[dflowServer] Event metadata fetch failed for ${eventTicker}:`, errorMessage);
@@ -387,15 +434,45 @@ export async function fetchEventMetadataServer(eventTicker: string): Promise<Eve
 async function enrichEventsWithMetadata(events: Event[]): Promise<Event[]> {
     if (!events.length) return events;
 
-    const metadataResults = await Promise.allSettled(
-        events.map(event => fetchEventMetadataServer(event.ticker))
-    );
+    // Use Promise.race to add a global timeout for the entire enrichment process
+    const ENRICHMENT_TIMEOUT_MS = 15000; // 15 seconds max for all metadata
+    const BATCH_SIZE = 10; // Increased from 5 for better throughput
+
+    const enrichWithTimeout = async (): Promise<(EventMetadataResponse | null)[]> => {
+        const metadataResults: (EventMetadataResponse | null)[] = [];
+
+        for (let i = 0; i < events.length; i += BATCH_SIZE) {
+            const batch = events.slice(i, i + BATCH_SIZE);
+            // Use allSettled to prevent one failure from blocking others
+            const batchResults = await Promise.allSettled(
+                batch.map(event => fetchEventMetadataServer(event.ticker))
+            );
+
+            for (const result of batchResults) {
+                metadataResults.push(result.status === 'fulfilled' ? result.value : null);
+            }
+        }
+
+        return metadataResults;
+    };
+
+    let metadataResults: (EventMetadataResponse | null)[];
+
+    try {
+        metadataResults = await Promise.race([
+            enrichWithTimeout(),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Enrichment timeout')), ENRICHMENT_TIMEOUT_MS)
+            )
+        ]);
+    } catch (err) {
+        console.warn('[dflowServer] Metadata enrichment timed out after 15s, returning events without full metadata');
+        // Return events with empty metadata on timeout
+        metadataResults = events.map(() => null);
+    }
 
     return events.map((event, idx) => {
-        const metadata =
-            metadataResults[idx].status === 'fulfilled'
-                ? metadataResults[idx].value
-                : null;
+        const metadata = metadataResults[idx];
 
         const marketDetails = metadata?.market_details || [];
         const metadataByTicker = new Map(

@@ -44,6 +44,25 @@ export default function CopySettingsModal({
     const [existingSettings, setExistingSettings] = useState<CopySettingsData | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const [hasDelegation, setHasDelegation] = useState(false);
+
+    /**
+     * Check if the wallet already has a delegated signer added.
+     * Privy wallets with signers have `delegated: true` in linkedAccounts.
+     */
+    const hasExistingSigner = (walletAddress: string): boolean => {
+        if (!user?.linkedAccounts) return false;
+
+        const walletAccount = user.linkedAccounts.find(
+            (account): account is any =>
+                account.type === 'wallet' &&
+                'address' in account &&
+                account.address === walletAddress &&
+                'delegated' in account
+        );
+
+        return walletAccount?.delegated === true;
+    };
 
     useEffect(() => {
         if (isOpen && followerId && leaderId) {
@@ -66,9 +85,14 @@ export default function CopySettingsModal({
     const fetchExistingSettings = async () => {
         setFetching(true);
         try {
-            const response = await fetch(`/api/copy-settings?followerId=${followerId}&leaderId=${leaderId}`);
-            if (response.ok) {
-                const data = await response.json();
+            // Fetch copy settings and delegation status in parallel
+            const [settingsResponse, delegationResponse] = await Promise.all([
+                fetch(`/api/copy-settings?leaderId=${leaderId}`),
+                fetch(`/api/users/delegation-status`),
+            ]);
+
+            if (settingsResponse.ok) {
+                const data = await settingsResponse.json();
                 if (data) {
                     setExistingSettings(data);
                     setAmountPerTrade(data.amountPerTrade.toString());
@@ -76,12 +100,19 @@ export default function CopySettingsModal({
                     setEnabled(data.enabled);
                 }
             }
+
+            // Check if user already has a delegation on file
+            if (delegationResponse.ok) {
+                const delegationData = await delegationResponse.json();
+                setHasDelegation(delegationData.hasValidDelegation === true);
+            }
         } catch (error) {
             console.error('Error fetching copy settings:', error);
         } finally {
             setFetching(false);
         }
     };
+
 
     const handleSaveClick = () => {
         setError(null);
@@ -101,9 +132,86 @@ export default function CopySettingsModal({
             return;
         }
 
-        // Show confirmation screen for signature
-        setShowConfirmation(true);
+        // Check if user already has delegation on file
+        // If yes, we can skip the signature confirmation and save directly
+        const selectedWallet = wallets[0];
+        const walletHasSigner = selectedWallet && hasExistingSigner(selectedWallet.address);
+
+        if (hasDelegation && walletHasSigner) {
+            // Fast path: User already authorized, save settings directly
+            console.log('User has existing delegation and signer, saving directly...');
+            handleSaveWithoutSignature();
+        } else {
+            // Show confirmation screen for signature
+            setShowConfirmation(true);
+        }
     };
+
+    /**
+     * Save copy settings without requiring a new signature.
+     * Used when user already has delegation on file.
+     */
+    const handleSaveWithoutSignature = async () => {
+        const amountNum = parseFloat(amountPerTrade);
+        const maxNum = parseFloat(maxTotalAmount);
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            // Get the wallet for signer check
+            const selectedWallet = wallets[0];
+            if (!selectedWallet?.address) {
+                throw new Error('No wallet found. Please connect your wallet.');
+            }
+
+            // Ensure signer is added (belt and suspenders)
+            const alreadyHasSigner = hasExistingSigner(selectedWallet.address);
+            if (!alreadyHasSigner) {
+                console.log('Adding signer since not found on wallet...');
+                try {
+                    await addSessionSigners({
+                        address: selectedWallet.address,
+                        signers: [{
+                            signerId: process.env.NEXT_PUBLIC_KEY_QUORUM_ID!,
+                            policyIds: []
+                        }]
+                    });
+                } catch (signerError: any) {
+                    if (!signerError.message?.toLowerCase().includes('duplicate')) {
+                        throw new Error(`Failed to authorize server: ${signerError.message}`);
+                    }
+                }
+            }
+
+            // Save settings WITHOUT new signature
+            const response = await fetch('/api/copy-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    leaderId,
+                    amountPerTrade: amountNum,
+                    maxTotalAmount: maxNum,
+                    // No delegationSignature needed - already on file
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to save');
+            }
+
+            console.log('Settings saved successfully (fast path)');
+            onSave?.();
+            onClose();
+        } catch (error: any) {
+            console.error('Save error:', error);
+            setError(error.message || 'Failed to save settings');
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     const handleConfirmAndSign = async () => {
         const amountNum = parseFloat(amountPerTrade);
@@ -168,20 +276,33 @@ Follower ID: ${followerId}`;
 
             console.log(`Adding signer for wallet: ${walletAddress}`);
 
-            // Add server's key quorum as a signer to user's wallet
-            // This enables server-side transaction signing for copy trading
-            try {
-                await addSessionSigners({
-                    address: walletAddress,
-                    signers: [{
-                        signerId: process.env.NEXT_PUBLIC_KEY_QUORUM_ID!,
-                        policyIds: [] // Full permissions (no restrictions)
-                    }]
-                });
-                console.log('Server added as signer successfully');
-            } catch (signerError: any) {
-                console.error('Failed to add signer:', signerError);
-                throw new Error(`Failed to authorize server: ${signerError.message}`);
+            // Check if wallet already has a delegated signer
+            // This prevents "Duplicate Signer" errors when copying multiple leaders
+            const alreadyHasSigner = hasExistingSigner(walletAddress);
+
+            if (alreadyHasSigner) {
+                console.log('Wallet already has signer, skipping addSessionSigners');
+            } else {
+                // Add server's key quorum as a signer to user's wallet
+                // This enables server-side transaction signing for copy trading
+                try {
+                    await addSessionSigners({
+                        address: walletAddress,
+                        signers: [{
+                            signerId: process.env.NEXT_PUBLIC_KEY_QUORUM_ID!,
+                            policyIds: [] // Full permissions (no restrictions)
+                        }]
+                    });
+                    console.log('Server added as signer successfully');
+                } catch (signerError: any) {
+                    // Check if this is a duplicate signer error - if so, continue
+                    if (signerError.message?.toLowerCase().includes('duplicate')) {
+                        console.log('Signer already exists (caught duplicate error), continuing...');
+                    } else {
+                        console.error('Failed to add signer:', signerError);
+                        throw new Error(`Failed to authorize server: ${signerError.message}`);
+                    }
+                }
             }
 
             console.log('Saving settings to database...');
@@ -191,7 +312,6 @@ Follower ID: ${followerId}`;
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    followerId,
                     leaderId,
                     amountPerTrade: amountNum,
                     maxTotalAmount: maxNum,

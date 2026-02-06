@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { followUser, unfollowUser } from '@/app/lib/followService';
+import { getAuthenticatedUser, AuthError, createAuthErrorResponse } from '@/app/lib/authMiddleware';
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Get followerId from authenticated Privy session, not from body
+    const authUser = await getAuthenticatedUser(request);
+    const followerId = authUser.userId;
+
     const body = await request.json();
-    const { followerId, followingId } = body;
+    const { followingId } = body;
 
-    console.log('POST /api/follow - Request body:', { followerId, followingId });
+    console.log('POST /api/follow - Request:', { followerId, followingId });
 
-    if (!followerId || !followingId) {
+    if (!followingId) {
       return NextResponse.json(
-        { error: 'followerId and followingId are required' },
+        { error: 'followingId is required' },
         { status: 400 }
       );
     }
@@ -20,6 +25,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(follow, { status: 200 });
   } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(createAuthErrorResponse(error), { status: error.statusCode });
+    }
     console.error('Error following user:', error);
     console.error('Error stack:', error.stack);
     return NextResponse.json(
@@ -31,14 +39,18 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // SECURITY: Get followerId from authenticated Privy session, not from body
+    const authUser = await getAuthenticatedUser(request);
+    const followerId = authUser.userId;
+
     const body = await request.json();
-    const { followerId, followingId } = body;
+    const { followingId } = body;
 
-    console.log('DELETE /api/follow - Request body:', { followerId, followingId });
+    console.log('DELETE /api/follow - Request:', { followerId, followingId });
 
-    if (!followerId || !followingId) {
+    if (!followingId) {
       return NextResponse.json(
-        { error: 'followerId and followingId are required' },
+        { error: 'followingId is required' },
         { status: 400 }
       );
     }
@@ -48,6 +60,9 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(createAuthErrorResponse(error), { status: error.statusCode });
+    }
     console.error('Error unfollowing user:', error);
     console.error('Error stack:', error.stack);
     return NextResponse.json(
@@ -56,4 +71,3 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
-

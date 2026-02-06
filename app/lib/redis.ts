@@ -19,6 +19,8 @@ export const CacheKeys = {
   feed: (userId: string) => `feed:${userId}`,
   followers: (userId: string) => `followers:${userId}`,
   following: (userId: string) => `following:${userId}`,
+  eventMetadata: (ticker: string) => `event_meta:${ticker}`,
+  events: (params: string) => `events:${params}`,
 };
 
 // Cache TTL constants (in seconds)
@@ -27,5 +29,7 @@ export const CacheTTL = {
   USER: 300, // 5 minutes for user profiles
   COUNTS: 600, // 10 minutes for counts
   FOLLOWS: 600, // 10 minutes for follow relationships
+  EVENT_METADATA: 86400, // 24 hours for event metadata (rarely changes)
+  EVENTS_LIST: 60, // 1 minute for events list (with metadata)
 };
 

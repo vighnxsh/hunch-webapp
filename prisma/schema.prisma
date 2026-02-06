@@ -27,6 +27,11 @@ model User {
   copySettingsAsFollower CopySettings[] @relation("CopyFollower")
   copySettingsAsLeader   CopySettings[] @relation("CopyLeader")
 
+  // Per-follower delegation for copy trading (follower-wide, not leader-specific)
+  delegationSignature String? // Wallet signature authorizing Hunch to trade on behalf
+  delegationMessage   String? // The message that was signed
+  delegationSignedAt  DateTime? // When the delegation was created
+
   @@index([privyId])
   @@index([walletAddress])
 }

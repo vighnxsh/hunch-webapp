@@ -5,18 +5,24 @@ import {
     deleteCopySettings,
     getCopySettingsForFollower,
 } from '@/app/lib/copySettingsService';
+import { getAuthenticatedUser, AuthError, createAuthErrorResponse } from '@/app/lib/authMiddleware';
+import { hasValidDelegation, storeDelegation } from '@/app/lib/delegationService';
 
 // POST - Create or update copy settings
 export async function POST(request: NextRequest) {
     try {
+        // SECURITY: Get followerId from authenticated Privy session, not from body
+        const authUser = await getAuthenticatedUser(request);
+        const followerId = authUser.userId;
+
         const body = await request.json();
-        const { followerId, leaderId, amountPerTrade, maxTotalAmount, expiresAt, delegationSignature, signedMessage } = body;
+        const { leaderId, amountPerTrade, maxTotalAmount, expiresAt, delegationSignature, signedMessage } = body;
 
-        console.log('POST /api/copy-settings - Request body:', { followerId, leaderId, amountPerTrade, maxTotalAmount, hasSignature: !!delegationSignature });
+        console.log('POST /api/copy-settings - Request:', { followerId, leaderId, amountPerTrade, maxTotalAmount, hasSignature: !!delegationSignature });
 
-        if (!followerId || !leaderId) {
+        if (!leaderId) {
             return NextResponse.json(
-                { error: 'followerId and leaderId are required' },
+                { error: 'leaderId is required' },
                 { status: 400 }
             );
         }
@@ -42,20 +48,48 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // SECURITY: Check if follower has a valid delegation for copy trading
+        const hasDelegation = await hasValidDelegation(followerId);
+
+        if (!hasDelegation) {
+            // If no existing delegation, check if they're providing one now
+            if (delegationSignature && signedMessage) {
+                // Store the new delegation
+                await storeDelegation(followerId, {
+                    signature: delegationSignature,
+                    message: signedMessage,
+                });
+                console.log(`POST /api/copy-settings - Stored new delegation for follower ${followerId}`);
+            } else {
+                // No delegation exists and none provided - reject
+                return NextResponse.json(
+                    {
+                        error: 'Copy trading requires authorization. Please sign the delegation message first.',
+                        code: 'DELEGATION_REQUIRED',
+                    },
+                    { status: 403 }
+                );
+            }
+        }
+
         const copySettings = await createOrUpdateCopySettings(followerId, leaderId, {
             followerId,
             leaderId,
             amountPerTrade,
             maxTotalAmount,
             expiresAt: expiresAt ? new Date(expiresAt) : null,
-            delegationSignature: delegationSignature || null,
-            signedMessage: signedMessage || null,
-            signedAt: delegationSignature ? new Date() : null,
+            // Note: We no longer store delegation in CopySettings, it's on User model now
+            delegationSignature: null,
+            signedMessage: null,
+            signedAt: null,
         });
 
         console.log('POST /api/copy-settings - Success:', copySettings.id);
         return NextResponse.json(copySettings, { status: 200 });
     } catch (error: any) {
+        if (error instanceof AuthError) {
+            return NextResponse.json(createAuthErrorResponse(error), { status: error.statusCode });
+        }
         console.error('Error creating/updating copy settings:', error);
         return NextResponse.json(
             { error: error.message || 'Failed to create/update copy settings' },
@@ -67,18 +101,14 @@ export async function POST(request: NextRequest) {
 // GET - Get copy settings
 export async function GET(request: NextRequest) {
     try {
+        // SECURITY: Get followerId from authenticated Privy session for follower-scoped queries
+        const authUser = await getAuthenticatedUser(request);
+        const followerId = authUser.userId;
+
         const { searchParams } = new URL(request.url);
-        const followerId = searchParams.get('followerId');
         const leaderId = searchParams.get('leaderId');
 
         console.log('GET /api/copy-settings - Params:', { followerId, leaderId });
-
-        if (!followerId) {
-            return NextResponse.json(
-                { error: 'followerId is required' },
-                { status: 400 }
-            );
-        }
 
         // If leaderId is provided, get specific settings
         if (leaderId) {
@@ -90,6 +120,9 @@ export async function GET(request: NextRequest) {
         const allSettings = await getCopySettingsForFollower(followerId);
         return NextResponse.json(allSettings, { status: 200 });
     } catch (error: any) {
+        if (error instanceof AuthError) {
+            return NextResponse.json(createAuthErrorResponse(error), { status: error.statusCode });
+        }
         console.error('Error fetching copy settings:', error);
         return NextResponse.json(
             { error: error.message || 'Failed to fetch copy settings' },
@@ -101,14 +134,18 @@ export async function GET(request: NextRequest) {
 // DELETE - Delete copy settings
 export async function DELETE(request: NextRequest) {
     try {
+        // SECURITY: Get followerId from authenticated Privy session, not from body
+        const authUser = await getAuthenticatedUser(request);
+        const followerId = authUser.userId;
+
         const body = await request.json();
-        const { followerId, leaderId } = body;
+        const { leaderId } = body;
 
-        console.log('DELETE /api/copy-settings - Request body:', { followerId, leaderId });
+        console.log('DELETE /api/copy-settings - Request:', { followerId, leaderId });
 
-        if (!followerId || !leaderId) {
+        if (!leaderId) {
             return NextResponse.json(
-                { error: 'followerId and leaderId are required' },
+                { error: 'leaderId is required' },
                 { status: 400 }
             );
         }
@@ -117,6 +154,9 @@ export async function DELETE(request: NextRequest) {
         console.log('DELETE /api/copy-settings - Success');
         return NextResponse.json(result, { status: 200 });
     } catch (error: any) {
+        if (error instanceof AuthError) {
+            return NextResponse.json(createAuthErrorResponse(error), { status: error.statusCode });
+        }
         console.error('Error deleting copy settings:', error);
         return NextResponse.json(
             { error: error.message || 'Failed to delete copy settings' },

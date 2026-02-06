@@ -3,12 +3,16 @@ import { unstable_cache } from 'next/cache';
 import { createTrade, getUserTrades, updateTradeQuote } from '@/app/lib/tradeService';
 import { getActiveCopySettingsForLeader } from '@/app/lib/copySettingsService';
 import { publishCopyTradeJob } from '@/app/lib/qstash';
+import { getAuthenticatedUser, AuthError, createAuthErrorResponse } from '@/app/lib/authMiddleware';
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Get userId from authenticated Privy session, not from body
+    const authUser = await getAuthenticatedUser(request);
+    const userId = authUser.userId;
+
     const body = await request.json();
     const {
-      userId,
       marketTicker,
       eventTicker,
       side,
@@ -21,9 +25,9 @@ export async function POST(request: NextRequest) {
       entryPrice
     } = body;
 
-    if (!userId || !marketTicker || !side || !amount || !transactionSig) {
+    if (!marketTicker || !side || !amount || !transactionSig) {
       return NextResponse.json(
-        { error: 'All fields are required: userId, marketTicker, side, amount, transactionSig' },
+        { error: 'All fields are required: marketTicker, side, amount, transactionSig' },
         { status: 400 }
       );
     }
@@ -73,6 +77,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(trade, { status: 201 });
   } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(createAuthErrorResponse(error), { status: error.statusCode });
+    }
     console.error('Error creating trade:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to create trade' },
@@ -129,12 +136,16 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { tradeId, quote, userId } = body;
+    // SECURITY: Get userId from authenticated Privy session, not from body
+    const authUser = await getAuthenticatedUser(request);
+    const userId = authUser.userId;
 
-    if (!tradeId || !userId) {
+    const body = await request.json();
+    const { tradeId, quote } = body;
+
+    if (!tradeId) {
       return NextResponse.json(
-        { error: 'tradeId and userId are required' },
+        { error: 'tradeId is required' },
         { status: 400 }
       );
     }
@@ -150,6 +161,9 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(updatedTrade, { status: 200 });
   } catch (error: any) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(createAuthErrorResponse(error), { status: error.statusCode });
+    }
     console.error('Error updating trade quote:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to update trade quote' },

@@ -13,10 +13,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Strip @ prefix from displayName if present (Privy returns @username format)
+    const cleanDisplayName = displayName?.startsWith('@')
+      ? displayName.slice(1)
+      : displayName;
+
     const user = await syncUser({
       privyId,
       walletAddress,
-      displayName,
+      displayName: cleanDisplayName,
       avatarUrl,
       preferences,
     });
